@@ -166,6 +166,23 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.egg{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(20,20,20,.86);cursor:pointer}
+.egg-in{position:relative;z-index:2;width:100%;max-width:420px;background:var(--ink);color:#fff;border-radius:18px;padding:26px 22px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;border:4px solid transparent;
+  background-image:linear-gradient(var(--ink),var(--ink)),repeating-linear-gradient(-45deg,var(--ink) 0 10px,var(--wy) 10px 20px);background-origin:border-box;background-clip:padding-box,border-box}
+.egg-in small{font:600 .8rem/1 inherit;font-family:inherit;color:var(--ink);background:var(--wy);border-radius:999px;padding:4px 10px}
+.egg-in small:empty{display:none}
+.egg-in b{font-family:"Oswald","Arial Narrow",sans-serif;font-size:2.4rem;line-height:1.05;color:var(--wy);font-weight:700}
+.egg-in span{font-size:1.1rem;line-height:1.35;max-width:32ch}
+.egg-in em{font-style:normal;font-size:.75rem;color:#bdb6a3;margin-top:6px}
+.egg .wasp{margin-bottom:2px}
+.egg.go .egg-in{animation:eggPop .45s cubic-bezier(.2,1.4,.4,1)}
+.egg.go .wasp{animation:waspFly 1.6s ease-in-out infinite}
+.egg-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
+.egg-confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;animation:fall 2.4s linear forwards}
+@keyframes eggPop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes waspFly{0%,100%{transform:translate(0,0) rotate(-4deg)}25%{transform:translate(10px,-6px) rotate(3deg)}50%{transform:translate(-6px,-10px) rotate(-2deg)}75%{transform:translate(-10px,2px) rotate(4deg)}}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
+@media (prefers-reduced-motion:reduce){.egg.go .egg-in,.egg.go .wasp,.egg-confetti i{animation:none}.egg-confetti{display:none}}
 .me{display:flex;gap:8px;align-items:center;font-size:.86rem;color:var(--mu)}
 .me input{flex:1;padding:6px 8px}
 .setup{background:var(--white);border:1.5px solid var(--ink);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
@@ -251,6 +268,24 @@ body.noauth main{display:none!important}
 
 <input type="file" id="fileIn" accept="application/json,.json" hidden />
 <div class="toast" id="toast" role="status"></div>
+<div class="egg" id="egg" hidden role="alert" aria-live="assertive">
+  <div class="egg-confetti" id="eggConfetti" aria-hidden="true"></div>
+  <div class="egg-in">
+    <svg class="wasp" viewBox="0 0 120 80" width="120" height="80" aria-hidden="true">
+      <ellipse cx="52" cy="22" rx="20" ry="13" fill="#fff" opacity=".75" transform="rotate(-20 52 22)"/>
+      <ellipse cx="72" cy="20" rx="18" ry="12" fill="#fff" opacity=".6" transform="rotate(15 72 20)"/>
+      <ellipse cx="60" cy="48" rx="34" ry="20" fill="#f5c000" stroke="#141414" stroke-width="3"/>
+      <path d="M44 30 v36 M58 28 v40 M72 30 v36" stroke="#141414" stroke-width="7"/>
+      <circle cx="96" cy="44" r="12" fill="#141414"/><circle cx="100" cy="41" r="3" fill="#f5c000"/>
+      <path d="M26 48 l-14 4 l14 4z" fill="#141414"/>
+      <path d="M100 33 q6 -12 14 -12 M95 33 q2 -14 8 -18" stroke="#141414" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <small id="eggKind"></small>
+    <b id="eggTitle"></b>
+    <span id="eggSub"></span>
+    <em>Antippen zum Schließen</em>
+  </div>
+</div>
 <footer id="ver" style="max-width:640px;margin:28px auto 0;text-align:center;font-size:.75rem;color:var(--mu)"></footer>
 
 <script type="module">
@@ -270,7 +305,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '7';
+const APP_VERSION = '8';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -402,7 +437,7 @@ const col = name => F.collection(db, name);
 const dref = (name, id) => F.doc(db, name, id);
 const newId = name => F.doc(col(name)).id;
 
-let unsub = { products: null, meta: null, activeDay: null, mine: null, me: null, days: null, dayScans: null, users: null };
+let unsub = { products: null, meta: null, activeDay: null, mine: null, me: null, ustats: null, live: null, days: null, dayScans: null, users: null };
 const stop = k => { if (unsub[k]) { unsub[k](); unsub[k] = null; } };
 function fail(where) {
   return err => {
@@ -434,7 +469,21 @@ function startUserListeners() {
     S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
     renderAll();
   }, fail('products'));
+  stop('ustats'); stop('live'); S.ustats = null;
+  unsub.ustats = F.onSnapshot(dref('ustats', u.uid), snap => { S.ustats = snap.exists() ? snap.data() : { all: 0, beer: 0 }; }, err => console.warn('ustats', err));
+  let liveFirst = true;
+  unsub.live = F.onSnapshot(F.query(col('live'), F.orderBy('t', 'desc'), F.limit(5)), snap => {
+    // beim Öffnen der App alte Meldungen nur als gesehen markieren, nicht nachholen
+    snap.docs.slice().reverse().forEach(d => {
+      if (d.metadata.hasPendingWrites) return;
+      const x = d.data();
+      if (liveFirst) { if (x && x.id && S.user) eggOnce('seen_' + S.user.uid + '_' + x.id); }
+      else onLiveEgg(x);
+    });
+    if (!(snap.metadata && snap.metadata.fromCache)) liveFirst = false;
+  }, err => console.warn('live', err));
   unsub.meta = F.onSnapshot(dref('meta', 'state'), snap => {
+    S.metaState = snap.exists() ? snap.data() : {};
     const a = snap.exists() ? snap.data().active || null : null;
     if (a !== S.active || !unsub.activeDay) { S.active = a; listenActiveDay(); }
     renderAll();
@@ -490,7 +539,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me'].forEach(stop);
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live'].forEach(stop);
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 function stopAdminListeners() { stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
@@ -701,6 +750,214 @@ $('nameBtn').addEventListener('click', () => {
 $('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('nameBtn').click(); });
 const nameOf = s => (S.users[s.uid] && S.users[s.uid].name) || s.who || 'ohne Namen';
 
+/* =========================================================
+   EASTER EGGS
+   Sprüche hier anpassen. {n} = Zahl, {name} = Person.
+   ========================================================= */
+const EGG_TEXT = {
+  // eigene Biere am Tag (Radler und Alkoholfreies zählen nicht)
+  beer: {
+    1:  ['Ozapft is!', 'Des erschte Bier – Wefzg, dreh durch!'],
+    3:  ['Drei Bier!', 'Jetzt wird’s gmiatlich.'],
+    5:  ['Fünfe!', 'A ganze Hand voll.'],
+    7:  ['Siebene!', 'So ganz nüchtern isch mr nemme, gell?'],
+    8:  ['Achte!', 'Wer fährt heut eigentlich heim?'],
+    9:  ['Neune!', 'Ab jetzt bitte koi Kegelbahn mehr.'],
+    10: ['Zehne!', 'Jetzt bisch a echter Wexhainer. Autoschlüssel abgebe!']
+  },
+  // ab dem 11. Bier bei jedem weiteren, der Reihe nach
+  beerMore: [
+    ['Bier Nummer {n}!', 'Respekt – aber trink au mol a Wasser.'],
+    ['{n} Bier!', 'Heim gehsch aber net mit em Auto, gell?'],
+    ['{n}!', 'D’Wefzg isch stolz. Dei Leber weniger.'],
+    ['{n} Bier!', 'Soll mr dir scho a Taxi rufe?'],
+    ['{n}!', 'Morge früh wirsch des bereue. Heut net.']
+  ],
+  water:      ['Oha, a Wasser!', 'Vernünftig wird mr ja au no.'],
+  narrenzeit: ['Narrenzeit!', '11:11 Uhr – Wefzg, dreh durch!'],
+  elfelf:     ['Fasnetsbeginn!', 'Heit isch der 11.11. – d’Wefzg isch los!'],
+  // eigene Schnapszahlen
+  schnapsDay:  ['Schnapszahl!', 'Des isch dei {n}. Getränk heut.'],
+  schnapsAll:  ['Schnapszahl für d’Ewigkeit!', 'Dei {n}. Getränk insgesamt.'],
+  // Gruppe – erscheint auf allen Handys
+  anstich:     ['Anstich!', '{name} hat den erschte Scan vom Tag gmacht.'],
+  groupBeer: {
+    10: ['10 Bier für d’Gruppe!', '{name} hat des 10. Bier vom Tag gscannt.'],
+    20: ['20 Bier für d’Gruppe!', '{name} hat des 20. Bier vom Tag gscannt.'],
+    30: ['30 Bier für d’Gruppe!', '{name} hat des 30. Bier vom Tag gscannt – Runde!']
+  },
+  groupSchnapsDay: ['Schnapszahl für alle!', '{n} Getränke heut – ausglöst von {name}.'],
+  groupSchnapsAll: ['Schnapszahl für alle!', '{n} Getränke seit Beginn – ausglöst von {name}.']
+};
+
+/* ---------- Getränkesorte ---------- */
+const CATS = [['bier', 'Bier'], ['radler', 'Radler / Alkoholfrei'], ['wasser', 'Wasser'], ['soft', 'Softdrink / Schorle'], ['schnaps', 'Schnaps'], ['sonst', 'Sonstiges']];
+function guessCat(name) {
+  const n = String(name || '').toLowerCase();
+  if (/radler|alkoholfrei|alkfrei|0[,.]0|null komma|ohne alkohol/.test(n)) return 'radler';
+  if (/wasser|sprudel|mineral/.test(n)) return 'wasser';
+  if (/schnaps|korn|likör|likoer|jäger|jaeger|wodka|vodka|obstler|kirsch|williams|shot|kurzer|ouzo|tequila|rum\b|gin\b/.test(n)) return 'schnaps';
+  if (/pils|bier|helles|export|weizen|weißbier|weissbier|lager|märzen|maerzen|bock|dunkles|keller|zwickel|hefe|landbier/.test(n)) return 'bier';
+  if (/cola|spezi|fanta|limo|sprite|schorle|saft|eistee|mate|energy|apfel|orange|tonic|ginger/.test(n)) return 'soft';
+  return 'sonst';
+}
+const catOf = p => (p && p.cat) || guessCat(p && p.name);
+const catSelect = (attrs, cur, name) => '<select ' + attrs + '><option value="">automatisch (' + esc(CATS.find(c => c[0] === guessCat(name))[1]) + ')</option>' +
+  CATS.map(c => '<option value="' + c[0] + '"' + (cur === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select>';
+
+/* ---------- Hilfen ---------- */
+const isSchnaps = n => n >= 11 && /^(\d)\1+$/.test(String(n));
+const fill = (t, v) => String(t).replace(/\{n\}/g, v.n == null ? '' : v.n).replace(/\{name\}/g, v.name || 'Jemand');
+function eggOnce(key) {
+  const k = 'strichliste_egg_' + key;
+  try { if (localStorage.getItem(k)) return false; localStorage.setItem(k, '1'); } catch (e) {}
+  return true;
+}
+const eggsOn = () => !(S.metaState && S.metaState.eggs === false);
+
+/* ---------- Anzeige ---------- */
+const eggQueue = []; let eggShowing = false, eggTimer = null;
+function showEgg(e) {
+  if (!eggsOn()) return;
+  if (eggQueue.length < 4) eggQueue.push(e);
+  if (!eggShowing) nextEgg();
+}
+function nextEgg() {
+  if (!eggsOn()) eggQueue.length = 0;
+  const e = eggQueue.shift(), el = $('egg');
+  if (!e) { eggShowing = false; el.hidden = true; return; }
+  eggShowing = true;
+  $('eggTitle').textContent = e.title; $('eggSub').textContent = e.sub || '';
+  $('eggKind').textContent = e.group ? 'Für alle' : '';
+  // Konfetti neu erzeugen
+  const box = $('eggConfetti'); box.innerHTML = '';
+  for (let i = 0; i < 28; i++) {
+    const c = document.createElement('i');
+    c.style.left = (Math.random() * 100) + '%';
+    c.style.animationDelay = (Math.random() * .6) + 's';
+    c.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+    c.style.background = i % 3 ? 'var(--wy)' : '#fff';
+    c.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
+    box.appendChild(c);
+  }
+  el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+  jingle(); if (navigator.vibrate) navigator.vibrate([90, 60, 90, 60, 220]);
+  clearTimeout(eggTimer); eggTimer = setTimeout(nextEgg, 4200);
+}
+function jingle() {
+  try {
+    const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A();
+    const c = beep.c, t0 = c.currentTime + .05;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const o = c.createOscillator(), g = c.createGain(); o.type = 'triangle'; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, t0 + i * .11); g.gain.exponentialRampToValueAtTime(.18, t0 + i * .11 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + i * .11 + .22);
+      o.connect(g); g.connect(c.destination); o.start(t0 + i * .11); o.stop(t0 + i * .11 + .25);
+    });
+  } catch (e) {}
+}
+$('egg').addEventListener('click', () => { clearTimeout(eggTimer); nextEgg(); });
+
+/* ---------- Auslösen nach einer Buchung ---------- */
+async function eggsAfterBook(pid, scanId) {
+  const day = S.activeDay; if (!day || !S.user) return;
+  const p = P(pid), cat = catOf(p), uid = S.user.uid, dk = day.id + '_' + uid;
+  // eigene Buchungen heute inkl. der neuen (der Listener kann einen Moment hinterher sein)
+  const mine = S.myScans.filter(s => s.id !== scanId).concat([{ id: scanId, p: pid }]);
+  const nAll = mine.length;
+  const nBeer = mine.filter(s => catOf(P(s.p)) === 'bier').length;
+  const beersBefore = mine.filter(s => s.id !== scanId && catOf(P(s.p)) === 'bier').length;
+  const out = [];
+  const add = (key, txt, vals, group) => { if (txt && eggOnce(key)) out.push({ title: fill(txt[0], vals), sub: fill(txt[1], vals), group }); };
+
+  if (cat === 'bier') {
+    const t = EGG_TEXT.beer[nBeer] || (nBeer > 10 ? EGG_TEXT.beerMore[(nBeer - 11) % EGG_TEXT.beerMore.length] : null);
+    add(dk + '_beer_' + nBeer, t, { n: nBeer });
+  }
+  if (cat === 'wasser' && beersBefore >= 3) add(dk + '_water', EGG_TEXT.water, {});
+  const now = new Date();
+  if (now.getHours() === 11 && now.getMinutes() === 11) add(dk + '_1111', EGG_TEXT.narrenzeit, {});
+  if (now.getDate() === 11 && now.getMonth() === 10) add(uid + '_' + now.getFullYear() + '_elfelf', EGG_TEXT.elfelf, {});
+  if (isSchnaps(nAll)) add(dk + '_sday_' + nAll, EGG_TEXT.schnapsDay, { n: nAll });
+
+  // eigene Gesamtzahl (über alle Tage)
+  const myAll = ((S.ustats && S.ustats.all) || 0) + 1;
+  fire(F.setDoc(dref('ustats', uid), { all: F.increment(1), beer: F.increment(cat === 'bier' ? 1 : 0) }, { merge: true }), 'Zähler');
+  if (S.ustats) S.ustats = Object.assign({}, S.ustats, { all: myAll });
+  if (isSchnaps(myAll) && myAll !== nAll) add(uid + '_sall_' + myAll, EGG_TEXT.schnapsAll, { n: myAll });
+
+  out.forEach(showEgg);
+
+  // Gruppe: genaue Zählung nur online per Transaktion
+  const gDay = dref('gstats', day.id), gAll = dref('gstats', 'total');
+  const beerInc = cat === 'bier' ? 1 : 0;
+  if (!navigator.onLine) {
+    fire(F.setDoc(gDay, { all: F.increment(1), beer: F.increment(beerInc) }, { merge: true }), 'Zähler');
+    fire(F.setDoc(gAll, { all: F.increment(1) }, { merge: true }), 'Zähler');
+    return;
+  }
+  let res = null;
+  try {
+    res = await F.runTransaction(db, async tx => {
+      const a = await tx.get(gDay), b = await tx.get(gAll);
+      const da = (a.exists() ? a.data().all || 0 : 0) + 1, db_ = (a.exists() ? a.data().beer || 0 : 0) + beerInc, ta = (b.exists() ? b.data().all || 0 : 0) + 1;
+      tx.set(gDay, { all: da, beer: db_ }, { merge: true });
+      tx.set(gAll, { all: ta }, { merge: true });
+      return { da, db: db_, ta };
+    });
+  } catch (err) {
+    // nicht gezählt – normal hochzählen, ohne Gruppen-Easter-Egg
+    fire(F.setDoc(gDay, { all: F.increment(1), beer: F.increment(beerInc) }, { merge: true }), 'Zähler');
+    fire(F.setDoc(gAll, { all: F.increment(1) }, { merge: true }), 'Zähler');
+    return;
+  }
+  if (!eggsOn()) return;
+  const vals = { name: S.me };
+  const group = [];
+  if (res.da === 1) group.push(['anstich', EGG_TEXT.anstich, {}]);
+  if (beerInc && EGG_TEXT.groupBeer[res.db]) group.push(['gbeer' + res.db, EGG_TEXT.groupBeer[res.db], {}]);
+  if (isSchnaps(res.da)) group.push(['gsday' + res.da, EGG_TEXT.groupSchnapsDay, { n: res.da }]);
+  if (isSchnaps(res.ta) && res.ta !== res.da) group.push(['gsall' + res.ta, EGG_TEXT.groupSchnapsAll, { n: res.ta }]);
+  group.forEach(([k, txt, v]) => {
+    const e = { title: fill(txt[0], Object.assign({}, vals, v)), sub: fill(txt[1], Object.assign({}, vals, v)), group: true };
+    const id = day.id + '_' + k;
+    if (!eggOnce('sent_' + uid + '_' + id)) return; // nach Rückgängig nicht noch einmal
+    eggOnce('seen_' + uid + '_' + id);
+    showEgg(e);
+    fire(F.setDoc(dref('live', id.replace(/[^\w-]/g, '_')), { id, title: e.title, sub: e.sub, uid, t: Date.now() }), 'Easter Egg senden');
+  });
+}
+function eggsAfterUndo(pid) {
+  const day = S.activeDay; if (!day || !S.user) return;
+  const beer = catOf(P(pid)) === 'bier' ? -1 : 0;
+  fire(F.setDoc(dref('ustats', S.user.uid), { all: F.increment(-1), beer: F.increment(beer) }, { merge: true }), 'Zähler');
+  fire(F.setDoc(dref('gstats', day.id), { all: F.increment(-1), beer: F.increment(beer) }, { merge: true }), 'Zähler');
+  fire(F.setDoc(dref('gstats', 'total'), { all: F.increment(-1) }, { merge: true }), 'Zähler');
+}
+// Gruppen-Easter-Eggs der anderen empfangen
+function onLiveEgg(d) {
+  if (!d || !d.id || !S.user || d.uid === S.user.uid) return;
+  if (Date.now() - (d.t || 0) > 120000) return; // älter als 2 Minuten: nicht mehr zeigen
+  if (!eggOnce('seen_' + S.user.uid + '_' + d.id)) return;
+  showEgg({ title: d.title, sub: d.sub, group: true });
+}
+
+/* ---------- Admin: Zähler aus allen Buchungen neu berechnen ---------- */
+async function recomputeCounters() {
+  const all = await allScans();
+  const per = {}, users = {}; let total = 0;
+  all.forEach(s => {
+    const beer = catOf(P(s.p)) === 'bier' ? 1 : 0;
+    per[s.day] = per[s.day] || { all: 0, beer: 0 }; per[s.day].all++; per[s.day].beer += beer;
+    users[s.uid] = users[s.uid] || { all: 0, beer: 0 }; users[s.uid].all++; users[s.uid].beer += beer;
+    total++;
+  });
+  const ops = Object.keys(per).map(d => ({ ref: dref('gstats', d), data: per[d] }))
+    .concat(Object.keys(users).map(u => ({ ref: dref('ustats', u), data: users[u] })))
+    .concat([{ ref: dref('gstats', 'total'), data: { all: total } }]);
+  await commitInChunks(ops);
+  return total;
+}
+
 function setMsg(t) { $('msg').hidden = !t; $('msg').innerHTML = t || ''; }
 function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBtn').hidden = on; $('stopBtn').hidden = !on; }
 
@@ -710,11 +967,12 @@ function book(pid, src) {
   if (!S.me) return;
   const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp(), who: S.me };
   fire(F.setDoc(dref('scans', id), data), 'Buchung');
+  eggsAfterBook(pid, id).catch(err => console.warn('Easter Egg', err));
   const p = P(pid), notLoaded = !((day.load || {})[pid] > 0);
   $('last').className = 'last' + (notLoaded ? ' unk' : ''); $('last').hidden = false;
   $('last').innerHTML = '<div><b>' + esc(p ? p.name : 'Getränk') + ' gebucht</b><span>' +
     (notLoaded ? 'Heute nicht als mitgenommen eingetragen – bitte dem Admin Bescheid geben.' : (S.online ? 'Gespeichert.' : 'Offline gespeichert, wird später gesendet.')) +
-    '</span></div><button class="b sm" data-undo="' + id + '">Rückgängig</button>';
+    '</span></div><button class="b sm" data-undo="' + id + '" data-up="' + pid + '">Rückgängig</button>';
 }
 function onMainCode(code) {
   if (!S.activeDay || !S.me) return;
@@ -726,6 +984,7 @@ function onMainCode(code) {
 $('last').addEventListener('click', e => {
   const u = e.target.closest('[data-undo]'); if (!u) return;
   fire(F.deleteDoc(dref('scans', u.dataset.undo)), 'Rückgängig');
+  if (u.dataset.up) eggsAfterUndo(u.dataset.up);
   $('last').hidden = true; toast('Buchung zurückgenommen');
 });
 $('list').addEventListener('click', e => { const b = e.target.closest('[data-plus]'); if (b) book(b.dataset.plus, 'manuell'); });
@@ -845,7 +1104,8 @@ function renderSheet() {
     h += '<div class="prod" style="border-color:var(--amb)"><div class="prod-h"><b>Neues Getränk</b><span>' + esc(sh.unknown) + '</span></div>' +
       '<div class="grid2"><label class="f full">Name<input id="qName" placeholder="z. B. Spezi 0,5 l"></label>' +
       '<label class="f">Preis pro Flasche in €<input id="qPrice" inputmode="decimal" placeholder="1,50"></label>' +
-      '<label class="f">Gebinde<input id="qPacks" value="Kasten 20; Kasten 24"></label></div>' +
+      '<label class="f">Gebinde<input id="qPacks" value="Kasten 20; Kasten 24"></label>' +
+      '<label class="f full">Sorte<select id="qCat"><option value="">automatisch aus dem Namen</option>' + CATS.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join('') + '</select></label></div>' +
       '<div class="row" style="margin-top:0"><button class="b pri grow" data-sh="create">Anlegen</button><button class="b" data-sh="cancelNew">Abbrechen</button></div>' +
       (S.products.length ? '<div style="font-size:.84rem;color:var(--mu)">Oder diesen Barcode einem vorhandenen Getränk zuordnen (z. B. Kasten-Barcode zur Flasche):</div>' +
       '<div class="row" style="margin-top:0"><select id="qAssign"><option value="">Getränk wählen …</option>' + S.products.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('') + '</select><button class="b" data-sh="assignExisting">Zuordnen</button></div>' : '') + '</div>';
@@ -891,6 +1151,7 @@ $('sheetBody').addEventListener('click', e => {
   else if (a === 'create') {
     const name = $('qName').value.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
     const id = newId('products'), data = { name, codes: [sh.unknown], price: Math.max(0, num($('qPrice').value) || 0), packs: parsePacks($('qPacks').value) };
+    if ($('qCat').value) data.cat = $('qCat').value;
     fire(F.setDoc(dref('products', id), data), 'Getränk anlegen');
     S.products.push(Object.assign({ id }, data));
     sh.pid = id; sh.unknown = null; toast('„' + name + '“ angelegt'); renderSheet();
@@ -1010,16 +1271,18 @@ function renderAdmin() {
   }
 
   h += '<section><h2>Getränke (' + S.products.length + ')</h2>' + S.products.map(p =>
-    '<details class="pc" data-k="' + p.id + '"><summary><b>' + esc(p.name) + '</b><small>' + (p.price ? money(p.price) : 'ohne Preis') + ((p.packs || []).length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
+    '<details class="pc" data-k="' + p.id + '"><summary><b>' + esc(p.name) + '</b><small>' + esc(CATS.find(c => c[0] === catOf(p))[1]) + ' · ' + (p.price ? money(p.price) : 'ohne Preis') + ((p.packs || []).length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
     '<div class="grid2"><label class="f full">Name<input data-p="name" data-id="' + p.id + '" value="' + esc(p.name) + '"></label>' +
     '<label class="f full">Barcodes (Flasche und Kasten, mit Komma)<input data-p="codes" data-id="' + p.id + '" value="' + esc((p.codes || []).join(', ')) + '" inputmode="numeric"></label>' +
     '<label class="f">Preis pro Flasche in €<input data-p="price" data-id="' + p.id + '" value="' + (p.price ? String(p.price).replace('.', ',') : '') + '" inputmode="decimal"></label>' +
     '<label class="f">Gebinde<input data-p="packs" data-id="' + p.id + '" value="' + esc(packsText(p.packs)) + '" placeholder="Kasten 20; Sixpack 6"></label>' +
+    '<label class="f full">Sorte (für die Easter Eggs)' + catSelect('data-p="cat" data-id="' + p.id + '"', p.cat, p.name) + '</label>' +
     '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="' + p.id + '">Barcode scannen</button><button class="b sm dng" data-act="delProd" data-id="' + p.id + '">Löschen</button></div></div></details>').join('') +
     (showNewProd ? '<div class="grid2" style="margin-top:10px"><label class="f full">Neues Getränk<input data-n="name" value="' + esc(newDraft.name) + '" placeholder="z. B. Apfelschorle 0,5 l"></label>' +
       '<label class="f full">Barcode<input data-n="codes" value="' + esc(newDraft.codes) + '" inputmode="numeric" placeholder="eintippen oder scannen"></label>' +
       '<label class="f">Preis pro Flasche in €<input data-n="price" value="' + esc(newDraft.price) + '" inputmode="decimal"></label>' +
       '<label class="f">Gebinde<input data-n="packs" value="' + esc(newDraft.packs) + '"></label>' +
+      '<label class="f full">Sorte' + catSelect('data-n="cat"', newDraft.cat || '', newDraft.name) + '</label>' +
       '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="new">Barcode scannen</button><button class="b pri sm" data-act="addProd">Hinzufügen</button><button class="b sm" data-act="toggleNewProd">Abbrechen</button></div></div>'
       : '<div class="row"><button class="b" data-act="toggleNewProd">Getränk ohne Scan anlegen</button></div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';
@@ -1060,6 +1323,7 @@ function renderAdmin() {
       '</section>';
   }
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
+    '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup importieren</button>' +
     (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') + '</div>' +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
@@ -1094,6 +1358,7 @@ async function commitInChunks(ops) {
 /* ---------- Admin-Ereignisse ---------- */
 const adminBody = $('adminBody');
 adminBody.addEventListener('input', e => { const n = e.target.dataset.n; if (n) newDraft[n] = e.target.value; });
+adminBody.addEventListener('change', e => { const n = e.target.dataset.n; if (n) newDraft[n] = e.target.value; });
 adminBody.addEventListener('change', e => {
   const t = e.target, day = selDayObj();
   if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
@@ -1121,6 +1386,7 @@ adminBody.addEventListener('change', e => {
     }
     if (f === 'price') upd.price = Math.max(0, num(t.value) || 0);
     if (f === 'packs') upd.packs = parsePacks(t.value);
+    if (f === 'cat') upd.cat = t.value ? t.value : F.deleteField();
     fire(F.updateDoc(dref('products', p.id), upd), 'Getränk speichern');
   }
 });
@@ -1164,6 +1430,12 @@ adminBody.addEventListener('click', async e => {
     S.dayScans.forEach(s => { const k = nameOf(s) + '\u0000' + s.p; m[k] = (m[k] || 0) + 1; });
     Object.keys(m).sort((x, y) => x.localeCompare(y, 'de')).forEach(k => { const [n, pid] = k.split('\u0000'), p = P(pid) || { name: '(gelöscht)', price: 0 }; rows.push([day.date, csvEsc(day.place), csvEsc(n), csvEsc(p.name), m[k], dec(p.price || 0), dec(m[k] * (p.price || 0))]); });
     download('personen-' + day.date + '.csv', '\uFEFF' + rows.map(r => r.join(';')).join('\n'), 'text/csv;charset=utf-8');
+  }
+  else if (a === 'eggsToggle') { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); }
+  else if (a === 'recount') {
+    if (!confirm('Zähler für Easter Eggs (Gruppe und Personen) aus allen Buchungen neu berechnen? Nötig nach Stornos, Nachträgen oder einem Import.')) return;
+    try { b.disabled = true; const n = await recomputeCounters(); toast('Zähler neu berechnet: ' + n + ' Buchungen'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
+    b.disabled = false;
   }
   else if (a === 'csvAll') {
     try { const all = await allScans(); download('getraenke-alle-tage-' + todayISO() + '.csv', csvFor(S.days.slice().reverse(), groupByDay(all)), 'text/csv;charset=utf-8'); }
@@ -1228,7 +1500,9 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'addProd') {
     const name = newDraft.name.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
     const list = [...new Set(newDraft.codes.split(/[,;\s]+/).map(norm).filter(Boolean))].filter(c => { const o = byCode(c); if (o) toast('Barcode ' + c + ' gehört schon zu „' + o.name + '“'); return !o; });
-    fire(F.setDoc(dref('products', newId('products')), { name, codes: list, price: Math.max(0, num(newDraft.price) || 0), packs: parsePacks(newDraft.packs) }), 'Getränk anlegen');
+    const nd = { name, codes: list, price: Math.max(0, num(newDraft.price) || 0), packs: parsePacks(newDraft.packs) };
+    if (newDraft.cat) nd.cat = newDraft.cat;
+    fire(F.setDoc(dref('products', newId('products')), nd), 'Getränk anlegen');
     newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }; showNewProd = false; toast('Getränk angelegt');
   }
   else if (a === 'delProd') {

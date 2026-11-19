@@ -123,19 +123,41 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
    - Mit **Nach Person als CSV** gibt es die Abrechnung pro Mitglied.
    - **Tag abschließen**.
 
+## Easter Eggs
+
+Bei bestimmten Buchungen erscheint für ein paar Sekunden ein Vollbild mit Wespe, Konfetti, Ton und Vibration. Antippen schließt es. Jedes Easter Egg kommt pro Person und Tag nur einmal, auch nach „Rückgängig“.
+
+**Nur auf dem eigenen Handy**
+- 1., 3., 5., 7., 8., 9. und 10. Bier am Tag, danach bei jedem weiteren Bier (mit zunehmendem Augenzwinkern Richtung Heimfahrt)
+- erstes Wasser nach mindestens 3 Bier
+- Schnapszahl bei den eigenen Getränken (11, 22, 33 …): heute und seit Beginn
+- Scan um 11:11 Uhr und am 11.11.
+
+**Auf allen Handys** („Max Meier hat … ausgelöst“)
+- Anstich: erster Scan des Tages
+- 10., 20. und 30. Bier der ganzen Gruppe am Tag
+- Schnapszahl bei allen Getränken der Gruppe: heute und seit Beginn
+
+Hinweise:
+- **Was als Bier zählt**, legt die **Sorte** des Getränks fest (Admin → Getränke). Ohne Angabe rät die App aus dem Namen. Radler und Alkoholfreies zählen nicht als Bier.
+- Die **Gruppen-Easter-Eggs** brauchen Netz. Offline wird weiter mitgezählt, aber ohne Meldung.
+- Nach Stornos, Nachträgen oder einem Import unter **Admin → Daten → Zähler neu berechnen** tippen, damit die Zahlen wieder stimmen.
+- **Easter Eggs: an/aus** schaltet alles für alle Handys ab.
+- Die Sprüche stehen in `index.html` im Abschnitt `EASTER EGGS` (Suche nach `EGG_TEXT`) und lassen sich dort einfach ändern.
+
 ## Kosten und Grenzen (kostenloser Spark-Tarif)
 
-- **Datenbank:** 50.000 Lesevorgänge und 20.000 Schreibvorgänge pro Tag. Jede Buchung ist ein Schreibvorgang; Mitglieder lesen nur ihre eigenen Buchungen. Für 20–30 Handys und bis zu einigen tausend Getränken am Tag reicht das deutlich.
+- **Datenbank:** 50.000 Lesevorgänge und 20.000 Schreibvorgänge pro Tag. Jede Buchung kostet mit Easter-Egg-Zählern etwa vier Schreib- und zwei Lesevorgänge; Mitglieder lesen nur ihre eigenen Buchungen. Für 20–30 Handys und bis zu einigen tausend Getränken am Tag reicht das deutlich.
 - **Anmeldung:** bis zu 100 neue Konten pro Stunde und Internetanschluss. Das genügt auch, wenn sich alle gleichzeitig im selben WLAN registrieren.
 - **E-Mails:** 150 „Passwort vergessen“-Mails pro Tag.
 
 ## Update der App
 
-Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 7 auf 8):
-- in `index.html`: `const APP_VERSION = '7';`
-- in `sw.js`: `const VERSION = 'strichliste-v7';`
+Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 8 auf 9):
+- in `index.html`: `const APP_VERSION = '8';`
+- in `sw.js`: `const VERSION = 'strichliste-v8';`
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 7“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 8“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

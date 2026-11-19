@@ -67,6 +67,31 @@ service cloud.firestore {
       allow delete: if isSuper();
     }
 
+    // Easter Eggs: Zähler für die Gruppe (pro Tag und gesamt) – alle Mitglieder zählen mit
+    match /gstats/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin() || (isActive()
+        && request.resource.data.keys().hasOnly(['all', 'beer'])
+        && request.resource.data.get('all', 0) is int
+        && request.resource.data.get('beer', 0) is int);
+    }
+    // Easter Eggs: eigene Gesamtzahl
+    match /ustats/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin() || (isActive() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['all', 'beer']));
+    }
+    // Easter Eggs: Gruppen-Meldungen, die alle Handys anzeigen (eine pro Meilenstein)
+    match /live/{id} {
+      allow read: if signedIn();
+      allow delete: if isAdmin();
+      allow create, update: if isActive()
+        && request.resource.data.keys().hasOnly(['id', 'title', 'sub', 'uid', 't'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.sub is string && request.resource.data.sub.size() <= 160;
+    }
+
     // Buchungen
     match /scans/{id} {
       // Mitglieder sehen nur ihre eigenen Buchungen, Admins alle
