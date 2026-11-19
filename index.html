@@ -176,6 +176,32 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+/* Buchungsmeldung mit Countdown */
+.last{position:relative;overflow:hidden}
+.last-r{display:flex;flex-direction:column;align-items:center;gap:4px}
+.last-cd{font-size:.74rem;color:var(--mu);font-variant-numeric:tabular-nums;white-space:nowrap}
+.last-bar{position:absolute;left:0;bottom:0;height:4px;width:100%;background:var(--pet);transform-origin:left;animation:lastBar linear forwards}
+.last.unk .last-bar{background:var(--amb)}
+@keyframes lastBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* Admin: Navigation und einklappbare Bereiche */
+.admnav{position:sticky;top:0;z-index:30;margin:0 -14px;padding:8px 14px;background:var(--bg);border-bottom:1.5px solid var(--ink);display:flex;flex-direction:column;gap:6px}
+.admnav-in{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.admnav-in::-webkit-scrollbar{display:none}
+.admchip{flex:0 0 auto;border:1.5px solid var(--ink);background:var(--white);color:var(--ink);border-radius:999px;padding:6px 11px;font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+.admchip em{font-style:normal;background:var(--wy);color:#141414;border-radius:999px;padding:0 6px;margin-left:3px;font-size:.74rem}
+.admchip.hot{background:var(--wy);color:#141414}
+.admnav-all{display:flex;gap:6px;justify-content:flex-end}
+.admnav-all .b{padding:3px 10px;font-size:.74rem}
+section.coll{scroll-margin-top:96px}
+section.coll>h2:first-child{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;user-select:none;margin-bottom:8px}
+section.coll>h2:first-child::after{content:"";width:9px;height:9px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(45deg);margin:0 6px 4px 0;transition:transform .2s;flex:0 0 auto}
+section.coll.closed>h2:first-child{margin-bottom:0}
+section.coll.closed>h2:first-child::after{transform:rotate(-45deg);margin-bottom:0}
+section.coll.closed>:not(h2:first-child){display:none!important}
+/* Nach oben */
+.totop{position:fixed;right:16px;bottom:18px;z-index:85;width:46px;height:46px;border-radius:50%;border:2px solid #141414;background:var(--wy);color:#141414;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer;opacity:0;transform:translateY(20px) scale(.8);pointer-events:none;transition:opacity .2s,transform .2s}
+.totop.show{opacity:1;transform:none;pointer-events:auto}
+[data-theme=dark] .admchip.hot,[data-theme=dark] .admchip em{color:#141414}
 #themeBtn{padding:4px 9px;font-size:.74rem;border-radius:999px}
 /* ---- Nachtmodus ---- */
 :root[data-theme=dark]{--bg:#121211;--ink:#f1ede2;--mu:#aaa392;--line:#3a372f;--white:#1e1d1a;--wy2:#3a3215;--pet:#6cc58a;--pen:#ff7366;--amb:#e3a64a;color-scheme:dark}
@@ -434,7 +460,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '17';
+const APP_VERSION = '18';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1890,13 +1916,26 @@ function renderHist() {
 function setMsg(t) { $('msg').hidden = !t; $('msg').innerHTML = t || ''; }
 function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBtn').hidden = on; $('stopBtn').hidden = !on; }
 
+// Meldung unter dem Scanner: verschwindet nach 10 Sekunden (Countdown sichtbar)
+let lastTimer = null;
+function showLast(cls, html) {
+  const el = $('last'), SEC = 10, end = Date.now() + SEC * 1000;
+  el.className = cls; el.hidden = false;
+  el.innerHTML = html + '<i class="last-bar" style="animation-duration:' + SEC + 's"></i>';
+  const tick = () => {
+    const left = Math.ceil((end - Date.now()) / 1000);
+    if (left <= 0) { clearInterval(lastTimer); lastTimer = null; el.hidden = true; return; }
+    const c = el.querySelector('.last-cd'); if (c) c.textContent = left + ' s';
+  };
+  clearInterval(lastTimer); lastTimer = setInterval(tick, 250); tick();
+}
+function hideLast() { clearInterval(lastTimer); lastTimer = null; $('last').hidden = true; }
 function book(pid, src) {
   const day = S.activeDay; if (!day || !S.user) return;
   if (!S.me || isPending()) return;
   const cat = catOf(P(pid));
   if (isMinor() && isAlc(cat)) {
-    $('last').className = 'last unk'; $('last').hidden = false;
-    $('last').innerHTML = '<div><b>' + esc(pname(pid)) + ' ist für dich gesperrt</b><span>Jugendschutz – nimm doch ein Wasser oder einen Softdrink.</span></div>';
+    showLast('last unk', '<div><b>' + esc(pname(pid)) + ' ist für dich gesperrt</b><span>Jugendschutz – nimm doch ein Wasser oder einen Softdrink.</span></div><small class="last-cd"></small>');
     if (navigator.vibrate) navigator.vibrate([60, 60, 60]); return;
   }
   if (S.driver && isAlc(cat) && !confirm('Du hast angegeben, dass du heute fährst.\n\n' + pname(pid) + ' enthält Alkohol. Trotzdem buchen?')) return;
@@ -1905,23 +1944,21 @@ function book(pid, src) {
   fire(F.setDoc(dref('scans', id), data), 'Buchung');
   eggsAfterBook(pid, id).catch(err => console.warn('Easter Egg', err));
   const p = P(pid), notLoaded = !((day.load || {})[pid] > 0);
-  $('last').className = 'last' + (notLoaded ? ' unk' : ''); $('last').hidden = false;
-  $('last').innerHTML = '<div><b>' + esc(p ? p.name : 'Getränk') + ' gebucht</b><span>' +
+  showLast('last' + (notLoaded ? ' unk' : ''), '<div><b>' + esc(p ? p.name : 'Getränk') + ' gebucht</b><span>' +
     (notLoaded ? 'Heute nicht als mitgenommen eingetragen – bitte dem Admin Bescheid geben.' : (S.online ? 'Gespeichert.' : 'Offline gespeichert, wird später gesendet.')) +
-    '</span></div><button class="b sm" data-undo="' + id + '" data-up="' + pid + '">Rückgängig</button>';
+    '</span></div><div class="last-r"><button class="b sm" data-undo="' + id + '" data-up="' + pid + '">Rückgängig</button><small class="last-cd"></small></div>');
 }
 function onMainCode(code) {
   if (!S.activeDay || !S.me) return;
   const p = byCode(code);
   if (p) { book(p.id, 'scan'); return; }
-  $('last').className = 'last unk'; $('last').hidden = false;
-  $('last').innerHTML = '<div><b>Unbekannter Barcode</b><span>' + esc(code) + ' – der Admin muss ihn einem Getränk zuordnen.</span></div>';
+  showLast('last unk', '<div><b>Unbekannter Barcode</b><span>' + esc(code) + ' – der Admin muss ihn einem Getränk zuordnen.</span></div><small class="last-cd"></small>');
 }
 $('last').addEventListener('click', e => {
   const u = e.target.closest('[data-undo]'); if (!u) return;
   fire(F.deleteDoc(dref('scans', u.dataset.undo)), 'Rückgängig');
   if (u.dataset.up) { eggsAfterUndo(u.dataset.up); logEv('buchung', 'nimmt eigene Buchung zurück: ' + pname(u.dataset.up), S.active); }
-  $('last').hidden = true; toast('Buchung zurückgenommen');
+  hideLast(); toast('Buchung zurückgenommen');
 });
 $('list').addEventListener('click', e => { const b = e.target.closest('[data-plus]'); if (b) book(b.dataset.plus, 'manuell'); });
 $('startBtn').addEventListener('click', async () => { setMsg(''); const err = await camStart(boxMain, onMainCode); if (err) setMsg(err); setMainButtons(); });
@@ -2334,8 +2371,68 @@ function renderAdmin() {
       '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
       '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig zurücksetzen</button><button class="b" data-act="resetToggle">Abbrechen</button></div></div>' : '') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
+  const navX = el.querySelector('.admnav-in') ? el.querySelector('.admnav-in').scrollLeft : 0;
   keepState(el, h);
+  adminNav(el, navX);
 }
+// Bereiche im Admin: Überschrift antippen klappt ein/aus, Navigation springt hin
+const ADM_KEY = 'strichliste_adm_open';
+const ADM_DEFAULT_CLOSED = ['Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
+let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || '{}'); } catch (e) {}
+const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
+const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
+function admSet(k, v) { admState[k] = v; try { localStorage.setItem(ADM_KEY, JSON.stringify(admState)); } catch (e) {} }
+const ADM_SHORT = { 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
+function adminNav(el, navX) {
+  const secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
+  if (secs.length < 3) return;
+  const items = secs.map((sec, i) => {
+    const h2 = sec.firstElementChild, k = admKey(h2.textContent), open = admOpen(k);
+    sec.id = 'adm' + i; sec.classList.add('coll'); sec.classList.toggle('closed', !open);
+    h2.setAttribute('role', 'button'); h2.tabIndex = 0; h2.setAttribute('aria-expanded', open); h2.dataset.adm = k;
+    const n = (h2.textContent.match(/\((\d+)\)\s*$/) || [])[1];
+    return '<button class="admchip' + (k === 'Neue Anmeldungen' ? ' hot' : '') + '" data-admgo="' + i + '">' + esc(ADM_SHORT[k] || k) + (n ? ' <em>' + n + '</em>' : '') + '</button>';
+  });
+  const nav = document.createElement('nav'); nav.className = 'admnav'; nav.setAttribute('aria-label', 'Admin-Bereiche');
+  nav.innerHTML = '<div class="admnav-in">' + items.join('') + '</div><div class="admnav-all"><button class="b sm" data-admall="1">Alle auf</button><button class="b sm" data-admall="0">Alle zu</button></div>';
+  el.prepend(nav);
+  nav.querySelector('.admnav-in').scrollLeft = navX || 0;
+}
+$('adminBody').addEventListener('click', e => {
+  const go = e.target.closest('[data-admgo]');
+  if (go) {
+    const sec = $('adm' + go.dataset.admgo); if (!sec) return;
+    const h2 = sec.firstElementChild; admSet(h2.dataset.adm, true); sec.classList.remove('closed'); h2.setAttribute('aria-expanded', true);
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
+  }
+  const all = e.target.closest('[data-admall]');
+  if (all) {
+    const v = all.dataset.admall === '1';
+    $('adminBody').querySelectorAll('section.coll').forEach(sec => { const h2 = sec.firstElementChild; admSet(h2.dataset.adm, v); sec.classList.toggle('closed', !v); h2.setAttribute('aria-expanded', v); });
+    return;
+  }
+  const h2 = e.target.closest('section.coll > h2[data-adm]');
+  if (h2 && h2 === h2.parentElement.firstElementChild) {
+    const sec = h2.parentElement, open = sec.classList.contains('closed');
+    sec.classList.toggle('closed', !open); h2.setAttribute('aria-expanded', open); admSet(h2.dataset.adm, open);
+  }
+});
+$('adminBody').addEventListener('keydown', e => {
+  const h2 = e.target.closest && e.target.closest('section.coll > h2[data-adm]');
+  if (h2 && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h2.click(); }
+});
+
+// ---------- Nach-oben-Knopf (überall) ----------
+(function () {
+  const b = document.createElement('button'); b.id = 'toTop'; b.className = 'totop'; b.type = 'button'; b.setAttribute('aria-label', 'Nach oben'); b.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5l-7 7m7-7l7 7M12 5v14" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  document.body.appendChild(b);
+  const upd = () => {
+    b.classList.toggle('show', window.scrollY > 500);
+    const lb = $('lowBar'); b.style.bottom = (lb && !lb.hidden ? lb.offsetHeight + 12 : 18) + 'px';
+  };
+  addEventListener('scroll', upd, { passive: true }); addEventListener('resize', upd); setInterval(upd, 1500);
+  b.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
+})();
 
 /* ---------- CSV / Backup ---------- */
 /* ---------- Super-Admin: Historie aller Änderungen ---------- */

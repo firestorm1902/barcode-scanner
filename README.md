@@ -78,6 +78,8 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
   - iPhone: Safari → Teilen → „Zum Home-Bildschirm“
   - Android: Chrome → Menü → „Zum Startbildschirm hinzufügen“
 - Man bleibt angemeldet, auch offline. Neues Handy oder Browserdaten gelöscht? Einfach mit derselben E-Mail **anmelden**, Name und Buchungen sind wieder da.
+- Nach jeder Buchung steht die Meldung mit „Rückgängig“ **10 Sekunden** lang da (Countdown), dann verschwindet sie.
+- Unten rechts erscheint beim Herunterscrollen ein gelber Knopf **nach oben**.
 - **Passwort ändern:** angemeldet auf „Passwort ändern“ neben „Abmelden“ tippen.
 - **Passwort vergessen?** E-Mail eintragen und auf „Passwort vergessen?“ tippen. Es kommt eine Mail von Firebase zum Zurücksetzen.
 - Oben neben „Strichliste“ steht der Netzstatus. „offline · 3 warten“ heißt: 3 Buchungen sind gespeichert und werden gesendet, sobald Netz da ist. In dieser Zeit nicht abmelden; die App warnt davor.
@@ -117,7 +119,7 @@ Unter der Liste „Deine Getränke heute“ gibt es vier Reiter:
 
 ## Admin-Bereich öffnen
 
-Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den Titel** oben tippen (innerhalb von zwei Sekunden), dann öffnet sich der Admin-Bereich. Zurück geht es über „Zurück zum Scannen“ oben rechts. Das ist nur ein Sichtschutz – die eigentlichen Rechte prüfen die Firebase-Regeln. Wer kein Admin ist, sieht dort nur „Keine Admin-Rechte“.
+Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den Titel** oben tippen (innerhalb von zwei Sekunden), dann öffnet sich der Admin-Bereich. Zurück geht es über „Zurück zum Scannen“ oben rechts. Oben steht eine **Navigation** mit allen Bereichen (antippen springt hin). Jeder Bereich lässt sich über seine Überschrift **ein- und ausklappen**, „Alle auf“ / „Alle zu“ schaltet alle; das Handy merkt sich die Auswahl. Das ist nur ein Sichtschutz – die eigentlichen Rechte prüfen die Firebase-Regeln. Wer kein Admin ist, sieht dort nur „Keine Admin-Rechte“.
 
 ## Excel-Auswertung (Admins)
 
@@ -248,13 +250,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 17**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 17 auf 18):
-- in `index.html`: `const APP_VERSION = '17';`
-- in `sw.js`: `const VERSION = 'strichliste-v17';`
+Aktuell ist **Version 18**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 18 auf 19):
+- in `index.html`: `const APP_VERSION = '18';`
+- in `sw.js`: `const VERSION = 'strichliste-v18';`
 
 Seit Version 15 gelten neue Regeln. Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 17“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 18“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
