@@ -818,7 +818,7 @@
         if (Math.abs(t - lastVideoTime) > 0.001) {
           stuckFramesCount = 0;
           lastVideoTime = t;
-          videoDiagBadge.textContent = 'Video: OK ' + w + 'x' + h + ' (t=' + t.toFixed(1) + 's)';
+          videoDiagBadge.textContent = 'Video: OK ' + w + 'x' + h + ' (t=' + t.toFixed(1) + 's) · Scans: ' + scanAttempts;
           videoDiagBadge.style.borderColor = '#10b981';
           videoDiagBadge.style.color = '#6ee7b7';
         } else {
@@ -855,116 +855,213 @@
       }
     }
 
+    // ---- Eigener Live-Scanner: getUserMedia + ZXing direkt auf den Video-Frames ----
+    let mediaStream = null;
+    let videoEl = null;
+    let scanTimer = null;
+    let scanAttempts = 0;
+    let nativeDetector = null;
+    let scanCanvas = null;
+    let scanCtx = null;
+    let zxingLive = null;
+    let tickCount = 0;
+
     function enforceVideoAttributes() {
-      const video = document.querySelector('#reader video');
-      if (video) {
-        video.setAttribute('playsinline', 'true');
-        video.setAttribute('webkit-playsinline', 'true');
-        video.setAttribute('muted', 'true');
-        video.setAttribute('autoplay', 'true');
-        if (typeof video.play === 'function') {
-          video.play().catch(() => {});
-        }
-      }
       startVideoDiagMonitor();
     }
 
-    async function populateCameras() {
-      if (!window.Html5Qrcode) return;
+    async function populateCameras(selectedId) {
       try {
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length > 0) {
+        const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+        if (devices.length > 1) {
           cameraSelect.innerHTML = '';
           devices.forEach((cam, idx) => {
             const opt = document.createElement('option');
-            opt.value = cam.id;
+            opt.value = cam.deviceId;
             opt.text = cam.label || ('Kamera ' + (idx + 1));
             cameraSelect.appendChild(opt);
           });
-          const backCam = devices.find(d => /back|rear|environment|rueck|back/i.test(d.label));
-          if (backCam) cameraSelect.value = backCam.id;
-          if (devices.length > 1) {
-            cameraSelectRow.style.display = 'flex';
-          }
+          if (selectedId) cameraSelect.value = selectedId;
+          cameraSelectRow.style.display = 'flex';
         }
       } catch (err) {
         console.warn('Kameraliste konnte nicht geladen werden:', err);
       }
     }
 
-    async function startScanner(cameraIdOrConfig = null) {
+    function buildLiveReader() {
+      if (!(window.ZXing && ZXing.MultiFormatReader)) return null;
+      const Z = ZXing;
+      const hints = new Map();
+      hints.set(Z.DecodeHintType.TRY_HARDER, true);
+      hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
+        Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8,
+        Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128,
+        Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.CODE_93, Z.BarcodeFormat.ITF,
+        Z.BarcodeFormat.DATA_MATRIX, Z.BarcodeFormat.AZTEC, Z.BarcodeFormat.PDF_417
+      ]);
+      const r = new Z.MultiFormatReader();
+      r.setHints(hints);
+      return r;
+    }
+
+    function decodeVideoFrameWithZXing() {
+      const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+      if (!vw || !vh) return null;
+      // mittlerer Bereich des Bildes (Barcodes liegen meist mittig), auf max. 1100px Breite skaliert
+      const cropW = Math.floor(vw * 0.9);
+      const cropH = Math.floor(vh * 0.6);
+      const sx = Math.floor((vw - cropW) / 2);
+      const sy = Math.floor((vh - cropH) / 2);
+      const scale = Math.min(1, 1100 / cropW);
+      const outW = Math.max(1, Math.floor(cropW * scale));
+      const outH = Math.max(1, Math.floor(cropH * scale));
+      if (!scanCanvas) {
+        scanCanvas = document.createElement('canvas');
+        scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+      }
+      if (scanCanvas.width !== outW || scanCanvas.height !== outH) {
+        scanCanvas.width = outW;
+        scanCanvas.height = outH;
+      }
+      scanCtx.drawImage(videoEl, sx, sy, cropW, cropH, 0, 0, outW, outH);
+
+      const Z = ZXing;
+      const source = new Z.HTMLCanvasElementLuminanceSource(scanCanvas);
+      // abwechselnd beide Binarisierer, damit ein Tick nicht zu lange dauert
+      const Binarizer = (tickCount % 2 === 0) ? Z.HybridBinarizer : Z.GlobalHistogramBinarizer;
+      try {
+        const res = zxingLive.decode(new Z.BinaryBitmap(new Binarizer(source)));
+        if (res && res.getText()) {
+          return { text: res.getText(), format: String(Z.BarcodeFormat[res.getBarcodeFormat()] || 'BARCODE') };
+        }
+      } catch (e) { /* NotFound ist der Normalfall */ }
+      return null;
+    }
+
+    async function scanTick() {
+      scanTimer = null;
+      if (!isScanning || !videoEl) return;
+      tickCount++;
+      try {
+        if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+          scanAttempts++;
+          let found = null;
+          if (nativeDetector) {
+            try {
+              const det = await nativeDetector.detect(videoEl);
+              if (det && det.length && det[0].rawValue) {
+                found = { text: det[0].rawValue, format: (det[0].format || 'BARCODE').toUpperCase() };
+              }
+            } catch (e) {}
+          }
+          if (!found && zxingLive) found = decodeVideoFrameWithZXing();
+          if (found && found.text) {
+            onScanSuccess(found.text, { result: { format: { formatName: found.format } } });
+          }
+        }
+      } catch (e) {
+        console.warn('scanTick', e);
+      }
+      if (isScanning) scanTimer = setTimeout(scanTick, 120);
+    }
+
+    async function openStream(cameraId) {
+      const attempts = [];
+      const base = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+      if (cameraId) {
+        attempts.push({ video: Object.assign({ deviceId: { exact: cameraId } }, base), audio: false });
+      } else {
+        attempts.push({ video: Object.assign({ facingMode: { ideal: 'environment' } }, base), audio: false });
+        attempts.push({ video: { facingMode: 'environment' }, audio: false });
+      }
+      attempts.push({ video: true, audio: false });
+      let lastErr = null;
+      for (const c of attempts) {
+        try { return await navigator.mediaDevices.getUserMedia(c); } catch (e) { lastErr = e; }
+      }
+      throw lastErr;
+    }
+
+    async function startScanner(cameraId = null) {
       previewImg.style.display = 'none';
       placeholderIcon.style.display = 'block';
       if (isScanning) await stopScanner();
 
-      try {
-        await window.__libsReady;
-      } catch (e) {
-        setStatus('error', '<strong>Offline-Hinweis:</strong> Scanner-Bibliotheken fehlen und es besteht keine Internetverbindung.');
+      try { await window.__libsReady; } catch (e) {}
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('error', '<strong>Fehler:</strong> Dieser Browser bietet keinen Kamerazugriff (HTTPS erforderlich).');
         return;
       }
 
-      if (!window.Html5Qrcode) {
-        setStatus('error', '<strong>Fehler:</strong> <code>Html5Qrcode</code> ist nicht geladen.');
+      zxingLive = buildLiveReader();
+      nativeDetector = null;
+      if (!IS_IOS && 'BarcodeDetector' in window) {
+        try { nativeDetector = new BarcodeDetector(); } catch (e) {}
+      }
+      if (!zxingLive && !nativeDetector) {
+        setStatus('error', '<strong>Fehler:</strong> ZXing konnte nicht geladen werden (index_min.js / zxing.min.js fehlt und CDN nicht erreichbar).');
         return;
       }
 
-      if (!html5QrCode) {
-        html5QrCode = new Html5Qrcode('reader', {
-          verbose: false,
-          formatsToSupport: getSupportedFormats()
-        });
-      }
-
-      const config = {
-        fps: 12,
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const width = Math.min(Math.floor(viewfinderWidth * 0.78), 300);
-          const height = Math.min(Math.floor(viewfinderHeight * 0.55), 180);
-          return { width: Math.max(width, 180), height: Math.max(height, 120) };
-        },
-        aspectRatio: 1.333334
-      };
-
-      // Kameraliste nur VOR dem Start und nicht auf iOS (zweiter getUserMedia-Aufruf beendet dort den laufenden Stream)
-      if (!IS_IOS && !cameraListLoaded) {
-        cameraListLoaded = true;
-        await populateCameras();
-      }
-
-      const targetCamera = cameraIdOrConfig || { facingMode: 'environment' };
-
       try {
-        await html5QrCode.start(
-          targetCamera,
-          config,
-          onScanSuccess,
-          () => {}
-        );
+        mediaStream = await openStream(cameraId);
+
+        const reader = document.getElementById('reader');
+        reader.innerHTML = '';
+        videoEl = document.createElement('video');
+        videoEl.setAttribute('playsinline', 'true');
+        videoEl.setAttribute('webkit-playsinline', 'true');
+        videoEl.muted = true;
+        videoEl.autoplay = true;
+        videoEl.srcObject = mediaStream;
+        reader.appendChild(videoEl);
+        await videoEl.play();
+
+        const track = mediaStream.getVideoTracks()[0];
+        try {
+          const caps = track.getCapabilities ? track.getCapabilities() : {};
+          if (caps.focusMode && caps.focusMode.indexOf('continuous') !== -1) {
+            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+          }
+        } catch (e) {}
 
         isScanning = true;
+        scanAttempts = 0;
+        tickCount = 0;
         placeholderState.style.display = 'none';
         scanOverlay.style.display = 'flex';
         scannerCard.classList.add('scanning');
         startBtn.style.display = 'none';
         stopBtn.style.display = 'flex';
+        statusBanner.style.display = 'none';
 
         enforceVideoAttributes();
         checkTorchSupport();
+        if (!IS_IOS) populateCameras(track.getSettings && track.getSettings().deviceId);
+        scanTimer = setTimeout(scanTick, 200);
       } catch (err) {
         console.error(err);
-        setStatus('error', '<strong>Kamera-Fehler:</strong> Kamera konnte nicht gestartet werden. Bitte Kameraberechtigung pruefen oder HTTPS/localhost verwenden.');
+        if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+        const name = err && err.name ? err.name : 'Fehler';
+        setStatus('error', '<strong>Kamera-Fehler (' + name + '):</strong> Kamera konnte nicht gestartet werden. Bitte Kameraberechtigung pruefen (iPhone: Einstellungen &rarr; Safari &rarr; Kamera) und die Seite direkt in Safari oeffnen.');
       }
     }
 
     async function stopScanner() {
-      if (html5QrCode && isScanning) {
-        try {
-          await html5QrCode.stop();
-        } catch (e) {}
+      isScanning = false;
+      if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        mediaStream = null;
+      }
+      if (videoEl) {
+        try { videoEl.pause(); videoEl.srcObject = null; } catch (e) {}
+        videoEl.remove();
+        videoEl = null;
       }
       stopVideoDiagMonitor();
-      isScanning = false;
       torchOn = false;
       torchBtn.classList.remove('active');
       torchBtn.style.display = 'none';
@@ -977,26 +1074,23 @@
 
     function checkTorchSupport() {
       try {
-        const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
-        if (capabilities && capabilities.torchFeature && capabilities.torchFeature().isSupported()) {
-          torchBtn.style.display = 'flex';
-        } else {
-          torchBtn.style.display = 'none';
-        }
+        const track = mediaStream.getVideoTracks()[0];
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        torchBtn.style.display = caps.torch ? 'flex' : 'none';
       } catch (e) {
         torchBtn.style.display = 'none';
       }
     }
 
     torchBtn.addEventListener('click', async () => {
-      if (!isScanning || !html5QrCode) return;
+      if (!isScanning || !mediaStream) return;
       try {
-        const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
-        const torch = capabilities.torchFeature();
+        const track = mediaStream.getVideoTracks()[0];
         torchOn = !torchOn;
-        await torch.apply(torchOn);
+        await track.applyConstraints({ advanced: [{ torch: torchOn }] });
         torchBtn.classList.toggle('active', torchOn);
       } catch (e) {
+        torchOn = false;
         showToast('Taschenlampe nicht verfuegbar');
       }
     });
