@@ -135,6 +135,7 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
 .me input{flex:1;padding:6px 8px}
 .setup{background:var(--white);border:1.5px solid var(--ink);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
 .setup code{background:#e6ecea;padding:1px 5px;border-radius:4px;word-break:break-all}
+body.noauth main,body.noauth nav{display:none!important}
 .uid{font-family:ui-monospace,Menlo,monospace;background:#e6ecea;padding:6px 8px;border-radius:6px;word-break:break-all;user-select:all}
 </style>
 </head>
@@ -145,11 +146,25 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
     <nav><button data-v="scan" class="on">Scannen</button><button data-v="admin">Admin</button></nav>
   </header>
 
+  <section id="authSec" hidden style="border-top:0;padding-top:0">
+    <div class="mode" id="authTabs" style="display:inline-flex;margin-bottom:12px"><button data-a="login" class="on">Anmelden</button><button data-a="reg">Registrieren</button></div>
+    <p id="aIntro" style="font-size:.9rem;color:var(--mu);margin-bottom:10px">Melde dich an, um Getränke zu buchen. Beim ersten Mal bitte „Registrieren“ wählen.</p>
+    <div class="grid2">
+      <label class="f full" id="fName" hidden>Vor- und Nachname<input id="aName" autocomplete="name" maxlength="40" placeholder="z. B. Lena Müller"></label>
+      <label class="f full">E-Mail<input id="aMail" type="email" autocomplete="email" inputmode="email" autocapitalize="off"></label>
+      <label class="f full">Passwort<input id="aPw" type="password" autocomplete="current-password"></label>
+      <label class="f full" id="fPw2" hidden>Passwort wiederholen<input id="aPw2" type="password" autocomplete="new-password"></label>
+      <p id="aHint" class="full" style="font-size:.86rem;color:var(--mu)" hidden>Mindestens 6 Zeichen. Der Name ist danach fest mit deinem Konto verbunden und kann nur vom Admin geändert werden.</p>
+      <div class="full row" style="margin-top:0"><button class="b pri grow" id="aBtn">Anmelden</button></div>
+      <div class="full"><button class="b sm" id="aForgot" style="border:0;background:none;padding:4px 0;text-decoration:underline;color:var(--mu)">Passwort vergessen?</button></div>
+    </div>
+  </section>
+
   <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
     <div id="dayInfo"><div class="empty">Lade …</div></div>
     <section id="nameSec" hidden>
       <h2>Wer bist du?</h2>
-      <p style="font-size:.9rem;color:var(--mu);margin-bottom:10px">Deine Getränke werden unter diesem Namen gebucht. Der Name ist danach fest mit diesem Handy verbunden und kann nicht mehr geändert werden.</p>
+      <p style="font-size:.9rem;color:var(--mu);margin-bottom:10px">Für dein Konto ist noch kein Name hinterlegt. Deine Getränke werden unter diesem Namen gebucht; danach kann ihn nur noch der Admin ändern.</p>
       <div class="grid2"><label class="f full">Vor- und Nachname<input id="nameIn" autocomplete="name" maxlength="40" placeholder="z. B. Lena Müller"></label>
       <div class="full"><button class="b pri" id="nameBtn">Namen festlegen</button></div></div>
     </section>
@@ -163,7 +178,7 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
-      <div class="me" style="margin-top:10px">Gebucht als <b id="meName" style="color:var(--ink)"></b></div>
+      <div class="me" style="margin-top:10px;justify-content:space-between"><span>Gebucht als <b id="meName" style="color:var(--ink)"></b></span><button class="b sm" id="logoutBtn">Abmelden</button></div>
     </section>
     <div class="note" id="msg" hidden></div>
     <div id="last" hidden></div>
@@ -193,13 +208,13 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
 
 <input type="file" id="fileIn" accept="application/json,.json" hidden />
 <div class="toast" id="toast" role="status"></div>
+<footer id="ver" style="max-width:640px;margin:28px auto 0;text-align:center;font-size:.75rem;color:var(--mu)"></footer>
 
 <script type="module">
 /* =========================================================
    KONFIGURATION – hier die Werte aus der Firebase-Konsole
    (Projekteinstellungen → Allgemein → Meine Apps → Web-App) eintragen
    ========================================================= */
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAnNipndzNRd1jmZf_bJ0f4EqcQv5h6wBg",
   authDomain: "wexhainis-getraenkestrichliste.firebaseapp.com",
@@ -210,6 +225,9 @@ const firebaseConfig = {
 };
 const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
+
+// Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
+const APP_VERSION = '5';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -275,7 +293,7 @@ function keepState(container, html) {
 
 /* ---------- Zustand (wird von Firestore-Listenern gefüllt) ---------- */
 const S = {
-  user: null, isAdmin: false, adminChecked: false,
+  user: null, authReady: false, registering: null, isAdmin: false, adminChecked: false,
   products: [], active: null, activeDay: null, activeLoaded: false,
   me: null, meLoaded: false, users: {},
   myScans: [], pending: 0,
@@ -328,11 +346,14 @@ async function initFirebase() {
     db = F.getFirestore(app);
   }
   auth = F.getAuth(app);
-  F.onAuthStateChanged(auth, u => {
-    S.user = u; S.isAdmin = false; S.adminChecked = false;
-    if (!u) { F.signInAnonymously(auth).catch(err => { S.dbError = 'Anmeldung fehlgeschlagen (' + err.code + '). Beim ersten Start wird Internet benötigt.'; renderAll(); }); return; }
+  F.onAuthStateChanged(auth, async u => {
+    S.user = u; S.isAdmin = false; S.adminChecked = false; S.authReady = true;
+    stopAdminListeners();
+    if (!u) { stopUserListeners(); renderAll(); return; }
     startUserListeners();
-    if (!u.isAnonymous) { startAdminListeners(); checkAdmin(); } else stopAdminListeners();
+    renderAll();
+    await checkAdmin();
+    if (S.user === u && S.isAdmin) startAdminListeners();
     renderAll();
   });
 }
@@ -398,9 +419,18 @@ function startAdminListeners() {
 }
 // Probe: dieses Dokument dürfen laut Regeln nur Admins lesen
 async function checkAdmin() {
+  const key = 'strichliste_adm_' + S.user.uid;
   try { await F.getDoc(dref('admincheck', 'probe')); S.isAdmin = true; }
-  catch (err) { S.isAdmin = !(err && err.code === 'permission-denied'); }
-  S.adminChecked = true; renderAdmin();
+  catch (err) {
+    if (err && err.code === 'permission-denied') S.isAdmin = false;
+    else { try { S.isAdmin = localStorage.getItem(key) === '1'; } catch (e) { S.isAdmin = false; } } // offline: letzter bekannter Stand
+  }
+  try { localStorage.setItem(key, S.isAdmin ? '1' : '0'); } catch (e) {}
+  S.adminChecked = true;
+}
+function stopUserListeners() {
+  ['products', 'meta', 'activeDay', 'mine', 'me'].forEach(stop);
+  Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meLoaded: false });
 }
 function stopAdminListeners() { stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
@@ -514,12 +544,69 @@ const boxSheet = { cam: $('camSheet'), frame: $('frameSheet'), ph: $('phSheet') 
 /* =========================================================
    Scan-Ansicht (alle Handys)
    ========================================================= */
-try { $('nameIn').value = localStorage.getItem('strichliste_who') || ''; } catch (e) {}
+/* ---------- Anmelden / Registrieren ---------- */
+let authMode = 'login';
+function setAuthMode(m) {
+  authMode = m;
+  $('authTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.a === m));
+  const reg = m === 'reg';
+  $('fName').hidden = !reg; $('fPw2').hidden = !reg; $('aHint').hidden = !reg; $('aForgot').parentNode.hidden = reg;
+  $('aPw').autocomplete = reg ? 'new-password' : 'current-password';
+  $('aBtn').textContent = reg ? 'Konto anlegen' : 'Anmelden';
+  $('aIntro').textContent = reg ? 'Einmalig ein Konto anlegen. Damit kannst du dich später auch auf einem anderen Handy anmelden.' : 'Melde dich an, um Getränke zu buchen. Beim ersten Mal bitte „Registrieren“ wählen.';
+}
+$('authTabs').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) setAuthMode(b.dataset.a); });
+const authMsg = code => ({
+  'auth/invalid-credential': 'E-Mail oder Passwort falsch.', 'auth/wrong-password': 'E-Mail oder Passwort falsch.', 'auth/user-not-found': 'E-Mail oder Passwort falsch.',
+  'auth/invalid-email': 'Die E-Mail-Adresse ist ungültig.', 'auth/email-already-in-use': 'Für diese E-Mail gibt es schon ein Konto – bitte „Anmelden“ wählen.',
+  'auth/weak-password': 'Das Passwort braucht mindestens 6 Zeichen.', 'auth/too-many-requests': 'Zu viele Versuche. Bitte kurz warten.',
+  'auth/network-request-failed': 'Keine Verbindung. Für die Anmeldung wird Internet benötigt.', 'auth/operation-not-allowed': 'E-Mail/Passwort ist in Firebase noch nicht aktiviert.'
+}[code] || 'Fehler: ' + code);
+$('aBtn').addEventListener('click', async () => {
+  const mail = $('aMail').value.trim(), pw = $('aPw').value, btn = $('aBtn');
+  if (!navigator.onLine) { toast('Für die Anmeldung wird Internet benötigt'); return; }
+  if (!mail || !pw) { toast('E-Mail und Passwort eingeben'); return; }
+  if (authMode === 'reg') {
+    const name = $('aName').value.trim().replace(/\s+/g, ' ');
+    if (name.length < 3 || !/\s/.test(name)) { toast('Bitte Vor- und Nachnamen eingeben'); return; }
+    if (pw.length < 6) { toast('Das Passwort braucht mindestens 6 Zeichen'); return; }
+    if (pw !== $('aPw2').value) { toast('Die Passwörter stimmen nicht überein'); return; }
+    if (!confirm('Konto für „' + name + '“ anlegen? Der Name kann danach nur noch vom Admin geändert werden.')) return;
+    btn.disabled = true; S.registering = name; renderScan();
+    try {
+      const cred = await F.createUserWithEmailAndPassword(auth, mail, pw);
+      await F.setDoc(dref('users', cred.user.uid), { name: name.slice(0, 40), email: mail.toLowerCase(), t: Date.now() });
+      $('aPw').value = $('aPw2').value = '';
+    } catch (err) { toast(authMsg(err.code)); }
+    S.registering = null; btn.disabled = false; renderAll();
+  } else {
+    btn.disabled = true;
+    try { await F.signInWithEmailAndPassword(auth, mail, pw); $('aPw').value = ''; }
+    catch (err) { toast(authMsg(err.code)); }
+    btn.disabled = false;
+  }
+});
+['aMail', 'aPw', 'aPw2', 'aName'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('aBtn').click(); }));
+$('aForgot').addEventListener('click', async () => {
+  const mail = $('aMail').value.trim();
+  if (!mail) { toast('Bitte zuerst die E-Mail-Adresse eintragen'); $('aMail').focus(); return; }
+  try { await F.sendPasswordResetEmail(auth, mail); toast('Falls es ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen.'); }
+  catch (err) { toast(err.code === 'auth/invalid-email' ? 'Die E-Mail-Adresse ist ungültig.' : 'Falls es ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen.'); }
+});
+async function logout() {
+  if (S.pending && !confirm(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
+  if (cam.on) camStop();
+  stopAdminListeners(); stopUserListeners();
+  await F.signOut(auth); setView('scan');
+}
+$('logoutBtn').addEventListener('click', logout);
+
 $('nameBtn').addEventListener('click', () => {
+  if (!S.user) return;
   const name = $('nameIn').value.trim().replace(/\s+/g, ' ');
   if (name.length < 3 || !/\s/.test(name)) { toast('Bitte Vor- und Nachnamen eingeben'); return; }
   if (!confirm('Getränke auf „' + name + '“ buchen? Der Name kann danach nicht mehr geändert werden.')) return;
-  fire(F.setDoc(dref('users', S.user.uid), { name: name.slice(0, 40), t: Date.now() }), 'Name speichern');
+  fire(F.setDoc(dref('users', S.user.uid), { name: name.slice(0, 40), email: (S.user.email || '').toLowerCase(), t: Date.now() }), 'Name speichern');
 });
 $('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('nameBtn').click(); });
 const nameOf = s => (S.users[s.uid] && S.users[s.uid].name) || s.who || 'ohne Namen';
@@ -564,6 +651,8 @@ function renderScan() {
     return;
   }
   if (S.dbError) { info.innerHTML = '<div class="note bad">' + esc(S.dbError) + '</div>'; return; }
+  if (configured && S.authReady && !S.user) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = ''; return; }
+  if (S.registering) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = '<div class="empty">Konto wird angelegt …</div>'; return; }
   if (!S.user || !S.activeLoaded || !S.meLoaded) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = '<div class="empty">Verbinde …' + (S.online ? '' : ' Beim allerersten Start wird einmal Internet benötigt.') + '</div>'; return; }
   if (!S.me) {
     if (cam.box === boxMain) camStop();
@@ -754,13 +843,11 @@ function renderAdmin() {
   if ($('v-admin').hidden) return;
   const el = $('adminBody');
   if (!configured) { el.innerHTML = '<div class="setup"><b>Firebase ist noch nicht eingerichtet.</b><span>Trage die Zugangsdaten in <code>index.html</code> ein (siehe <code>README.md</code>).</span></div>'; return; }
-  if (!S.user || S.user.isAnonymous) {
-    el.innerHTML = '<section><h2>Admin-Anmeldung</h2><div class="grid2"><label class="f full">E-Mail<input id="admMail" type="email" autocomplete="username"></label><label class="f full">Passwort<input id="admPw" type="password" autocomplete="current-password"></label>' +
-      '<div class="full"><button class="b pri" data-act="login">Anmelden</button></div></div></section>';
-    return;
-  }
+  if (!S.user) { el.innerHTML = ''; return; }
+  if (!S.adminChecked) { el.innerHTML = '<div class="empty">Prüfe Rechte …</div>'; return; }
   if (S.adminChecked && !S.isAdmin) {
-    el.innerHTML = '<section><h2>Keine Admin-Rechte</h2><div class="setup"><span>Du bist als <b>' + esc(S.user.email) + '</b> angemeldet, aber dieses Konto steht nicht in den Sicherheitsregeln. Trage diese Nutzer-ID in <code>firestore.rules</code> bei <code>adminUids</code> ein und veröffentliche die Regeln:</span><div class="uid">' + esc(S.user.uid) + '</div></div><div class="row"><button class="b" data-act="logout">Abmelden</button></div></section>';
+    el.innerHTML = '<section><h2>Keine Admin-Rechte</h2><p style="font-size:.9rem;margin-bottom:10px">Du bist als <b>' + esc(S.user.email) + '</b> angemeldet. Der Admin-Bereich ist nur für den Vorstand.</p>' +
+      '<details class="setup"><summary style="cursor:pointer">Für die Einrichtung: Nutzer-ID</summary><span style="font-size:.86rem">Soll dieses Konto Admin sein, diese ID in <code>firestore.rules</code> bei <code>adminUids</code> eintragen und die Regeln veröffentlichen.</span><div class="uid">' + esc(S.user.uid) + '</div></details></section>';
     return;
   }
   const day = selDayObj(), scans = S.dayScansFor === S.selDay ? S.dayScans : [];
@@ -803,7 +890,7 @@ function renderAdmin() {
       const per = {};
       scans.forEach(s => { const k = nameOf(s); per[k] = per[k] || { n: 0, v: 0 }; per[k].n++; per[k].v += (P(s.p) || {}).price || 0; });
       const devs = new Set(scans.map(s => s.uid)).size;
-      h += '<section class="daylist"><h2>Nach Person</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:4px">' + devs + ' Gerät' + (devs > 1 ? 'e' : '') + ' haben gebucht.</div>' +
+      h += '<section class="daylist"><h2>Nach Person (' + devs + ')</h2>' +
         Object.keys(per).sort((a, b) => per[b].n - per[a].n).map(k => '<div class="rw"><span></span><span>' + esc(k) + '</span><small>' + per[k].n + ' Getränke' + (per[k].v ? ' · ' + money(per[k].v) : '') + '</small></div>').join('') + '</section>';
     }
 
@@ -833,18 +920,18 @@ function renderAdmin() {
     }).join('') + (overview ? '' : '<div class="row"><button class="b sm" data-act="overview">Anzahl Buchungen laden</button></div>') + '</section>';
   }
 
-  const ulist = Object.keys(S.users).map(uid => ({ uid, name: S.users[uid].name || '', t: S.users[uid].t || 0 })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const ulist = Object.keys(S.users).map(uid => ({ uid, name: S.users[uid].name || '', email: S.users[uid].email || '', t: S.users[uid].t || 0 })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   if (ulist.length) {
     const counts = {}; ulist.forEach(u => { counts[u.name.toLowerCase()] = (counts[u.name.toLowerCase()] || 0) + 1; });
     h += '<section><h2>Personen (' + ulist.length + ')</h2>' +
-      '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Jedes Handy hat einen festen Namen. Nur hier kann er korrigiert werden.</div>' +
+      '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Jedes Konto hat einen festen Namen. Nur hier kann er korrigiert werden.</div>' +
       ulist.map(u => '<div class="rw"><input data-u="' + u.uid + '" value="' + esc(u.name) + '" aria-label="Name korrigieren" style="flex:1;padding:6px 8px">' +
-        '<small>' + (u.t ? 'seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + (counts[u.name.toLowerCase()] > 1 ? ' · <b style="color:var(--amb)">doppelt</b>' : '') + '</small></div>').join('') + '</section>';
+        '<small>' + esc(u.email) + (u.t ? '<br>seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + (counts[u.name.toLowerCase()] > 1 ? ' · <b style="color:var(--amb)">doppelt</b>' : '') + '</small></div>').join('') + '</section>';
   }
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup importieren</button>' +
-    '<button class="b sm" data-act="logout">Abmelden</button>' + (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') + '</div>' +
-    '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + '. „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
+    (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') + '</div>' +
+    '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
   keepState(el, h);
 }
 
@@ -876,7 +963,6 @@ async function commitInChunks(ops) {
 /* ---------- Admin-Ereignisse ---------- */
 const adminBody = $('adminBody');
 adminBody.addEventListener('input', e => { const n = e.target.dataset.n; if (n) newDraft[n] = e.target.value; });
-adminBody.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.id === 'admPw' || e.target.id === 'admMail')) adminBody.querySelector('[data-act=login]').click(); });
 adminBody.addEventListener('change', e => {
   const t = e.target, day = selDayObj();
   if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
@@ -905,14 +991,7 @@ adminBody.addEventListener('change', e => {
 adminBody.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'SELECT') return;
   const a = b.dataset.act, id = b.dataset.id, day = selDayObj();
-  if (a === 'login') {
-    const mail = $('admMail').value.trim(), pw = $('admPw').value;
-    if (!mail || !pw) { toast('E-Mail und Passwort eingeben'); return; }
-    b.disabled = true;
-    try { await F.signInWithEmailAndPassword(auth, mail, pw); }
-    catch (err) { b.disabled = false; toast(/invalid|wrong|not-found|credential/.test(err.code || '') ? 'E-Mail oder Passwort falsch' : 'Anmeldung fehlgeschlagen: ' + err.code); }
-  }
-  else if (a === 'logout') { stopAdminListeners(); await F.signOut(auth); }
+  if (a === 'logout') logout();
   else if (a === 'toggleNewDay') { showNewDay = !showNewDay; renderAdmin(); }
   else if (a === 'createDay') {
     const date = $('ndDate').value || todayISO(), place = $('ndPlace').value.trim();
@@ -1003,7 +1082,7 @@ $('fileIn').addEventListener('change', async e => {
   const ops = [];
   d.products.forEach(p => ops.push({ ref: dref('products', String(p.id)), data: Object.assign({ codes: [], price: 0, packs: [] }, clean(p, ['name', 'codes', 'price', 'packs'])) }));
   d.days.forEach(x => ops.push({ ref: dref('days', String(x.id)), data: Object.assign({ load: {}, count: {}, closed: false, place: '' }, clean(x, ['date', 'place', 'closed', 'load', 'count', 'created'])) }));
-  Object.keys(d.users || {}).forEach(uid => ops.push({ ref: dref('users', uid), data: clean(d.users[uid], ['name', 't']) }));
+  Object.keys(d.users || {}).forEach(uid => ops.push({ ref: dref('users', uid), data: clean(d.users[uid], ['name', 'email', 't']) }));
   d.scans.forEach(s => ops.push({ ref: dref('scans', String(s.id)), data: Object.assign({ uid: s.uid || S.user.uid, src: s.src || 'import' }, clean(s, ['day', 'p', 't', 'who'])) }));
   try {
     toast('Importiere …'); await commitInChunks(ops);
@@ -1013,7 +1092,19 @@ $('fileIn').addEventListener('change', async e => {
 });
 
 /* ---------- Start ---------- */
-function renderAll() { renderNet(); renderScan(); renderAdmin(); }
+function renderVersion() {
+  let txt = 'Version ' + APP_VERSION;
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) txt += ' · offline verfügbar';
+  $('ver').textContent = txt;
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
+function renderAll() {
+  renderVersion();
+  const noauth = configured && S.authReady && !S.user;
+  document.body.classList.toggle('noauth', noauth);
+  $('authSec').hidden = !noauth;
+  renderNet(); renderScan(); renderAdmin();
+}
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && cam.on) { const wasSheet = cam.box === boxSheet; camStop(); setMainButtons(); if (wasSheet) boxSheet.ph.innerHTML = '<b>Kamera pausiert</b><span>„Fertig“ tippen und erneut öffnen.</span>'; }
 });

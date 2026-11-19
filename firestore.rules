@@ -1,20 +1,23 @@
 rules_version = '2';
 
 // Sicherheitsregeln für die Strichliste.
-// In der Firebase-Konsole unter Firestore Database → Regeln komplett einfügen und „Veröffentlichen“.
+// In der Firebase-Konsole unter Firestore → Regeln komplett einfügen und „Veröffentlichen“.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ▼▼▼ Hier die Nutzer-IDs der Admin-Konten eintragen (Authentication → Users → „Nutzer-UID“) ▼▼▼
+    // ▼▼▼ Hier die Nutzer-IDs der Admin-Konten eintragen (Authentication → Nutzer → „Nutzer-UID“) ▼▼▼
     function adminUids() {
       return ['HIER_ADMIN_UID_EINTRAGEN'];
     }
     // ▲▲▲
 
-    function signedIn() { return request.auth != null; }
-    function isAdmin()  { return signedIn() && request.auth.uid in adminUids(); }
+    // Angemeldet mit E-Mail und Passwort (anonyme Konten zählen nicht)
+    function signedIn() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+    function isAdmin() { return signedIn() && request.auth.uid in adminUids(); }
 
-    // Getränke, Tage und „aktiver Tag“: alle angemeldeten Geräte lesen, nur Admins ändern
+    // Getränke, Tage und „aktiver Tag“: alle Mitglieder lesen, nur Admins ändern
     match /products/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
     match /days/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
     match /meta/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
@@ -22,23 +25,24 @@ service cloud.firestore {
     // Nur zum Prüfen, ob ein Konto Admin ist
     match /admincheck/{id} { allow read: if isAdmin(); }
 
-    // Name pro Handy: einmal festlegen, danach nur noch durch Admins änderbar
+    // Name pro Konto: einmal festlegen, danach nur noch durch Admins änderbar
     match /users/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['name', 't'])
+        && request.resource.data.keys().hasOnly(['name', 'email', 't'])
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 3
-        && request.resource.data.name.size() <= 40;
+        && request.resource.data.name.size() <= 40
+        && (!('email' in request.resource.data) || request.resource.data.email == request.auth.token.email.lower());
       allow update, delete: if isAdmin();
     }
 
     // Buchungen
     match /scans/{id} {
-      // Jedes Gerät sieht nur seine eigenen Buchungen, Admins alle
+      // Jedes Mitglied sieht nur seine eigenen Buchungen, Admins alle
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
 
-      // Jedes Gerät darf für sich selbst buchen – aber nur, wenn es einen Namen hat
+      // Jedes Mitglied darf für sich selbst buchen – aber nur mit hinterlegtem Namen
       allow create: if isAdmin() || (
         signedIn()
         && request.resource.data.uid == request.auth.uid
