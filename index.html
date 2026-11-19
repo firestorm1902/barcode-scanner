@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Strichliste" />
 <meta name="theme-color" content="#eef2f1" />
-<title>Strichliste – Getränke pro Tag</title>
+<title>WexGetraenke</title>
 <script>
 /* ZXing (Barcode-Erkennung): erst lokal, dann CDN */
 (function () {
@@ -142,7 +142,7 @@ body.noauth main,body.noauth nav{display:none!important}
 <body>
 <div class="wrap">
   <header>
-    <div class="hl"><h1>Strichliste</h1><span class="net" id="net">…</span></div>
+    <div class="hl"><h1>Wexhainis Getränke Strichliste</h1><span class="net" id="net">…</span></div>
     <nav><button data-v="scan" class="on">Scannen</button><button data-v="admin">Admin</button></nav>
   </header>
 
@@ -178,7 +178,13 @@ body.noauth main,body.noauth nav{display:none!important}
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
-      <div class="me" style="margin-top:10px;justify-content:space-between"><span>Gebucht als <b id="meName" style="color:var(--ink)"></b></span><button class="b sm" id="logoutBtn">Abmelden</button></div>
+      <div class="me" style="margin-top:10px;justify-content:space-between"><span>Gebucht als <b id="meName" style="color:var(--ink)"></b></span><span style="display:flex;gap:6px"><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div id="pwSec" hidden class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--white)">
+        <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
+        <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
+        <label class="f">Wiederholen<input id="pwNew2" type="password" autocomplete="new-password"></label>
+        <div class="full row" style="margin-top:0"><button class="b pri" id="pwSave">Passwort speichern</button><button class="b" id="pwCancel">Abbrechen</button></div>
+      </div>
     </section>
     <div class="note" id="msg" hidden></div>
     <div id="last" hidden></div>
@@ -227,7 +233,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '5';
+const APP_VERSION = '6';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -267,7 +273,7 @@ const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
 
 /* Neu zeichnen, ohne laufende Eingaben, Fokus und aufgeklappte Bereiche zu verlieren
    (wichtig, weil andere Handys ständig Buchungen schicken) */
-const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u'];
+const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role'];
 function fieldKey(el) {
   if (el.id) return '#' + el.id;
   for (const a of ATTRS) if (el.hasAttribute(a)) return a + '=' + el.getAttribute(a) + '|' + (el.dataset.id || '');
@@ -293,7 +299,7 @@ function keepState(container, html) {
 
 /* ---------- Zustand (wird von Firestore-Listenern gefüllt) ---------- */
 const S = {
-  user: null, authReady: false, registering: null, isAdmin: false, adminChecked: false,
+  user: null, authReady: false, registering: null, isAdmin: false, isSuper: false, adminChecked: false, meDoc: null,
   products: [], active: null, activeDay: null, activeLoaded: false,
   me: null, meLoaded: false, users: {},
   myScans: [], pending: 0,
@@ -347,14 +353,12 @@ async function initFirebase() {
   }
   auth = F.getAuth(app);
   F.onAuthStateChanged(auth, async u => {
-    S.user = u; S.isAdmin = false; S.adminChecked = false; S.authReady = true;
+    S.user = u; S.isAdmin = false; S.isSuper = false; S.adminChecked = false; S.authReady = true; lastRoleKey = null;
     stopAdminListeners();
     if (!u) { stopUserListeners(); renderAll(); return; }
     startUserListeners();
     renderAll();
-    await checkAdmin();
-    if (S.user === u && S.isAdmin) startAdminListeners();
-    renderAll();
+    await refreshRole(u);
   });
 }
 const col = name => F.collection(db, name);
@@ -368,7 +372,7 @@ function fail(where) {
     console.error(where, err);
     if (err && err.code === 'permission-denied') {
       if (where === 'dayScans' || where === 'days') { S.isAdmin = false; S.adminChecked = true; renderAdmin(); return; }
-      S.dbError = 'Keine Berechtigung beim Lesen (' + where + '). Sind die Sicherheitsregeln veröffentlicht und „Anonym“ als Anmeldung aktiviert?';
+      S.dbError = 'Keine Berechtigung beim Lesen (' + where + '). Sind die aktuellen Sicherheitsregeln veröffentlicht?';
     } else S.dbError = 'Datenbankfehler (' + where + '): ' + (err && (err.code || err.message));
     renderAll();
   };
@@ -377,8 +381,17 @@ function fail(where) {
 function startUserListeners() {
   stop('products'); stop('meta'); stop('activeDay'); stop('mine'); stop('me'); S.active = undefined;
   S.me = null; S.meLoaded = false;
-  unsub.me = F.onSnapshot(dref('users', S.user.uid), snap => {
-    S.me = snap.exists() ? snap.data().name : null; S.meLoaded = true; renderScan();
+  const u = S.user;
+  unsub.me = F.onSnapshot(dref('users', u.uid), snap => {
+    const d = snap.exists() ? snap.data() : null;
+    S.meDoc = d; S.me = d && !d.deleted ? d.name : null; S.meLoaded = true;
+    // ältere Konten: E-Mail nachtragen (erlaubt die Regel nur für die eigene Adresse)
+    if (d && !d.email && u.email && !snap.metadata.fromCache) fire(F.updateDoc(dref('users', u.uid), { email: u.email.toLowerCase() }), 'E-Mail nachtragen');
+    // Rolle oder Sperre geändert? Rechte neu prüfen
+    const key = d ? (d.role || '') + '|' + !!d.blocked + '|' + !!d.deleted : 'none';
+    if (lastRoleKey !== null && key !== lastRoleKey && S.user === u) refreshRole(u);
+    lastRoleKey = key;
+    renderScan();
   }, fail('me'));
   unsub.products = F.onSnapshot(col('products'), snap => {
     S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
@@ -417,20 +430,31 @@ function startAdminListeners() {
     listenDayScans(); renderAdmin(); if (!$('sheet').hidden) renderSheet();
   }, fail('days'));
 }
-// Probe: dieses Dokument dürfen laut Regeln nur Admins lesen
-async function checkAdmin() {
-  const key = 'strichliste_adm_' + S.user.uid;
-  try { await F.getDoc(dref('admincheck', 'probe')); S.isAdmin = true; }
+// Rechte prüfen: diese Dokumente dürfen laut Regeln nur Admins bzw. Super-Admins lesen
+async function probe(path, key) {
+  try { await F.getDoc(dref(path, 'probe')); try { localStorage.setItem(key, '1'); } catch (e) {} return true; }
   catch (err) {
-    if (err && err.code === 'permission-denied') S.isAdmin = false;
-    else { try { S.isAdmin = localStorage.getItem(key) === '1'; } catch (e) { S.isAdmin = false; } } // offline: letzter bekannter Stand
+    if (err && err.code === 'permission-denied') { try { localStorage.setItem(key, '0'); } catch (e) {} return false; }
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; } // offline: letzter bekannter Stand
   }
-  try { localStorage.setItem(key, S.isAdmin ? '1' : '0'); } catch (e) {}
-  S.adminChecked = true;
+}
+async function checkAdmin() {
+  const uid = S.user.uid;
+  const [adm, sup] = await Promise.all([probe('admincheck', 'strichliste_adm_' + uid), probe('supercheck', 'strichliste_sup_' + uid)]);
+  if (!S.user || S.user.uid !== uid) return;
+  S.isSuper = sup; S.isAdmin = adm || sup; S.adminChecked = true;
+}
+let lastRoleKey = null;
+async function refreshRole(u) {
+  await checkAdmin();
+  if (S.user !== u) return;
+  if (S.isAdmin && !unsub.days) startAdminListeners();
+  if (!S.isAdmin) stopAdminListeners();
+  renderAll();
 }
 function stopUserListeners() {
   ['products', 'meta', 'activeDay', 'mine', 'me'].forEach(stop);
-  Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meLoaded: false });
+  Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 function stopAdminListeners() { stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
@@ -560,6 +584,7 @@ const authMsg = code => ({
   'auth/invalid-credential': 'E-Mail oder Passwort falsch.', 'auth/wrong-password': 'E-Mail oder Passwort falsch.', 'auth/user-not-found': 'E-Mail oder Passwort falsch.',
   'auth/invalid-email': 'Die E-Mail-Adresse ist ungültig.', 'auth/email-already-in-use': 'Für diese E-Mail gibt es schon ein Konto – bitte „Anmelden“ wählen.',
   'auth/weak-password': 'Das Passwort braucht mindestens 6 Zeichen.', 'auth/too-many-requests': 'Zu viele Versuche. Bitte kurz warten.',
+  'auth/wrong-current': 'Das aktuelle Passwort ist falsch.', 'auth/requires-recent-login': 'Bitte einmal ab- und wieder anmelden und es dann erneut versuchen.',
   'auth/network-request-failed': 'Keine Verbindung. Für die Anmeldung wird Internet benötigt.', 'auth/operation-not-allowed': 'E-Mail/Passwort ist in Firebase noch nicht aktiviert.'
 }[code] || 'Fehler: ' + code);
 $('aBtn').addEventListener('click', async () => {
@@ -600,6 +625,25 @@ async function logout() {
   await F.signOut(auth); setView('scan');
 }
 $('logoutBtn').addEventListener('click', logout);
+$('dayInfo').addEventListener('click', e => { if (e.target.closest('[data-logout]')) logout(); });
+
+/* ---------- eigenes Passwort ändern ---------- */
+$('pwBtn').addEventListener('click', () => { $('pwSec').hidden = !$('pwSec').hidden; if (!$('pwSec').hidden) $('pwOld').focus(); });
+$('pwCancel').addEventListener('click', () => { $('pwSec').hidden = true; ['pwOld', 'pwNew', 'pwNew2'].forEach(id => $(id).value = ''); });
+$('pwSave').addEventListener('click', async () => {
+  const oldPw = $('pwOld').value, nw = $('pwNew').value;
+  if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return; }
+  if (!oldPw) { toast('Bitte das aktuelle Passwort eingeben'); return; }
+  if (nw.length < 6) { toast('Das neue Passwort braucht mindestens 6 Zeichen'); return; }
+  if (nw !== $('pwNew2').value) { toast('Die neuen Passwörter stimmen nicht überein'); return; }
+  const btn = $('pwSave'); btn.disabled = true;
+  try {
+    await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, oldPw));
+    await F.updatePassword(auth.currentUser, nw);
+    toast('Passwort geändert'); $('pwCancel').click();
+  } catch (err) { toast(authMsg(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' ? 'auth/wrong-current' : err.code)); }
+  btn.disabled = false;
+});
 
 $('nameBtn').addEventListener('click', () => {
   if (!S.user) return;
@@ -654,6 +698,12 @@ function renderScan() {
   if (configured && S.authReady && !S.user) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = ''; return; }
   if (S.registering) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = '<div class="empty">Konto wird angelegt …</div>'; return; }
   if (!S.user || !S.activeLoaded || !S.meLoaded) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = '<div class="empty">Verbinde …' + (S.online ? '' : ' Beim allerersten Start wird einmal Internet benötigt.') + '</div>'; return; }
+  if (S.meDoc && (S.meDoc.deleted || S.meDoc.blocked)) {
+    if (cam.box === boxMain) camStop();
+    $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
+    info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : 'Dein Konto ist gesperrt.') + '</b> Bitte wende dich an den Vorstand.</div><div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
+    return;
+  }
   if (!S.me) {
     if (cam.box === boxMain) camStop();
     $('nameSec').hidden = false; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
@@ -847,7 +897,7 @@ function renderAdmin() {
   if (!S.adminChecked) { el.innerHTML = '<div class="empty">Prüfe Rechte …</div>'; return; }
   if (S.adminChecked && !S.isAdmin) {
     el.innerHTML = '<section><h2>Keine Admin-Rechte</h2><p style="font-size:.9rem;margin-bottom:10px">Du bist als <b>' + esc(S.user.email) + '</b> angemeldet. Der Admin-Bereich ist nur für den Vorstand.</p>' +
-      '<details class="setup"><summary style="cursor:pointer">Für die Einrichtung: Nutzer-ID</summary><span style="font-size:.86rem">Soll dieses Konto Admin sein, diese ID in <code>firestore.rules</code> bei <code>adminUids</code> eintragen und die Regeln veröffentlichen.</span><div class="uid">' + esc(S.user.uid) + '</div></details></section>';
+      '<details class="setup"><summary style="cursor:pointer">Für die Einrichtung: Nutzer-ID</summary><span style="font-size:.86rem">Admins ernennt der Super-Admin unter „Personen“. Soll dieses Konto Super-Admin sein, diese ID in <code>firestore.rules</code> bei <code>superUids</code> eintragen und die Regeln veröffentlichen.</span><div class="uid">' + esc(S.user.uid) + '</div></details></section>';
     return;
   }
   const day = selDayObj(), scans = S.dayScansFor === S.selDay ? S.dayScans : [];
@@ -894,8 +944,17 @@ function renderAdmin() {
         Object.keys(per).sort((a, b) => per[b].n - per[a].n).map(k => '<div class="rw"><span></span><span>' + esc(k) + '</span><small>' + per[k].n + ' Getränke' + (per[k].v ? ' · ' + money(per[k].v) : '') + '</small></div>').join('') + '</section>';
     }
 
+    const people = Object.keys(S.users).filter(uid => !S.users[uid].deleted).map(uid => ({ uid, name: S.users[uid].name || '' })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    if (people.length && S.products.length) {
+      h += '<section><h2>Buchung nachtragen</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Für jemanden, der vergessen hat zu scannen.</div><div class="grid2">' +
+        '<label class="f full">Person<select id="nbWho"><option value="">Wählen …</option>' + people.map(x => '<option value="' + x.uid + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
+        '<label class="f">Getränk<select id="nbP"><option value="">Wählen …</option>' + S.products.map(x => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
+        '<label class="f">Anzahl<input id="nbN" inputmode="numeric" value="1"></label>' +
+        '<div class="full"><button class="b pri" data-act="addBooking">Nachtragen</button></div></div></section>';
+    }
+
     const recent = scans.slice(-30).reverse();
-    h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(nameOf(s)) + (s.src === 'manuell' ? ' · ohne Scan' : '') + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
+    h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(nameOf(s)) + (s.src === 'manuell' ? ' · ohne Scan' : s.src === 'nachgetragen' ? ' · nachgetragen' : '') + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
   }
 
   h += '<section><h2>Getränke (' + S.products.length + ')</h2>' + S.products.map(p =>
@@ -920,13 +979,33 @@ function renderAdmin() {
     }).join('') + (overview ? '' : '<div class="row"><button class="b sm" data-act="overview">Anzahl Buchungen laden</button></div>') + '</section>';
   }
 
-  const ulist = Object.keys(S.users).map(uid => ({ uid, name: S.users[uid].name || '', email: S.users[uid].email || '', t: S.users[uid].t || 0 })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-  if (ulist.length) {
-    const counts = {}; ulist.forEach(u => { counts[u.name.toLowerCase()] = (counts[u.name.toLowerCase()] || 0) + 1; });
+  const all = Object.keys(S.users).map(uid => Object.assign({ uid, name: '', email: '', t: 0 }, S.users[uid])).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const ulist = all.filter(u => !u.deleted), gone = all.filter(u => u.deleted);
+  if (all.length) {
+    const counts = {}; ulist.forEach(u => { const k = u.name.toLowerCase(); counts[k] = (counts[k] || 0) + 1; });
+    const consoleUrl = 'https://console.firebase.google.com/project/' + encodeURIComponent(firebaseConfig.projectId) + '/authentication/users';
     h += '<section><h2>Personen (' + ulist.length + ')</h2>' +
-      '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Jedes Konto hat einen festen Namen. Nur hier kann er korrigiert werden.</div>' +
-      ulist.map(u => '<div class="rw"><input data-u="' + u.uid + '" value="' + esc(u.name) + '" aria-label="Name korrigieren" style="flex:1;padding:6px 8px">' +
-        '<small>' + esc(u.email) + (u.t ? '<br>seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + (counts[u.name.toLowerCase()] > 1 ? ' · <b style="color:var(--amb)">doppelt</b>' : '') + '</small></div>').join('') + '</section>';
+      '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">' + (S.isSuper ? 'Antippen zum Bearbeiten. Als Super-Admin kannst du Admins ernennen, Konten sperren, entfernen und Passwort-Mails schicken.' : 'Jedes Konto hat einen festen Namen. Nur hier kann er korrigiert werden.') + '</div>' +
+      ulist.map(u => {
+        const me = u.uid === S.user.uid;
+        const badges = (me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Admin</span>' : '') +
+          (u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : '') +
+          (counts[u.name.toLowerCase()] > 1 ? '<span class="tag" style="color:var(--amb)">doppelt</span>' : '') + (me ? '<span class="tag cls">du</span>' : '');
+        let inner = '<label class="f full">Name<input data-u="' + u.uid + '" value="' + esc(u.name) + '"></label>' +
+          '<div class="full" style="font-size:.84rem;color:var(--mu)">' + (u.email ? esc(u.email) : 'E-Mail noch unbekannt (wird beim nächsten Öffnen der App ergänzt)') + (u.t ? ' · seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + '</div>';
+        if (S.isSuper && !me) {
+          inner += '<label class="f">Rolle<select data-role="' + u.uid + '"><option value=""' + (u.role !== 'admin' ? ' selected' : '') + '>Mitglied</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option></select></label><div></div>' +
+            '<div class="full row" style="margin-top:0">' +
+            (u.blocked ? '<button class="b sm" data-act="unblock" data-id="' + u.uid + '">Entsperren</button>' : '<button class="b sm" data-act="block" data-id="' + u.uid + '">Sperren</button>') +
+            (u.email ? '<button class="b sm" data-act="resetPw" data-id="' + u.uid + '">Passwort-Mail senden</button>' : '') +
+            '<button class="b sm dng" data-act="removeUser" data-id="' + u.uid + '">Entfernen</button></div>';
+        }
+        return '<details class="pc" data-k="u' + u.uid + '"><summary><b>' + esc(u.name || '(ohne Namen)') + '</b><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + badges + '</span></summary><div class="grid2">' + inner + '</div></details>';
+      }).join('') +
+      (S.isSuper && gone.length ? '<details class="pc" data-k="gone"><summary><b>Entfernte Konten (' + gone.length + ')</b><small>wiederherstellen</small></summary>' +
+        gone.map(u => '<div class="rw"><span></span><span>' + esc(u.name) + '<br><small>' + esc(u.email) + '</small></span><button class="b sm" data-act="restoreUser" data-id="' + u.uid + '">Wiederherstellen</button><button class="b sm dng" data-act="purgeUser" data-id="' + u.uid + '">Eintrag löschen</button></div>').join('') + '</details>' : '') +
+      (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Entfernen sperrt das Konto in der App. Das Login selbst (E-Mail und Passwort) löschst du in der <a href="' + consoleUrl + '" target="_blank" rel="noopener">Firebase-Konsole → Authentication → Nutzer</a> über das Menü „⋮“ der Person.</div>' : '') +
+      '</section>';
   }
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup importieren</button>' +
@@ -969,6 +1048,11 @@ adminBody.addEventListener('change', e => {
   if (t.dataset.day && day) { const v = t.value.trim(); if (t.dataset.day === 'date' && !v) return; fire(F.updateDoc(dref('days', day.id), { [t.dataset.day]: v }), 'Tag speichern'); return; }
   if (t.dataset.cnt && day) { const v = t.value.trim(); setCount(day.id, t.dataset.cnt, v === '' || isNaN(parseInt(v)) ? null : parseInt(v)); return; }
   if (t.dataset.load && day) { setLoad(day.id, t.dataset.load, parseInt(t.value) || 0); return; }
+  if (t.dataset.role) {
+    const uid = t.dataset.role, role = t.value;
+    fire(F.updateDoc(dref('users', uid), { role: role ? role : F.deleteField() }), 'Rolle ändern');
+    toast(role ? (S.users[uid] || {}).name + ' ist jetzt Admin' : (S.users[uid] || {}).name + ' ist jetzt Mitglied'); return;
+  }
   if (t.dataset.u) {
     const name = t.value.trim().replace(/\s+/g, ' ').slice(0, 40);
     if (name.length < 2) { toast('Name zu kurz'); renderAdmin(); return; }
@@ -1039,6 +1123,43 @@ adminBody.addEventListener('click', async e => {
       await Promise.all(S.days.map(async d => { const r = await F.getCountFromServer(F.query(col('scans'), F.where('day', '==', d.id))); overview[d.id] = r.data().count; }));
       renderAdmin();
     } catch (err) { overview = null; toast('Übersicht braucht Internet'); }
+  }
+  else if (a === 'addBooking' && day) {
+    const uid = $('nbWho').value, pid = $('nbP').value, n = Math.min(100, parseInt($('nbN').value) || 0);
+    if (!uid || !pid || n < 1) { toast('Person, Getränk und Anzahl wählen'); return; }
+    const name = (S.users[uid] || {}).name || '';
+    const b2 = F.writeBatch(db);
+    for (let i = 0; i < n; i++) b2.set(dref('scans', newId('scans')), { uid, day: day.id, p: pid, src: 'nachgetragen', t: Date.now() + i, at: F.serverTimestamp(), who: name });
+    fire(b2.commit(), 'Nachtragen'); toast(n + '× ' + (P(pid) || {}).name + ' für ' + name + ' nachgetragen');
+  }
+  else if (a === 'block' || a === 'unblock') {
+    const u = S.users[id]; if (!u) return;
+    if (a === 'block' && !confirm('„' + u.name + '“ sperren? Die Person kann dann nichts mehr buchen.')) return;
+    fire(F.updateDoc(dref('users', id), { blocked: a === 'block' }), a === 'block' ? 'Sperren' : 'Entsperren');
+    toast(a === 'block' ? u.name + ' gesperrt' : u.name + ' entsperrt');
+  }
+  else if (a === 'resetPw') {
+    const u = S.users[id]; if (!u || !u.email) return;
+    if (!confirm('E-Mail zum Zurücksetzen des Passworts an ' + u.email + ' senden?')) return;
+    try { await F.sendPasswordResetEmail(auth, u.email); toast('Mail an ' + u.email + ' verschickt'); } catch (err) { toast('Senden fehlgeschlagen: ' + err.code); }
+  }
+  else if (a === 'removeUser') {
+    const u = S.users[id]; if (!u) return;
+    if (!confirm('„' + u.name + '“ entfernen? Das Konto wird gesperrt und aus der Liste genommen.')) return;
+    let list = [];
+    try { list = (await F.getDocs(F.query(col('scans'), F.where('uid', '==', id)))).docs; } catch (err) { toast('Buchungen konnten nicht geladen werden – Internet nötig'); return; }
+    const delScans = list.length > 0 && confirm('Auch alle ' + list.length + ' Buchungen von „' + u.name + '“ löschen?\n\nOK = Buchungen löschen\nAbbrechen = Buchungen behalten (für die Abrechnung)');
+    try {
+      if (delScans) await commitInChunks(list.map(d => ({ ref: d.ref, del: true })));
+      await F.updateDoc(dref('users', id), { deleted: true, blocked: true, role: F.deleteField() });
+      toast(u.name + ' entfernt' + (delScans ? ', ' + list.length + ' Buchungen gelöscht' : ''));
+    } catch (err) { toast('Entfernen fehlgeschlagen: ' + (err.code || err.message)); }
+  }
+  else if (a === 'restoreUser') { fire(F.updateDoc(dref('users', id), { deleted: false, blocked: false }), 'Wiederherstellen'); toast('Wiederhergestellt'); }
+  else if (a === 'purgeUser') {
+    const u = S.users[id]; if (!u) return;
+    if (!confirm('Eintrag „' + u.name + '“ endgültig löschen? Danach könnte sich die Person mit ihrem Login einen neuen Namen geben. Vorher das Login in der Firebase-Konsole löschen.')) return;
+    fire(F.deleteDoc(dref('users', id)), 'Eintrag löschen');
   }
   else if (a === 'storno') { fire(F.deleteDoc(dref('scans', id)), 'Stornieren'); toast('Buchung storniert'); }
   else if (a === 'delDay' && day) {
