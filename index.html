@@ -3,15 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#0f172a" />
-  <title>ScanPro – Offline Barcode & QR Scanner</title>
+  <title>ScanPro – Barcode & QR Scanner</title>
 
-  <!-- Lokale Bibliotheken im selben Ordner ablegen (kein Internet nötig!):
-       1) zxing.min.js       (von https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js)
-       2) html5-qrcode.min.js (von https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js)
-       Falls lokale Dateien fehlen, wird automatisch auf das CDN zurückgegriffen. -->
   <script>
     (function loadScannerLibs() {
       const libs = [
@@ -46,7 +42,7 @@
               await injectScript(item.cdn);
               return { name: item.cdn, source: 'cdn' };
             }
-            throw new Error('Bibliothek nicht offline verfügbar: ' + item.local);
+            throw new Error('Bibliothek nicht offline verfuegbar: ' + item.local);
           }
         })
       );
@@ -574,21 +570,21 @@
       <div class="brand">
         <div class="brand-icon">|||</div>
         <div>
-          <h1>ScanPro <span id="netBadge" class="offline-pill">Offline-fähig</span></h1>
+          <h1>ScanPro <span id="netBadge" class="offline-pill">Offline-faehig</span></h1>
         </div>
       </div>
       <div class="header-actions">
         <button id="torchBtn" class="icon-btn" title="Taschenlampe" style="display: none;" aria-label="Taschenlampe" type="button">
-          🔦
+          &#128294;
         </button>
         <button id="soundBtn" class="icon-btn active" title="Scan-Ton an/aus" aria-label="Ton umschalten" type="button">
-          🔊
+          &#128266;
         </button>
       </div>
     </header>
 
     <div id="httpsWarning" class="status-banner warn">
-      <strong>Hinweis für iPhone & Android:</strong> Browser erlauben den Live-Kamerazugriff nur über <strong>HTTPS</strong> (oder <code>localhost</code>). Galerie-Upload & Verlauf funktionieren auch ohne HTTPS.
+      <strong>Hinweis fuer iPhone &amp; Android:</strong> Browser erlauben den Live-Kamerazugriff nur ueber <strong>HTTPS</strong> (oder <code>localhost</code>). Galerie-Upload &amp; Verlauf funktionieren auch ohne HTTPS.
     </div>
 
     <div id="statusBanner" class="status-banner"></div>
@@ -609,10 +605,10 @@
 
         <div class="placeholder-state" id="placeholderState">
           <img id="previewImg" alt="Hochgeladenes Bild" />
-          <div id="placeholderIcon" style="font-size: 2.2rem;">📷</div>
+          <div id="placeholderIcon" style="font-size: 2.2rem;">&#128247;</div>
           <div style="font-weight: 600; color: var(--text);" id="placeholderTitle">Bereit zum Scannen</div>
           <div style="font-size: 0.85rem; max-width: 290px;" id="placeholderSub">
-            Starte die Rückkamera oder wähle ein Foto aus deiner Galerie. Für 100% Offline-Betrieb <code>zxing.min.js</code> &amp; <code>html5-qrcode.min.js</code> neben diese Datei legen.
+            Starte die Rueckkamera oder waehle ein Foto aus deiner Galerie. Fuer 100% Offline-Betrieb <code>zxing.min.js</code> &amp; <code>html5-qrcode.min.js</code> neben diese Datei legen.
           </div>
         </div>
       </div>
@@ -620,24 +616,23 @@
       <div class="controls-panel">
         <div class="btn-row">
           <button id="startBtn" class="btn btn-primary" type="button">
-            <span>▶ Kamera starten</span>
+            <span>&#9654; Kamera starten</span>
           </button>
           <button id="stopBtn" class="btn btn-danger" type="button" style="display: none;">
-            <span>■ Stoppen</span>
+            <span>&#9632; Stoppen</span>
           </button>
           <button id="galleryBtn" class="btn btn-secondary" type="button" style="flex: 0 0 auto; padding: 12px 14px;" title="Bild aus Galerie scannen">
-            🖼️ Foto
+            &#128444; Foto
           </button>
           <input type="file" id="fileInput" class="visually-hidden-input" accept="image/*" />
         </div>
 
         <div class="camera-select-row" id="cameraSelectRow" style="display: none;">
-          <select id="cameraSelect" aria-label="Kamera auswählen"></select>
+          <select id="cameraSelect" aria-label="Kamera auswaehlen"></select>
         </div>
       </div>
     </div>
 
-    <!-- Aktuelles Scan-Ergebnis -->
     <div class="result-card" id="resultCard">
       <div class="result-header">
         <span class="badge" id="resultFormat">EAN-13</span>
@@ -645,23 +640,22 @@
       </div>
       <div class="result-value" id="resultValue"></div>
       <div class="btn-row">
-        <button id="copyBtn" class="btn btn-primary" type="button">📋 Kopieren</button>
+        <button id="copyBtn" class="btn btn-primary" type="button">&#128203; Kopieren</button>
         <a id="openLinkBtn" class="btn btn-secondary" href="#" target="_blank" rel="noopener noreferrer" style="display: none; text-decoration: none;">
-          🔗 Öffnen
+          &#128279; Oeffnen
         </a>
         <a id="searchWebBtn" class="btn btn-secondary" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
-          🔍 Suchen
+          &#128269; Suchen
         </a>
       </div>
     </div>
 
-    <!-- Scan-Verlauf -->
     <div class="history-section">
       <div class="history-header">
         <h2>Verlauf (<span id="historyCount">0</span>)</h2>
         <div class="history-actions">
           <button id="exportCsvBtn" class="small-btn" type="button">CSV Export</button>
-          <button id="clearHistoryBtn" class="small-btn" type="button">Löschen</button>
+          <button id="clearHistoryBtn" class="small-btn" type="button">Loeschen</button>
         </div>
       </div>
       <div class="history-list" id="historyList">
@@ -692,32 +686,17 @@
     window.addEventListener('offline', updateNetworkBadge);
 
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-      const swCode = `
-        const CACHE_NAME = 'scanpro-offline-v2';
-        self.addEventListener('install', (event) => {
-          event.waitUntil(
-            caches.open(CACHE_NAME).then((cache) => cache.addAll([
-              './zxing.min.js',
-              './html5-qrcode.min.js'
-            ]).catch(() => {})).then(() => self.skipWaiting())
-          );
-        });
-        self.addEventListener('activate', (event) => {
-          event.waitUntil(self.clients.claim());
-        });
-        self.addEventListener('fetch', (event) => {
-          if (event.request.method !== 'GET') return;
-          event.respondWith(
-            caches.match(event.request).then((cached) => {
-              return cached || fetch(event.request).then((resp) => {
-                const copy = resp.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
-                return resp;
-              }).catch(() => cached);
-            })
-          );
-        });
-      `;
+      const swCode = [
+        "const CACHE_NAME = 'scanpro-offline-v3';",
+        "self.addEventListener('install', (event) => {",
+        "  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(['./zxing.min.js', './html5-qrcode.min.js']).catch(() => {})).then(() => self.skipWaiting()));",
+        "});",
+        "self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });",
+        "self.addEventListener('fetch', (event) => {",
+        "  if (event.request.method !== 'GET') return;",
+        "  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((resp) => { const copy = resp.clone(); caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {}); return resp; }).catch(() => cached)));",
+        "});"
+      ].join('\n');
       const swBlob = new Blob([swCode], { type: 'application/javascript' });
       const swUrl = URL.createObjectURL(swBlob);
       navigator.serviceWorker.register(swUrl).catch(() => {});
@@ -786,11 +765,6 @@
       statusBanner.style.display = 'block';
     }
 
-    function clearStatus() {
-      statusBanner.style.display = 'none';
-      statusBanner.className = 'status-banner';
-    }
-
     function playBeep() {
       if (!soundEnabled) return;
       try {
@@ -833,10 +807,10 @@
           devices.forEach((cam, idx) => {
             const opt = document.createElement('option');
             opt.value = cam.id;
-            opt.text = cam.label || `Kamera ${idx + 1}`;
+            opt.text = cam.label || ('Kamera ' + (idx + 1));
             cameraSelect.appendChild(opt);
           });
-          const backCam = devices.find(d => /back|rear|environment|rück/i.test(d.label));
+          const backCam = devices.find(d => /back|rear|environment|rueck|back/i.test(d.label));
           if (backCam) cameraSelect.value = backCam.id;
           if (devices.length > 1) {
             cameraSelectRow.style.display = 'flex';
@@ -848,7 +822,6 @@
     }
 
     async function startScanner(cameraIdOrConfig = null) {
-      clearStatus();
       previewImg.style.display = 'none';
       placeholderIcon.style.display = 'block';
       if (isScanning) await stopScanner();
@@ -904,7 +877,7 @@
         checkTorchSupport();
       } catch (err) {
         console.error(err);
-        setStatus('error', '<strong>Kamera-Fehler:</strong> Kamera konnte nicht gestartet werden. Bitte Kameraberechtigung prüfen oder HTTPS/localhost verwenden.');
+        setStatus('error', '<strong>Kamera-Fehler:</strong> Kamera konnte nicht gestartet werden. Bitte Kameraberechtigung pruefen oder HTTPS/localhost verwenden.');
       }
     }
 
@@ -947,13 +920,13 @@
         await torch.apply(torchOn);
         torchBtn.classList.toggle('active', torchOn);
       } catch (e) {
-        showToast('Taschenlampe nicht verfügbar');
+        showToast('Taschenlampe nicht verfuegbar');
       }
     });
 
     soundBtn.addEventListener('click', () => {
       soundEnabled = !soundEnabled;
-      soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+      soundBtn.innerHTML = soundEnabled ? '&#128266;' : '&#128263;';
       soundBtn.classList.toggle('active', soundEnabled);
     });
 
@@ -1029,7 +1002,7 @@
         const subEl = document.createElement('div');
         subEl.className = 'history-sub';
         const d = new Date(item.timestamp);
-        subEl.textContent = `${item.format} • ${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+        subEl.textContent = item.format + ' • ' + d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
         meta.appendChild(codeEl);
         meta.appendChild(subEl);
@@ -1103,7 +1076,7 @@
       });
     }
 
-    function renderToCanvas(source, maxDim = 1800, angleDeg = 0, contrastBoost = false) {
+    function renderToCanvas(source, maxDim, angleDeg, contrastBoost) {
       const srcW = source.width || source.naturalWidth;
       const srcH = source.height || source.naturalHeight;
       const swap = Math.abs(angleDeg) === 90;
@@ -1145,12 +1118,12 @@
       return canvas;
     }
 
-    function canvasToFile(canvas, name = 'scan.jpg', quality = 0.92) {
+    function canvasToFile(canvas, name, quality) {
       return new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
           if (!blob) return reject(new Error('Konvertierung fehlgeschlagen'));
-          resolve(new File([blob], name, { type: 'image/jpeg' }));
-        }, 'image/jpeg', quality);
+          resolve(new File([blob], name || 'scan.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality || 0.92);
       });
     }
 
@@ -1167,7 +1140,7 @@
 
       if (html5QrCode) {
         try {
-          const file = await canvasToFile(canvas);
+          const file = await canvasToFile(canvas, 'scan.jpg', 0.92);
           const res = await html5QrCode.scanFileV2(file, false);
           if (res && res.decodedText) {
             return {
@@ -1184,7 +1157,7 @@
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) {
-        setStatus('warn', '<strong>Kein Bild ausgewählt:</strong> Es wurde keine Datei aus der Galerie übergeben.');
+        setStatus('warn', '<strong>Kein Bild ausgewaehlt:</strong> Es wurde keine Datei aus der Galerie uebergeben.');
         return;
       }
 
@@ -1193,14 +1166,14 @@
       }
 
       const sizeKB = Math.round(file.size / 1024);
-      setStatus('', `<strong>Hochgeladen:</strong> <code>${file.name}</code> (${sizeKB} KB). Bild wird lokal verarbeitet...`);
+      setStatus('', '<strong>Hochgeladen:</strong> <code>' + file.name + '</code> (' + sizeKB + ' KB). Bild wird lokal verarbeitet...');
 
       placeholderState.style.display = 'flex';
       placeholderIcon.style.display = 'none';
       previewImg.src = URL.createObjectURL(file);
       previewImg.style.display = 'block';
       placeholderTitle.textContent = 'Verarbeite Bild...';
-      placeholderSub.textContent = 'Prüfe Orientierung, Kontrast und Barcode-Formate...';
+      placeholderSub.textContent = 'Pruefe Orientierung, Kontrast und Barcode-Formate...';
 
       try {
         await window.__libsReady;
@@ -1226,7 +1199,7 @@
         const srcH = sourceImg.height || sourceImg.naturalHeight || 0;
 
         if (!srcW || !srcH) {
-          throw new Error('Bildabmessungen konnten nicht gelesen werden (ungültiges Bildformat).');
+          throw new Error('Bildabmessungen konnten nicht gelesen werden (ungueltiges Bildformat).');
         }
 
         let found = null;
@@ -1254,7 +1227,7 @@
 
         for (let i = 0; i < passes.length && !found; i++) {
           const p = passes[i];
-          setStatus('', `<strong>Verarbeitung läuft:</strong> Durchlauf ${i + 1}/${passes.length} (${p.label}, ${srcW}×${srcH}px)...`);
+          setStatus('', '<strong>Verarbeitung laeuft:</strong> Durchlauf ' + (i + 1) + '/' + passes.length + ' (' + p.label + ', ' + srcW + 'x' + srcH + 'px)...');
           const canvas = renderToCanvas(sourceImg, p.maxDim, p.angle, p.contrast);
           found = await decodeFromCanvas(canvas, zxingReader);
           canvas.width = 0;
@@ -1266,7 +1239,7 @@
         }
 
         if (found && found.text) {
-          setStatus('success', `<strong>Erfolgreich verarbeitet:</strong> Code erkannt (${found.format}).`);
+          setStatus('success', '<strong>Erfolgreich verarbeitet:</strong> Code erkannt (' + found.format + ').');
           playBeep();
           if (navigator.vibrate) navigator.vibrate(80);
           displayResult(found.text, found.format);
@@ -1274,21 +1247,21 @@
         } else {
           setStatus(
             'error',
-            `<strong>Nicht erkannt:</strong> Bild (${srcW}×${srcH}px) wurde verarbeitet, aber es konnte kein Barcode/QR-Code decodiert werden.`
+            '<strong>Nicht erkannt:</strong> Bild (' + srcW + 'x' + srcH + 'px) wurde verarbeitet, aber es konnte kein Barcode/QR-Code decodiert werden.'
           );
         }
       } catch (err) {
         console.error('Fehler beim Verarbeiten des Bildes:', err);
         setStatus(
           'error',
-          `<strong>Verarbeitung fehlgeschlagen:</strong> ${err.message || 'Das Bild konnte nicht verarbeitet werden.'}`
+          '<strong>Verarbeitung fehlgeschlagen:</strong> ' + (err.message || 'Das Bild konnte nicht verarbeitet werden.')
         );
       } finally {
         try {
           if (zxingReader) zxingReader.reset();
         } catch (e) {}
         placeholderTitle.textContent = 'Bereit zum Scannen';
-        placeholderSub.textContent = 'Starte die Rückkamera oder wähle ein Foto aus deiner Galerie.';
+        placeholderSub.textContent = 'Starte die Rueckkamera oder waehle ein Foto aus deiner Galerie.';
         fileInput.value = '';
       }
     });
@@ -1300,13 +1273,12 @@
       }
       const rows = [['Zeitstempel', 'Format', 'Inhalt']];
       scanHistory.forEach(item => {
-        rows.push([item.timestamp, item.format, `"${item.code.replace(/"/g, '""')}"`]);
+        rows.push([item.timestamp, item.format, '"' + item.code.replace(/"/g, '""') + '"']);
       });
-      const csvContent = 'data:text/csv;charset=utf-8,﻿' + rows.map(r => r.join(';')).join('
-');
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + rows.map(r => r.join(';')).join('\n');
       const link = document.createElement('a');
       link.setAttribute('href', encodeURI(csvContent));
-      link.setAttribute('download', `scanpro-export-${new Date().toISOString().slice(0,10)}.csv`);
+      link.setAttribute('download', 'scanpro-export-' + new Date().toISOString().slice(0, 10) + '.csv');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1317,7 +1289,7 @@
       scanHistory = [];
       localStorage.removeItem('scanpro_history');
       renderHistory();
-      showToast('Verlauf gelöscht');
+      showToast('Verlauf geloescht');
     });
 
     renderHistory();
