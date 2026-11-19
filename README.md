@@ -103,6 +103,13 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
 - **Entfernen:** sperrt das Konto und nimmt es aus der Liste. Auf Wunsch werden dabei alle Buchungen der Person gelöscht. Unter „Entfernte Konten“ lässt sich das rückgängig machen.
 - **Login endgültig löschen:** In der Firebase-Konsole unter Authentication → Nutzer, über das Menü „⋮“ der Person. Die App verlinkt dorthin. Direkt aus der App geht das im kostenlosen Tarif nicht. Fremde Passwörter setzen geht ebenfalls nicht; dafür gibt es die Passwort-Mail.
 
+## Profilbilder
+
+- Jedes Mitglied tippt in der Scan-Ansicht auf den runden Kreis neben „Gebucht als“ und wählt ein Foto (Kamera oder Galerie). Das Bild wird auf dem Handy quadratisch zugeschnitten und auf 160×160 Pixel verkleinert (etwa 10 KB).
+- Das Bild erscheint groß im Easter-Egg-Popup und klein im Verlauf „Easter Eggs heute“, bei Gruppen-Easter-Eggs immer das Bild der Person, die es ausgelöst hat. Ohne Bild erscheinen die Initialen.
+- „Bild entfernen“ steht direkt darunter. **Admins** sehen die Bilder unter Admin → Personen und können unpassende entfernen.
+- Die Bilder liegen in der Datenbank (nicht in Firebase Storage, das für neue Projekte den kostenpflichtigen Tarif bräuchte). Andere Handys laden ein Bild einmal pro Sitzung und merken es sich.
+
 ## Namen
 
 - Der Name wird bei der Registrierung festgelegt und hängt am Konto. Mitglieder können ihn nicht ändern, das verhindern die Sicherheitsregeln.
@@ -163,11 +170,11 @@ Hinweise:
 
 ## Update der App
 
-Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 11 auf 12):
-- in `index.html`: `const APP_VERSION = '11';`
-- in `sw.js`: `const VERSION = 'strichliste-v11';`
+Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 12 auf 13):
+- in `index.html`: `const APP_VERSION = '12';`
+- in `sw.js`: `const VERSION = 'strichliste-v12';`
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 11“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 12“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

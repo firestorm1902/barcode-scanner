@@ -86,7 +86,7 @@ service cloud.firestore {
       allow read: if signedIn();
       allow delete: if isAdmin();
       allow create, update: if isActive()
-        && request.resource.data.keys().hasOnly(['id', 'day', 'title', 'sub', 'uid', 't'])
+        && request.resource.data.keys().hasOnly(['id', 'day', 'title', 'sub', 'uid', 'name', 't'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.title is string && request.resource.data.title.size() <= 80
         && request.resource.data.sub is string && request.resource.data.sub.size() <= 160;
@@ -99,6 +99,17 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(['uid', 'day', 'items'])
         && request.resource.data.items is list && request.resource.data.items.size() <= 200);
+    }
+
+    // Profilbilder: kleines JPEG als Text, alle dürfen sehen, nur man selbst ändern; Admins dürfen entfernen
+    match /avatars/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isActive() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['img', 't'])
+        && request.resource.data.img is string
+        && request.resource.data.img.size() < 60000
+        && request.resource.data.img.matches('^data:image/(jpeg|png|webp);base64,.*');
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
     }
 
     // Buchungen
