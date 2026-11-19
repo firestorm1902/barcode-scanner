@@ -86,10 +86,19 @@ service cloud.firestore {
       allow read: if signedIn();
       allow delete: if isAdmin();
       allow create, update: if isActive()
-        && request.resource.data.keys().hasOnly(['id', 'title', 'sub', 'uid', 't'])
+        && request.resource.data.keys().hasOnly(['id', 'day', 'title', 'sub', 'uid', 't'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.title is string && request.resource.data.title.size() <= 80
         && request.resource.data.sub is string && request.resource.data.sub.size() <= 160;
+    }
+
+    // Easter Eggs: eigener Verlauf pro Tag (Dokument-ID = Nutzer-ID + "_" + Tag)
+    match /ueggs/{id} {
+      allow read: if isAdmin() || (signedIn() && id.matches(request.auth.uid + '_.+'));
+      allow write: if isAdmin() || (isActive() && id.matches(request.auth.uid + '_.+')
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'day', 'items'])
+        && request.resource.data.items is list && request.resource.data.items.size() <= 200);
     }
 
     // Buchungen

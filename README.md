@@ -123,6 +123,14 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
    - Mit **Nach Person als CSV** gibt es die Abrechnung pro Mitglied.
    - **Tag abschließen**.
 
+## Warnung, wenn Getränke zu Ende gehen
+
+- Unter **Admin → Getränke** bei jedem Getränk **„Warnen ab Rest (Flaschen)“** eintragen, z. B. 6. Ohne Wert gibt es für dieses Getränk keine Warnung.
+- Sinkt am aktiven Tag der Soll-Rest (mitgenommen minus gebucht) auf diesen Wert, bekommen **alle Admins** unten eine rot-schwarze Hinweisleiste mit Ton und Vibration – egal, ob sie gerade scannen oder im Admin-Bereich sind. Bei „leer“ kommt ein zweiter Hinweis.
+- **Einladen** in der Leiste öffnet direkt das Nachladen per Scan. Wird nachgeladen, ist die Warnung wieder scharf.
+- In der **Tagesübersicht** stehen „Leer“ und „Geht zu Ende“ ganz oben, im **Abgleich** sind die Zeilen markiert.
+- **Hinweis:** Die Warnung kommt nur, solange die App auf dem Admin-Handy geöffnet ist. Mit „Warnungen aufs Handy erlauben“ (Admin → Daten) erscheint sie zusätzlich als Handy-Benachrichtigung, wenn die App im Hintergrund offen ist – auf dem iPhone nur, wenn die App über „Zum Home-Bildschirm“ installiert ist. Benachrichtigungen bei ganz geschlossener App bräuchten einen eigenen Server (Firebase Blaze-Tarif).
+
 ## Easter Eggs
 
 Bei bestimmten Buchungen erscheint für ein paar Sekunden ein Vollbild mit Wespe, Konfetti, Ton und Vibration. Antippen schließt es. Jedes Easter Egg kommt pro Person und Tag nur einmal, auch nach „Rückgängig“.
@@ -143,6 +151,8 @@ Hinweise:
 - Die **Gruppen-Easter-Eggs** brauchen Netz. Offline wird weiter mitgezählt, aber ohne Meldung.
 - Nach Stornos, Nachträgen oder einem Import unter **Admin → Daten → Zähler neu berechnen** tippen, damit die Zahlen wieder stimmen.
 - **Easter Eggs: an/aus** schaltet alles für alle Handys ab.
+- **Verlauf für alle:** In der Scan-Ansicht steht unter „Deine Getränke heute“ der Abschnitt „Easter Eggs heute“ mit zwei Reitern: *Für alle* (alle gemeinsamen Easter Eggs des Tages mit Uhrzeit und Auslöser) und *Deine* (die eigenen). Die eigenen sind in der Datenbank gespeichert und bleiben auch bei einem Handywechsel erhalten.
+- **Vorschau für Admins:** Im Admin-Bereich zeigt „Anstehende Easter Eggs“ für den aktiven Tag, was als Nächstes kommt – für die Gruppe (Anstich, nächstes Gruppen-Bier, nächste Schnapszahl, 11:11 und 11.11.) und pro Person, sortiert danach, wer am nächsten dran ist.
 - Die Sprüche stehen in `index.html` im Abschnitt `EASTER EGGS` (Suche nach `EGG_TEXT`) und lassen sich dort einfach ändern.
 
 ## Kosten und Grenzen (kostenloser Spark-Tarif)
@@ -153,11 +163,11 @@ Hinweise:
 
 ## Update der App
 
-Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 8 auf 9):
-- in `index.html`: `const APP_VERSION = '8';`
-- in `sw.js`: `const VERSION = 'strichliste-v8';`
+Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 11 auf 12):
+- in `index.html`: `const APP_VERSION = '11';`
+- in `sw.js`: `const VERSION = 'strichliste-v11';`
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 8“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 11“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
