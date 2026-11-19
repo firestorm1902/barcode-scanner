@@ -45,6 +45,29 @@ service cloud.firestore {
     // Zählerfelder: alle Getränke, Bier und je eine Sorte
     function counterKeys() { return ['all', 'beer', 'c_radler', 'c_alkfrei', 'c_wein', 'c_wasser', 'c_soft', 'c_schnaps', 'c_sonst']; }
 
+    // Gegen Schummeln: Mitglieder dürfen einen Zähler pro Schreibvorgang nur um genau 1 ändern
+    // (Buchen +1, Rückgängig −1). Admin-Handys gleichen die Zähler zusätzlich mit den Buchungen ab.
+    function oldData() { return resource == null ? {} : resource.data; }
+    function step1(a, b, k) {
+      return b.get(k, 0) is int && b.get(k, 0) - a.get(k, 0) <= 1 && b.get(k, 0) - a.get(k, 0) >= -1;
+    }
+    function countersOk(a, b) {
+      return step1(a, b, 'all') && step1(a, b, 'beer') && step1(a, b, 'c_radler') && step1(a, b, 'c_alkfrei') && step1(a, b, 'c_wein')
+        && step1(a, b, 'c_wasser') && step1(a, b, 'c_soft') && step1(a, b, 'c_schnaps') && step1(a, b, 'c_sonst');
+    }
+    function boardEntryOk(a, b) { return step1(a, b, 'all') && step1(a, b, 'beer') && step1(a, b, 'na'); }
+    // Bestenliste: nur der eigene Eintrag und die eigene Gruppe, jeweils ±1
+    function boardOk(o, n) {
+      let me = request.auth.uid;
+      let grp = profile().get('grp', '');
+      let op = o.get('p', {});
+      let np = n.get('p', {});
+      let og = o.get('g', {});
+      let ng = n.get('g', {});
+      return np.diff(op).affectedKeys().hasOnly([me]) && ng.diff(og).affectedKeys().hasOnly([grp])
+        && boardEntryOk(op.get(me, {}), np.get(me, {})) && boardEntryOk(og.get(grp, {}), ng.get(grp, {}));
+    }
+
     // Getränke, Tage und „aktiver Tag“: alle lesen, nur Admins ändern
     match /products/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
     match /days/{id}     { allow read: if signedIn(); allow create, update: if isAdmin(); allow delete: if isSuper(); }
@@ -67,8 +90,9 @@ service cloud.firestore {
 
       // neue Konten warten auf Freischaltung (pending = true)
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['name', 'email', 't', 'pending'])
+        && request.resource.data.keys().hasOnly(['name', 'email', 't', 'pending', 'grp', 'dsgvo'])
         && request.resource.data.pending == true
+        && (!('grp' in request.resource.data) || (request.resource.data.grp is string && request.resource.data.grp.size() <= 40))
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 3
         && request.resource.data.name.size() <= 40
@@ -86,10 +110,11 @@ service cloud.firestore {
         // Admin: eine wartende Anmeldung ablehnen
         || (isAdmin() && resource.data.get('pending', false) == true
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pending', 'deleted', 'blocked']))
-        // Mitglied: nur die eigene E-Mail-Adresse nachtragen
+        // Mitglied: eigene E-Mail nachtragen, Datenschutz bestätigen, Löschung beantragen
         || (signedIn() && request.auth.uid == uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email'])
-            && request.resource.data.email == request.auth.token.email.lower());
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email', 'dsgvo', 'delreq'])
+            && (!('email' in request.resource.data.diff(resource.data).affectedKeys())
+                || request.resource.data.email == request.auth.token.email.lower()));
 
       allow delete: if isSuper();
     }
@@ -99,14 +124,14 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if isAdmin() || (isActive()
         && request.resource.data.keys().hasOnly(counterKeys())
-        && request.resource.data.get('all', 0) is int
-        && request.resource.data.get('beer', 0) is int);
+        && countersOk(oldData(), request.resource.data));
     }
     // Easter Eggs: eigene Gesamtzahl
     match /ustats/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
       allow write: if isAdmin() || (isActive() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(counterKeys()));
+        && request.resource.data.keys().hasOnly(counterKeys())
+        && countersOk(oldData(), request.resource.data));
     }
     // Easter Eggs: Gruppen-Meldungen, die alle Handys anzeigen (eine pro Meilenstein)
     match /live/{id} {
@@ -142,7 +167,8 @@ service cloud.firestore {
     // Bestenliste (Personen und Gruppen, pro Tag und gesamt)
     match /gboard/{id} {
       allow read: if signedIn();
-      allow write: if isAdmin() || (isActive() && request.resource.data.keys().hasOnly(['g', 'p']));
+      allow write: if isAdmin() || (isActive() && request.resource.data.keys().hasOnly(['g', 'p'])
+        && boardOk(oldData(), request.resource.data));
     }
     // Sammelalbum: welche Easter Eggs man hatte
     match /album/{uid} {
@@ -159,8 +185,9 @@ service cloud.firestore {
     }
 
     // Easter-Egg-Regeln, Gruppen, Sichtbarkeit, Kontakt, Bestenliste: alle lesen, nur Super-Admins ändern
+    // Gruppen, Kontakt und Datenschutz sind schon vor der Anmeldung lesbar (Registrierung)
     match /config/{id} {
-      allow read: if signedIn();
+      allow read: if signedIn() || id in ['groups', 'contact', 'privacy'];
       allow write: if isSuper();
     }
 

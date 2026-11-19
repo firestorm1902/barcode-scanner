@@ -107,6 +107,25 @@ Unter Admin → **Einstellungen**:
 
 Außerdem zeigt **Neu registriert** die letzten 25 Registrierungen mit Status (wartet, aktiv, abgelehnt, gesperrt); „Als gesehen markieren“ setzt die „neu“-Markierung zurück.
 
+## Datenschutz
+
+- Bei der **Registrierung** muss man den Datenschutzhinweis bestätigen und kann gleich seine **Gruppe** wählen.
+- Der Hinweis steht unten auf jeder Seite („Datenschutz“) und in der Hilfe: wer verantwortlich ist, was gespeichert wird, wofür, wer was sieht (mit den aktuellen Einstellungen), wo die Daten liegen, wie lange und welche Rechte man hat.
+- Bestehende Konten sehen einmal den Hinweis „Bitte lies kurz …“ mit „Gelesen und einverstanden“.
+- **Konto löschen:** Mitglieder beantragen es im Datenschutzhinweis. Der Super-Admin sieht oben im Admin „Löschanträge“ und entfernt das Konto (auf Wunsch mit Buchungen); das Login löscht er in der Firebase-Konsole.
+- Verein, Aufbewahrungsdauer und einen Zusatztext stellt der Super-Admin unter Einstellungen → Datenschutzhinweis ein. **Bitte den Text vom Vorstand bzw. Datenschutz-Verantwortlichen prüfen lassen** – er ist eine Vorlage, keine Rechtsberatung.
+- Gruppen, Kontakt und Datenschutz-Angaben sind schon vor der Anmeldung lesbar (für die Registrierung).
+
+## Schutz der Zähler und der Bestenliste
+
+- Mitglieder dürfen einen Zähler pro Schreibvorgang nur um genau 1 ändern und in der Bestenliste nur ihren eigenen Eintrag und ihre eigene Gruppe (Firebase-Regeln).
+- Admin-Handys gleichen alle 5 Minuten die Zähler des aktiven Tages mit den echten Buchungen ab und korrigieren sie. Größere Abweichungen (mehr als 2) landen in der Historie.
+- Das Handy des Super-Admins berechnet einmal am Tag alle Zähler „seit Beginn“ neu.
+
+## Einkaufsliste
+
+Admin → **Einkaufsliste**: Einkauf für wie viele Ausflüge, Basis (letzte wie viele Ausflüge) und Puffer eintragen, unter „Lagerbestand“ die Flaschen im Lager (oder „Lager = Übrig vom …“ übernehmen), dann **Einkaufsliste berechnen**. Verbrauch pro Ausflug = gebucht, oder mitgenommen − übrig, falls das mehr ist. Ergebnis in Kästen (größtes Gebinde), teilbar per WhatsApp oder kopierbar.
+
 ## Hilfe
 
 Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Offline, Mein Konto, Fahrer-Modus und Profilbild funktionieren – ohne Easter Eggs und Extras.
@@ -224,7 +243,7 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
 
 ## Easter Eggs
 
-Bei bestimmten Buchungen erscheint ein Vollbild mit Wespe, Animation, Ton und Vibration. Es bleibt stehen, bis man **Schließen** tippt. Mit **Teilen** (Bild) oder **WhatsApp** (Text) lässt es sich verschicken. Solange es offen ist, pausiert der 10-Sekunden-Countdown der Buchungsmeldung. Easter Eggs sieht nur, wer sie laut „Wer sieht was?“ sehen darf. Jedes Easter Egg kommt pro Person und Tag nur einmal, auch nach „Rückgängig“.
+Bei bestimmten Buchungen erscheint ein Vollbild mit Wespe, Animation, Ton und Vibration. Es bleibt stehen, bis man **Schließen** tippt. Mit **Teilen** lässt es sich verschicken (Bild, z. B. per WhatsApp). Wer zum ersten Mal ein Abzeichen bekommt, sieht danach ein eigenes **Sammelalbum-Popup** (helle Karte mit Medaille, „x von y Abzeichen“) – nur wenn das Sammelalbum für ihn sichtbar ist. Solange es offen ist, pausiert der 10-Sekunden-Countdown der Buchungsmeldung. Easter Eggs sieht nur, wer sie laut „Wer sieht was?“ sehen darf. Jedes Easter Egg kommt pro Person und Tag nur einmal, auch nach „Rückgängig“.
 
 **Nur auf dem eigenen Handy**
 - 1., 3., 5., 7., 8., 9. und 10. Bier am Tag, danach bei jedem weiteren Bier (mit zunehmendem Augenzwinkern Richtung Heimfahrt)
@@ -267,13 +286,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 19**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 19 auf 20):
-- in `index.html`: `const APP_VERSION = '19';`
-- in `sw.js`: `const VERSION = 'strichliste-v19';`
+Aktuell ist **Version 21**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 21 auf 22):
+- in `index.html`: `const APP_VERSION = '21';`
+- in `sw.js`: `const VERSION = 'strichliste-v21';`
 
-Version 19 bringt neue Regeln (Vorstand, Easter Eggs an/aus nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Seit Version 20 gelten neue Regeln (Datenschutz, Gruppe bei Registrierung, Zählerschutz). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 19“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 21“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

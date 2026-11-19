@@ -176,6 +176,45 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+/* Einladen / Übrig per Scan: ganzer Bildschirm */
+.sheet{z-index:82;align-items:stretch;background:rgba(11,18,24,.7)}
+.sheet-in{height:100%;height:100dvh;max-height:none;border-radius:0;gap:16px;padding:calc(10px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.sheet-top{position:sticky;top:calc(-10px - env(safe-area-inset-top));z-index:3;background:var(--bg);margin:-10px -16px 0;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:2px solid var(--wy)}
+.sheet-top b{font-size:1.15rem;line-height:1.25}
+.sheet-top .b{padding:9px 18px}
+#sheetMode{display:flex;width:100%}
+#sheetMode button{flex:1;padding:11px 8px;font-size:1rem}
+.sheet .vp{aspect-ratio:auto;height:min(34vh,300px);flex:0 0 auto}
+.sheet select,.sheet input{min-height:46px}
+.sheet .note{margin:0}
+@media (min-width:700px){.sheet{align-items:center;padding:20px}.sheet-in{height:auto;max-height:92vh;border-radius:16px}}
+body.sheet-open .totop,body.sheet-open .admnav{visibility:hidden}
+/* Sammelalbum-Popup */
+.alb-medal,.alb-prog{display:none}
+.egg[data-kind=album] .egg-who,.egg[data-kind=album] #eggName{display:none}
+html .egg[data-kind=album] .egg-in{background:#fff6d6;background-image:none;color:#141414;border:5px solid var(--wy);box-shadow:0 0 0 5px #141414,0 24px 60px rgba(0,0,0,.55);border-radius:22px}
+html .egg[data-kind=album] .egg-in b{color:#141414}
+html .egg[data-kind=album] .egg-in span{color:#3d3a30;font-size:1rem}
+html .egg[data-kind=album] .egg-in small{background:#141414;color:var(--wy)}
+.egg[data-kind=album] .alb-medal{display:flex;align-items:center;justify-content:center;width:112px;height:112px;border-radius:50%;margin:6px 0 34px;background:radial-gradient(circle at 35% 30%,#fff1a6,#f5c000 55%,#c79800);border:5px solid #141414;font:700 2.5rem/1 "Oswald","Arial Narrow",sans-serif;color:#141414;box-shadow:inset 0 -7px 0 rgba(0,0,0,.18),0 6px 0 #141414;position:relative}
+.egg[data-kind=album] .alb-medal::before,.egg[data-kind=album] .alb-medal::after{content:"";position:absolute;bottom:-30px;width:24px;height:36px;background:#141414;z-index:-1;clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
+.egg[data-kind=album] .alb-medal::before{left:22px;transform:rotate(14deg)}
+.egg[data-kind=album] .alb-medal::after{right:22px;transform:rotate(-14deg)}
+.egg[data-kind=album] .alb-prog{display:block;width:100%;margin-top:4px}
+.egg[data-kind=album] .alb-prog .bar{height:10px;background:#e8dcb0;border-radius:99px;overflow:hidden;border:1.5px solid #141414}
+.egg[data-kind=album] .alb-prog .bar i{display:block;height:100%;background:var(--wy)}
+.egg[data-kind=album] .alb-prog span{font-size:.82rem;color:#5b5544;display:block;margin-top:4px}
+html .egg[data-kind=album] .egg-btns .b{background:#fff;color:#141414;border-color:#141414}
+html .egg[data-kind=album] .egg-btns .b.pri{background:#141414;color:var(--wy);border-color:#141414}
+@keyframes albFlip{0%{transform:perspective(900px) rotateY(95deg) scale(.6);opacity:0}55%{transform:perspective(900px) rotateY(-12deg) scale(1.04);opacity:1}100%{transform:none}}
+@keyframes medalSpin{0%{transform:scale(.2) rotate(-200deg)}70%{transform:scale(1.15) rotate(10deg)}100%{transform:none}}
+.egg.go[data-anim=album] .egg-in{animation:albFlip .85s cubic-bezier(.2,1,.4,1)}
+.egg.go[data-anim=album] .alb-medal{animation:medalSpin 1s .25s cubic-bezier(.2,1.3,.4,1) both}
+.egg-btns .b{min-width:110px}
+.ta{font:inherit;font-size:16px;border:1.5px solid var(--line);border-radius:8px;padding:8px;width:100%;background:var(--white);color:var(--ink)}
+#fDs{font-size:.9rem;line-height:1.35}
+.shake{animation:eggShake .5s}
+#ver .linkbtn{font-size:inherit}
 .egg{cursor:default}
 .egg-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
 .egg-btns .b{background:#232323;color:#fff;border-color:#555}
@@ -359,6 +398,8 @@ body.noauth main{display:none!important}
       <label class="f full">E-Mail<input id="aMail" type="email" autocomplete="email" inputmode="email" autocapitalize="off"></label>
       <label class="f full">Passwort<input id="aPw" type="password" autocomplete="current-password"></label>
       <label class="f full" id="fPw2" hidden>Passwort wiederholen<input id="aPw2" type="password" autocomplete="new-password"></label>
+      <label class="f full" id="fGrp" hidden>Deine Gruppe (Narrenfigur)<select id="aGrp"><option value="">keine / weiß ich nicht</option></select></label>
+      <label class="chk full" id="fDs" hidden style="align-items:flex-start"><input type="checkbox" id="aDs" style="margin-top:3px"><span>Ich habe den <button type="button" class="linkbtn" id="aDsOpen" style="font-size:inherit">Datenschutzhinweis</button> gelesen und bin einverstanden.</span></label>
       <p id="aHint" class="full" style="font-size:.86rem;color:var(--mu)" hidden>Mindestens 6 Zeichen. Der Name ist danach fest mit deinem Konto verbunden und kann nur vom Admin geändert werden.</p>
       <div class="full row" style="margin-top:0"><button class="b pri grow" id="aBtn">Anmelden</button></div>
       <div class="full"><button class="b sm" id="aForgot" style="border:0;background:none;padding:4px 0;text-decoration:underline;color:var(--mu)">Passwort vergessen?</button></div>
@@ -394,6 +435,7 @@ body.noauth main{display:none!important}
       </div>
     </section>
     <div class="note" id="msg" hidden></div>
+    <div id="dsNote" class="note" hidden></div>
     <div id="last" hidden></div>
     <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div></section>
     <section id="extraSec" hidden>
@@ -452,10 +494,12 @@ body.noauth main{display:none!important}
       <path d="M100 33 q6 -12 14 -12 M95 33 q2 -14 8 -18" stroke="#141414" stroke-width="2.5" fill="none" stroke-linecap="round"/>
     </svg></div>
     <div id="eggName" class="egg-name"></div>
+    <div class="alb-medal" id="albMedal" aria-hidden="true"></div>
     <small id="eggKind"></small>
     <b id="eggTitle"></b>
     <span id="eggSub"></span>
-    <div class="egg-btns"><button class="b sm" id="eggShare">Teilen</button><button class="b sm" id="eggWa">WhatsApp</button><button class="b pri" id="eggClose">Schließen</button></div>
+    <div class="alb-prog" id="albProg"></div>
+    <div class="egg-btns"><button class="b" id="eggShare">Teilen</button><button class="b pri" id="eggClose">Schließen</button></div>
   </div>
 </div>
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-in"><button class="modal-x" id="modalX" aria-label="Schließen">×</button><div id="modalBody"></div></div></div>
@@ -478,7 +522,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '19';
+const APP_VERSION = '21';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -518,7 +562,7 @@ const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
 
 /* Neu zeichnen, ohne laufende Eingaben, Fokus und aufgeklappte Bereiche zu verlieren
    (wichtig, weil andere Handys ständig Buchungen schicken) */
-const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role', 'data-er', 'data-grp', 'data-minor', 'data-gr'];
+const ATTRS = ['data-stock', 'data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role', 'data-er', 'data-grp', 'data-minor', 'data-gr'];
 function fieldKey(el) {
   if (el.id) return '#' + el.id;
   for (const a of ATTRS) if (el.hasAttribute(a)) return a + '=' + el.getAttribute(a) + '|' + (el.dataset.id || '');
@@ -637,7 +681,7 @@ function startUserListeners() {
     if (lastRoleKey !== null && key !== lastRoleKey && S.user === u) refreshRole(u);
     lastRoleKey = key;
     autoApproveSelf();
-    renderScan();
+    renderScan(); renderDs();
   }, fail('me'));
   unsub.products = F.onSnapshot(col('products'), snap => {
     S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
@@ -658,6 +702,7 @@ function startUserListeners() {
   ['cfgFeat', 'cfgContact', 'cfgBest'].forEach(stop);
   unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
   unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
+  stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; }, err => console.warn('privacy', err));
   unsub.cfgBest = F.onSnapshot(dref('config', 'best'), snap => { S.best = snap.exists() ? snap.data() : null; if (extraTab === 'best') renderExtra(); }, err => console.warn('best', err));
   stop('cfg');
   unsub.cfg = F.onSnapshot(dref('config', 'eggs'), snap => {
@@ -761,7 +806,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'album', 'drv'].forEach(stop);
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'album', 'drv'].forEach(stop);
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -912,6 +957,8 @@ function setAuthMode(m) {
   $('authTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.a === m));
   const reg = m === 'reg';
   $('fName').hidden = !reg; $('fPw2').hidden = !reg; $('aHint').hidden = !reg; $('aForgot').parentNode.hidden = reg;
+  $('fGrp').hidden = !reg; $('fDs').hidden = !reg;
+  if (reg) { fillGrpSelect(); loadPublicCfg(); }
   $('aPw').autocomplete = reg ? 'new-password' : 'current-password';
   $('aBtn').textContent = reg ? 'Konto anlegen' : 'Anmelden';
   $('aIntro').textContent = reg ? 'Einmalig ein Konto anlegen. Damit kannst du dich später auch auf einem anderen Handy anmelden.' : 'Melde dich an, um Getränke zu buchen. Beim ersten Mal bitte „Registrieren“ wählen.';
@@ -942,11 +989,15 @@ $('aBtn').addEventListener('click', async () => {
     if (name.length < 3 || !/\s/.test(name)) { toast('Bitte Vor- und Nachnamen eingeben'); return; }
     if (pw.length < 6) { toast('Das Passwort braucht mindestens 6 Zeichen'); return; }
     if (pw !== $('aPw2').value) { toast('Die Passwörter stimmen nicht überein'); return; }
+    if (!$('aDs').checked) { toast('Bitte den Datenschutzhinweis lesen und bestätigen'); $('fDs').classList.add('shake'); setTimeout(() => $('fDs').classList.remove('shake'), 600); return; }
+    const grp = groupsAll().some(g => g.id === $('aGrp').value) ? $('aGrp').value : '';
     if (!confirm('Konto für „' + name + '“ anlegen? Der Name kann danach nur noch vom Admin geändert werden.')) return;
     btn.disabled = true; S.registering = name; renderScan();
     try {
       const cred = await F.createUserWithEmailAndPassword(auth, mail, pw);
-      await F.setDoc(dref('users', cred.user.uid), { name: name.slice(0, 40), email: mail.toLowerCase(), t: Date.now(), pending: true });
+      const ud = { name: name.slice(0, 40), email: mail.toLowerCase(), t: Date.now(), pending: true, dsgvo: Date.now() };
+      if (grp) ud.grp = grp;
+      await F.setDoc(dref('users', cred.user.uid), ud);
       S.me = name.slice(0, 40); logEv('person', 'registriert sich (' + mail.toLowerCase() + ')');
       $('aPw').value = $('aPw2').value = '';
     } catch (err) { toast(authMsg(err.code)); }
@@ -959,6 +1010,24 @@ $('aBtn').addEventListener('click', async () => {
   }
 });
 ['aMail', 'aPw', 'aPw2', 'aName'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('aBtn').click(); }));
+// Gruppenliste und Datenschutz-Angaben schon vor der Anmeldung laden (Regeln erlauben das Lesen)
+let publicLoaded = 0;
+async function loadPublicCfg() {
+  if (!db || Date.now() - publicLoaded < 60000) return;
+  publicLoaded = Date.now();
+  try {
+    const [g, c, pv] = await Promise.all(['groups', 'contact', 'privacy'].map(id => F.getDoc(dref('config', id))));
+    if (g.exists() && Array.isArray(g.data().list)) S.groups = g.data().list;
+    if (c.exists()) S.contact = c.data();
+    if (pv.exists()) S.privacy = pv.data();
+    fillGrpSelect();
+  } catch (e) { console.warn('public config', e); }
+}
+function fillGrpSelect() {
+  const sel = $('aGrp'), cur = sel.value;
+  sel.innerHTML = '<option value="">keine / weiß ich nicht</option>' + groupsAll().map(g => '<option value="' + esc(g.id) + '"' + (cur === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('');
+}
+$('aDsOpen').addEventListener('click', e => { e.preventDefault(); loadPublicCfg().then(() => { if (!$('modal').hidden) openModal(privacyHTML()); }); openModal(privacyHTML()); });
 $('aForgot').addEventListener('click', async () => {
   const mail = $('aMail').value.trim();
   if (!mail) { toast('Bitte zuerst die E-Mail-Adresse eintragen'); $('aMail').focus(); return; }
@@ -1179,7 +1248,7 @@ function describeRule(r) {
 const eggQueue = []; let eggShowing = false, eggTimer = null, curEgg = null;
 function showEgg(e, force) {
   if (!force && (!eggsOn() || !canSee('eggs'))) return;
-  if (eggQueue.length < 4) eggQueue.push(Object.assign({ force: !!force }, e));
+  if (eggQueue.length < 8) eggQueue.push(Object.assign({ force: !!force }, e));
   if (!eggShowing) nextEgg();
 }
 function nextEgg() {
@@ -1188,13 +1257,17 @@ function nextEgg() {
   if (!e) { eggShowing = false; el.hidden = true; return; }
   eggShowing = true;
   curEgg = e;
+  const album = e.kind === 'album';
+  el.dataset.kind = album ? 'album' : 'egg';
   $('eggTitle').textContent = e.title; $('eggSub').textContent = e.sub || '';
-  $('eggAv').innerHTML = avatarHTML(e.uid, e.name, 104);
-  $('eggName').textContent = e.group && e.name ? e.name : '';
-  $('eggKind').textContent = e.force ? 'Vorschau' : e.group ? 'Für alle' : '';
-  const rule = e.rid ? allRules().find(r => r.id === e.rid) : null, anim = pickAnim(rule);
+  $('eggAv').innerHTML = album ? '' : avatarHTML(e.uid, e.name, 104);
+  $('eggName').textContent = !album && e.group && e.name ? e.name : '';
+  $('eggKind').textContent = album ? 'Neu im Sammelalbum' : e.force ? 'Vorschau' : e.group ? 'Für alle' : '';
+  $('albMedal').textContent = album ? e.icon : '';
+  $('albProg').innerHTML = album ? '<div class="bar"><i style="width:' + Math.round(e.got / Math.max(1, e.of) * 100) + '%"></i></div><span>' + e.got + ' von ' + e.of + ' Abzeichen</span>' : '';
+  const rule = e.rid ? allRules().find(r => r.id === e.rid) : null, anim = album ? 'album' : pickAnim(rule);
   el.dataset.anim = anim;
-  eggFx(anim, rule);
+  eggFx(album ? 'sterne' : anim, rule);
   el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
   jingle(anim); if (navigator.vibrate) navigator.vibrate(anim === 'drehdurch' ? [60, 40, 60, 40, 60, 40, 200] : anim === 'blasen' ? [30, 50, 30, 50, 30, 50, 30] : [90, 60, 90, 60, 220]);
   clearTimeout(eggTimer);
@@ -1247,7 +1320,7 @@ function eggFx(anim, rule) {
 const MELODY = {
   konfetti: [523.25, 659.25, 783.99, 1046.5], drehdurch: [392, 523.25, 392, 659.25, 392, 783.99], blasen: [880, 988, 1175, 1319, 1568],
   regen: [659.25, 587.33, 523.25, 659.25, 783.99], feuerwerk: [261.63, 392, 523.25, 783.99, 1046.5], schwarm: [440, 466.16, 440, 466.16, 523.25],
-  ballons: [587.33, 739.99, 880, 1174.66], sterne: [1046.5, 1318.5, 1568, 2093]
+  ballons: [587.33, 739.99, 880, 1174.66], sterne: [1046.5, 1318.5, 1568, 2093], album: [783.99, 987.77, 1174.66, 1567.98, 1975.53]
 };
 function jingle(anim) {
   try {
@@ -1264,8 +1337,7 @@ function jingle(anim) {
 // Popups müssen aktiv geschlossen werden
 $('eggClose').addEventListener('click', e => { e.stopPropagation(); nextEgg(); });
 const APP_URL = location.origin + location.pathname.replace(/index\.html$/, '');
-const eggText = e => '🐝 ' + e.title + (e.sub ? '\n' + e.sub : '') + (e.group && e.name ? '\n(ausgelöst von ' + e.name + ')' : '') + '\n\nWexhainis Getränke-Strichliste – Dreh durch!\n' + APP_URL;
-$('eggWa').addEventListener('click', e => { e.stopPropagation(); if (curEgg) window.open('https://wa.me/?text=' + encodeURIComponent(eggText(curEgg)), '_blank', 'noopener'); });
+const eggText = e => (e.kind === 'album' ? '🏅 Neues Abzeichen im Sammelalbum: ' : '🐝 ') + e.title + (e.sub ? '\n' + e.sub : '') + (e.group && e.name ? '\n(ausgelöst von ' + e.name + ')' : '') + '\n\nWexhainis Getränke-Strichliste – Dreh durch!\n' + APP_URL;
 $('eggShare').addEventListener('click', async e => {
   e.stopPropagation(); if (!curEgg) return;
   const ev = curEgg, text = eggText(ev);
@@ -1413,8 +1485,21 @@ async function eggsAfterBook(pid, scanId) {
   });
 }
 // Sammelalbum: welche Easter Eggs man schon hatte
+// Symbol eines Abzeichens (wie im Sammelalbum)
+const badgeIcon = r => String(r.who === 'group' ? 'A' : r.who === 'team' ? 'G' : r.kind === 'time' ? '⏰' : r.kind === 'date' ? '📅' : (r.kind === 'count' ? r.n : '★'));
 function albumAdd(rids) {
   if (!S.user || !rids.length) return;
+  // neu gesammelt? eigenes Popup (optisch anders) nach dem Easter Egg
+  if (canSee('album') && eggsOn()) {
+    const minor = isMinor(), rules = activeRules().filter(r => !(minor && ruleAlc(r))), have = new Set(Object.keys(S.album || {}));
+    rids.filter(Boolean).forEach(id => {
+      const r = rules.find(x => x.id === id);
+      if (!r || have.has(id) || !eggOnce('alb_' + S.user.uid + '_' + id)) return;
+      have.add(id);
+      const v = r.kind === 'schnaps' ? 11 : r.n || r.n2 || 1, t = fill(pickText(r, v).t, { n: v, name: S.me, gruppe: gname(myGroup()) });
+      showEgg({ kind: 'album', rid: id, title: t, sub: howTo(r), icon: badgeIcon(r), got: rules.filter(x => have.has(x.id)).length, of: rules.length, uid: S.user.uid, name: S.me });
+    });
+  }
   const r = {}; rids.filter(Boolean).forEach(id => { r[id] = { n: F.increment(1), t: Date.now() }; });
   fire(F.setDoc(dref('album', S.user.uid), { r }, { merge: true }), 'Sammelalbum');
 }
@@ -1603,6 +1688,56 @@ async function recomputeCounters() {
   await commitInChunks(ops);
   return total.all;
 }
+
+/* ---------- Zähler des aktiven Tages automatisch prüfen ----------
+   Admin-Handys kennen alle Buchungen des Tages. Weichen Bestenliste oder Zähler davon ab
+   (z. B. jemand hat per Browser-Konsole geschummelt), werden sie korrigiert und auffällige
+   Abweichungen im Protokoll vermerkt. */
+function expectedDay(scans) {
+  const gs = { all: 0 }, b = { g: {}, p: {} };
+  scans.forEach(s => {
+    const c = catOf(P(s.p)); gs.all++; if (ckey(c) !== 'all') gs[ckey(c)] = (gs[ckey(c)] || 0) + 1;
+    const u = S.users[s.uid] || {}, grp = u.grp || '';
+    const pm = b.p[s.uid] = b.p[s.uid] || { n: u.name || s.who || '', g: grp, all: 0, beer: 0, na: 0 };
+    pm.all++; if (c === 'bier') pm.beer++; if (NONALC.includes(c)) pm.na++;
+    if (grp) { const gm = b.g[grp] = b.g[grp] || { all: 0, beer: 0, na: 0 }; gm.all++; if (c === 'bier') gm.beer++; if (NONALC.includes(c)) gm.na++; }
+  });
+  return { gs, b };
+}
+let verifyBusy = false;
+async function verifyDayCounters() {
+  if (verifyBusy || !S.isAdmin || !navigator.onLine || !S.active || !S.activeScans || !Object.keys(S.users).length) return;
+  verifyBusy = true;
+  try {
+    const dayId = S.active, scans = S.activeScans.slice(), E = expectedDay(scans);
+    const [g, b] = await Promise.all([F.getDoc(dref('gstats', dayId)), F.getDoc(dref('gboard', dayId))]);
+    if (dayId !== S.active || scans.length !== (S.activeScans || []).length) return; // inzwischen neue Buchungen: nächstes Mal
+    const G = g.exists() ? g.data() : {}, B = b.exists() ? b.data() : { g: {}, p: {} };
+    const keys = new Set(Object.keys(E.gs).concat(Object.keys(G)));
+    const gBad = [...keys].some(k => (G[k] || 0) !== (E.gs[k] || 0));
+    const odd = []; let bBad = false;
+    new Set(Object.keys(E.b.p).concat(Object.keys(B.p || {}))).forEach(uid => {
+      const x = (B.p || {})[uid] || {}, y = E.b.p[uid] || {};
+      ['all', 'beer', 'na'].forEach(k => { const d = (x[k] || 0) - (y[k] || 0); if (d) { bBad = true; if (Math.abs(d) > 2) odd.push((y.n || x.n || uname(uid)) + ' (' + (k === 'all' ? 'Getränke' : k === 'beer' ? 'Bier' : 'alkoholfrei') + ': ' + (x[k] || 0) + ' statt ' + (y[k] || 0) + ')'); } });
+    });
+    new Set(Object.keys(E.b.g).concat(Object.keys(B.g || {}))).forEach(k => { const x = (B.g || {})[k] || {}, y = E.b.g[k] || {}; if (['all', 'beer', 'na'].some(f => (x[f] || 0) !== (y[f] || 0))) bBad = true; });
+    if (gBad) fire(F.setDoc(dref('gstats', dayId), E.gs), 'Zähler prüfen');
+    if (bBad) fire(F.setDoc(dref('gboard', dayId), E.b), 'Bestenliste prüfen');
+    if (odd.length) logEv('system', 'Bestenliste automatisch korrigiert – auffällig: ' + odd.join(', ').slice(0, 240), dayId);
+  } catch (err) { console.warn('verify', err); }
+  finally { verifyBusy = false; }
+}
+setInterval(verifyDayCounters, 5 * 60000); window.__verifyDay = verifyDayCounters;
+setTimeout(verifyDayCounters, 30000);
+// Super-Admin: einmal am Tag alle Zähler (auch „seit Beginn“) aus den Buchungen neu berechnen
+async function dailyRecount() {
+  if (!S.isSuper || !navigator.onLine) return;
+  let last = 0; try { last = +localStorage.getItem('strichliste_recount') || 0; } catch (e) {}
+  if (Date.now() - last < 20 * 3600000) return;
+  try { localStorage.setItem('strichliste_recount', String(Date.now())); } catch (e) {}
+  try { await recomputeCounters(); } catch (err) { console.warn('recount', err); }
+}
+setTimeout(dailyRecount, 45000);
 
 /* ---------- Super-Admin: alle Statistiken zurücksetzen ---------- */
 async function resetStats(withData) {
@@ -1860,7 +1995,7 @@ function renderAlbum() {
   let h = '<div style="margin-bottom:10px"><b>' + n + ' von ' + rules.length + '</b> Easter Eggs gesammelt<div class="bar" style="height:8px"><i style="width:' + Math.round(n / Math.max(1, rules.length) * 100) + '%;background:var(--wy)"></i></div></div><div class="badges">';
   h += rules.map(r => {
     const g = got[r.id], v = r.kind === 'schnaps' ? 11 : r.n || r.n2 || 1, t = fill(pickText(r, v).t, { n: v, name: S.me, gruppe: gname(myGroup()) });
-    const icon = r.who === 'group' ? 'A' : r.who === 'team' ? 'G' : r.kind === 'time' ? '⏰' : r.kind === 'date' ? '📅' : (r.kind === 'count' ? r.n : '★');
+    const icon = badgeIcon(r);
     return g ? '<div class="badge got" data-xa="badge" data-id="' + esc(r.id) + '" role="button" tabindex="0"><span class="medal">' + esc(String(icon)) + '</span><b>' + esc(t) + '</b><small>' + (g.n > 1 ? g.n + '× · ' : '') + esc(describeRule(r)) + '</small></div>'
       : '<div class="badge" data-xa="badge" data-id="' + esc(r.id) + '" role="button" tabindex="0"><span class="medal">?</span><b>???</b><small>' + esc(describeRule(r)) + '</small></div>';
   }).join('');
@@ -1912,7 +2047,74 @@ $('helpBtn').addEventListener('click', () => {
     '<h3 class="sub3">3. Was du sonst siehst</h3><ul><li><b>Deine Getränke heute</b> mit Strichen und dem Betrag.</li><li><b>Mein Konto</b>: alle deine Getränke und Kosten der Saison, auch als Excel.</li><li><b>Ich fahre heute</b>: Die App fragt dann bei alkoholischen Getränken nach.</li><li><b>Profilbild</b>: auf den runden Kreis tippen.</li><li><b>Hell / Nacht</b> oben rechts: Farbschema umschalten.</li></ul>' +
     '<h3 class="sub3">Ohne Netz?</h3><p>Kein Problem. Buchungen werden auf dem Handy gespeichert und gesendet, sobald wieder Netz da ist („offline · 3 warten“ oben). Dabei nicht abmelden.</p>' +
     '<h3 class="sub3">Tipps</h3><ul><li>Zum Startbildschirm hinzufügen – iPhone: Safari → Teilen → „Zum Home-Bildschirm“, Android: Chrome → Menü → „Zum Startbildschirm hinzufügen“.</li><li>Passwort vergessen? Beim Anmelden „Passwort vergessen?“ tippen.</li><li>Neues Handy? Einfach mit derselben E-Mail anmelden – alles ist wieder da.</li></ul>' +
+    '<p><button class="linkbtn" style="font-size:inherit" onclick="document.getElementById(\'dsLink\').click()">Datenschutzhinweis lesen</button></p>' +
     '<h3 class="sub3">Fragen?</h3><p>Wende dich an <b>' + esc(contactName(1)) + '</b>.</p>' + contactHTML());
+});
+
+/* ---------- Datenschutz ---------- */
+const PRIV_DEFAULT = { org: '1. Wexhainer Narrenzunft', keep: 'Buchungen bewahren wir auf, bis die Getränke der jeweiligen Saison abgerechnet und von der Kassenprüfung geprüft sind. Danach werden sie gelöscht. Dein Konto bleibt bestehen, bis du die Löschung beantragst oder nicht mehr Mitglied bist.', extra: '' };
+const privCfg = () => Object.assign({}, PRIV_DEFAULT, S.privacy || {});
+function featState() {
+  const L = FEATURES.filter(([f]) => f !== 'eggs').map(([f, label]) => { const m = ((S.features || {})[f] || {}).mode || 'none'; return label + ': ' + (m === 'all' ? 'für alle Mitglieder sichtbar' : m === 'list' ? 'nur für ausgewählte Personen' : m === 'admins' ? 'nur für Admins und Vorstand' : 'ausgeschaltet'); });
+  const e = ((S.features || {}).eggs || {}).mode || 'none';
+  L.push('Gemeinsame Hinweise (z. B. „Max hat das 10. Getränk der Gruppe gebucht“): ' + (e === 'none' ? 'ausgeschaltet' : 'eingeschaltet'));
+  return L;
+}
+function privacyHTML() {
+  const pc = privCfg(), c = S.contact || {}, me = S.user && S.meDoc;
+  const li = a => '<ul>' + a.map(x => '<li>' + x + '</li>').join('') + '</ul>';
+  let h = '<h2>Datenschutz</h2><p style="color:var(--mu);font-size:.86rem">Kurz und verständlich: was die Getränke-Strichliste über dich speichert und wer es sieht.</p>' +
+    '<h3 class="sub3">Wer ist verantwortlich?</h3><p>' + esc(pc.org) + (c.name ? '. Ansprechpartner: <b>' + esc(c.name) + '</b>' : '') + (c.tel ? ', Tel. ' + esc(c.tel) : '') + '.</p>' + contactHTML() +
+    '<h3 class="sub3">Was wird gespeichert?</h3>' + li([
+      '<b>Konto:</b> Vor- und Nachname, E-Mail-Adresse, Datum der Registrierung, deine Gruppe (Narrenfigur). Dein Passwort sehen wir nicht – es liegt nur verschlüsselt bei Google Firebase.',
+      '<b>Jede Buchung:</b> welches Getränk, wann und an welchem Tag.',
+      '<b>Jugendschutz:</b> ob du unter 18 bist – nur wenn ein Admin das einträgt, damit für dich kein Alkohol gebucht werden kann.',
+      '<b>Freiwillig:</b> Profilbild und „Ich fahre heute“ (nur für den einen Tag).',
+      '<b>Protokoll:</b> Änderungen an Konten, Buchungen und Einstellungen (wer, was, wann) – zur Nachvollziehbarkeit.',
+      '<b>Auf deinem Handy:</b> Anmeldung und Zwischenspeicher, damit die App offline funktioniert. Keine Werbe- oder Analyse-Cookies.']) +
+    '<h3 class="sub3">Wofür?</h3>' + li(['Abrechnung deiner Getränke', 'Abgleich, ob alles Mitgenommene gebucht wurde', 'Jugendschutz und die Fahrer-Erinnerung', 'Organisation der Ausflüge']) +
+    '<p>Rechtsgrundlage ist deine Mitgliedschaft im Verein und die Abrechnung der Getränke; für freiwillige Angaben (Profilbild, Fahrer-Modus) deine Einwilligung, die du jederzeit zurücknehmen kannst.</p>' +
+    '<h3 class="sub3">Wer sieht was?</h3>' + li([
+      '<b>Du:</b> alles über dich, unter „Mein Konto“ auch als Excel.',
+      '<b>Andere Mitglieder:</b> nichts von deinen Buchungen. Je nach Einstellung des Vereins höchstens Name, Profilbild und Gruppe bei gemeinsamen Hinweisen oder in einer Bestenliste.',
+      '<b>Getränke-Admins und Vorstand:</b> Name, E-Mail, Gruppe, unter-18-Kennzeichen, alle Buchungen und wer an einem Tag fährt – für Abgleich und Abrechnung.',
+      '<b>Super-Admin:</b> zusätzlich das Änderungs-Protokoll und die Kontoverwaltung.']) +
+    '<p style="font-size:.88rem">Aktuell eingestellt:</p>' + li(featState().map(esc)) +
+    '<h3 class="sub3">Wo liegen die Daten?</h3>' + li([
+      '<b>Google Firebase</b> (Datenbank und Anmeldung).',
+      '<b>GitHub Pages</b> stellt die App bereit; dabei wird wie bei jeder Webseite deine IP-Adresse verarbeitet.',
+      '<b>Google Fonts</b> liefert die Schriftarten; dabei wird deine IP-Adresse an Google übertragen.',
+      'Die Anbieter sitzen teils in den USA, daher können Daten dorthin übertragen werden.']) +
+    '<h3 class="sub3">Wie lange?</h3><p>' + esc(pc.keep) + '</p>' +
+    '<h3 class="sub3">Deine Rechte</h3><p>Du kannst Auskunft, Berichtigung und Löschung deiner Daten verlangen und freiwilligen Angaben widersprechen. Wende dich dazu an ' + esc(contactName(1)) + '. Du kannst dich außerdem bei einer Datenschutz-Aufsichtsbehörde beschweren.</p>' +
+    (pc.extra ? '<p>' + esc(pc.extra).replace(/\n/g, '<br>') + '</p>' : '');
+  if (me) {
+    h += '<h3 class="sub3">Konto löschen</h3>' + (me.delreq
+      ? '<div class="note">Du hast am ' + new Date(me.delreq).toLocaleDateString('de-DE') + ' die Löschung beantragt. ' + esc(contactName()) + ' kümmert sich darum.</div>'
+      : '<p>Mit dem Knopf beantragst du die Löschung deines Kontos und deiner Buchungen. Offene Beträge müssen vorher abgerechnet sein.</p><div class="row"><button class="b dng sm" id="delReqBtn">Löschung meines Kontos beantragen</button></div>') +
+      (me.dsgvo ? '<p style="font-size:.8rem;color:var(--mu);margin-top:8px">Von dir bestätigt am ' + new Date(me.dsgvo).toLocaleDateString('de-DE') + '.</p>' : '');
+  }
+  return h;
+}
+$('modalBody').addEventListener('click', e => {
+  if (e.target.id === 'delReqBtn') {
+    if (!S.user || !confirm('Löschung deines Kontos und deiner Buchungen beantragen?')) return;
+    fire(F.updateDoc(dref('users', S.user.uid), { delreq: Date.now() }), 'Löschung beantragen');
+    logEv('person', 'beantragt die Löschung des eigenen Kontos');
+    S.meDoc = Object.assign({}, S.meDoc, { delreq: Date.now() }); toast('Löschung beantragt'); openModal(privacyHTML());
+  }
+});
+// bestehende Konten: Datenschutzhinweis einmal bestätigen
+function renderDs() {
+  const el = $('dsNote'); if (!el) return;
+  const show = !!(S.user && S.meDoc && S.me && !S.meDoc.dsgvo && !S.meDoc.deleted && !$('v-scan').hidden);
+  el.hidden = !show; if (!show) return;
+  el.innerHTML = '<b>Datenschutz:</b> Bitte lies kurz, was die App speichert und wer was sieht.<div class="row" style="margin-top:6px"><button class="b sm" data-ds="read">Lesen</button><button class="b sm pri" data-ds="ok">Gelesen und einverstanden</button></div>';
+}
+$('dsNote').addEventListener('click', e => {
+  const b = e.target.closest('[data-ds]'); if (!b) return;
+  if (b.dataset.ds === 'read') openModal(privacyHTML());
+  if (b.dataset.ds === 'ok') { fire(F.updateDoc(dref('users', S.user.uid), { dsgvo: Date.now() }), 'Datenschutz bestätigen'); S.meDoc = Object.assign({}, S.meDoc, { dsgvo: Date.now() }); renderDs(); toast('Danke!'); }
 });
 
 function kontoData(period) {
@@ -2156,14 +2358,14 @@ const selDayObj = () => S.days.find(d => d.id === S.selDay) || null;
 async function openSheet(opts) {
   Object.assign(sh, { mode: 'load', pid: null, unknown: null, assignTo: null, minus: false, last: null }, opts);
   if (cam.box === boxMain) { camStop(); setMainButtons(); }
-  $('sheet').hidden = false; document.body.style.overflow = 'hidden';
+  $('sheet').hidden = false; document.body.style.overflow = 'hidden'; document.body.classList.add('sheet-open'); $('sheet').querySelector('.sheet-in').scrollTop = 0;
   renderSheet();
   const err = await camStart(boxSheet, onSheetCode);
   if (err) boxSheet.ph.innerHTML = '<span style="color:#fff">' + err + '</span>';
 }
 function closeSheet() {
   camStop(); boxSheet.ph.innerHTML = '<b>Kamera startet …</b>';
-  $('sheet').hidden = true; document.body.style.overflow = '';
+  $('sheet').hidden = true; document.body.style.overflow = ''; document.body.classList.remove('sheet-open');
   renderAdmin();
 }
 function onSheetCode(code) {
@@ -2345,8 +2547,13 @@ function renderAdmin() {
   }
   const day = selDayObj(), scans = S.dayScansFor === S.selDay ? S.dayScans : [];
   const RO = !S.isAdmin; // Vorstand: nur lesen
-  let h = RO ? '<div class="note">Vorstand-Sicht: nur lesen. Excel-Auswertungen kannst du erstellen.</div>' : '';
-  if (S.isSuper) h += newRegsSection();
+  let h = '';
+  if (S.isSuper) {
+    const dr = Object.keys(S.users).filter(k => S.users[k].delreq && !S.users[k].deleted);
+    if (dr.length) h += '<section><h2>Löschanträge (' + dr.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Diese Personen möchten ihr Konto löschen lassen. Vorher offene Beträge abrechnen. „Entfernen“ fragt, ob die Buchungen mit gelöscht werden; das Login löschst du danach in der Firebase-Konsole.</div>' +
+      dr.map(k => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(k, S.users[k].name, 30) + '</span><span>' + esc(S.users[k].name || '') + '<br><small>beantragt am ' + new Date(S.users[k].delreq).toLocaleDateString('de-DE') + '</small></span><button class="b sm dng" data-act="removeUser" data-id="' + k + '">Entfernen</button></div>').join('') + '</section>';
+    h += newRegsSection();
+  }
   const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== S.user.uid);
   if (pend.length && !RO) h += '<section><h2>Neue Anmeldungen (' + pend.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erst nach dem Freischalten kann die Person buchen.</div>' +
     pend.map(k => { const u = S.users[k]; return '<div class="rw" style="align-items:center"><span style="display:flex;gap:8px;align-items:center">' + avatarHTML(k, u.name, 32) + '</span><span>' + esc(u.name) + '<br><small>' + esc(u.email || '') + (u.t ? ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</small></span><button class="b sm pri" data-act="approve" data-id="' + k + '">Freischalten</button><button class="b sm dng" data-act="reject" data-id="' + k + '">Ablehnen</button></div>'; }).join('') + '</section>';
@@ -2436,6 +2643,7 @@ function renderAdmin() {
       : '<div class="row"><button class="b" data-act="toggleNewProd">Getränk ohne Scan anlegen</button></div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';
 
+  if (!RO && S.products.length) h += shopSection();
   if (S.days.length > 1 && !RO) {
     h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
       const o = overview && overview[d.id];
@@ -2454,7 +2662,7 @@ function renderAdmin() {
         const me = u.uid === S.user.uid;
         const badges = (RO ? '' : me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Getränke-Admin</span>' : u.role === 'vorstand' ? '<span class="tag act">Vorstand</span>' : '') +
           (u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '') + (u.minor ? '<span class="tag" style="color:var(--pet)">U18</span>' : '') + (u.grp && gname(u.grp) ? '<span class="tag cls">' + esc(gname(u.grp)) + '</span>' : '') +
-          (u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : '') +
+          (u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : '') + (u.delreq && !RO ? '<span class="tag" style="color:var(--pen)">Löschung beantragt</span>' : '') +
           (counts[u.name.toLowerCase()] > 1 ? '<span class="tag" style="color:var(--amb)">doppelt</span>' : '') + (me ? '<span class="tag cls">du</span>' : '');
         let inner = '<label class="f full">Name<input data-u="' + u.uid + '" value="' + esc(u.name) + '"></label>' +
           '<label class="f">Narrenfigur / Gruppe<select data-grp="' + u.uid + '"><option value="">keine</option>' + groupsAll().map(g => '<option value="' + esc(g.id) + '"' + (u.grp === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('') + '</select></label>' +
@@ -2501,6 +2709,81 @@ function renderAdmin() {
   if (RO) readOnly(el);
   adminNav(el, navX);
 }
+/* ---------- Einkaufsliste ---------- */
+let shopCfg = { trips: 1, base: 5, buf: 10 }; try { Object.assign(shopCfg, JSON.parse(localStorage.getItem('strichliste_shop') || '{}')); } catch (e) {}
+const shopScans = {};
+function shopSection() {
+  const lastC = S.days.filter(d => d.date <= todayISO() && Object.keys(d.count || {}).some(k => d.count[k] != null))[0];
+  let h = '<section><h2>Einkaufsliste</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Bedarf = Ø Verbrauch der letzten Ausflüge × Anzahl Ausflüge + Puffer. Davon wird abgezogen, was im Lager steht. Verbrauch = gebucht, oder mitgenommen − übrig, falls das mehr ist.</div>' +
+    '<div class="grid2"><label class="f">Einkauf für … Ausflüge<input id="shTrips" inputmode="numeric" value="' + shopCfg.trips + '"></label><label class="f">Basis: letzte … Ausflüge<input id="shBase" inputmode="numeric" value="' + shopCfg.base + '"></label>' +
+    '<label class="f">Puffer in %<input id="shBuf" inputmode="numeric" value="' + shopCfg.buf + '"></label><div></div></div>' +
+    '<details class="pc" data-k="shopStock"><summary><b>Lagerbestand (Flaschen)</b><small>' + S.products.filter(p => p.stock > 0).length + ' Getränke im Lager</small></summary>' +
+    S.products.map(p => '<div class="rw"><span></span><span>' + esc(p.name) + '</span><input class="n" inputmode="numeric" data-stock="' + p.id + '" value="' + (p.stock || '') + '" placeholder="0" aria-label="Lager ' + esc(p.name) + '"></div>').join('') +
+    (lastC ? '<div class="row"><button class="b sm" data-shop="fromLast" data-id="' + lastC.id + '">Lager = „Übrig“ vom ' + esc(fmtDate(lastC.date)) + '</button></div>' : '') + '</details>' +
+    '<div class="row"><button class="b pri" data-shop="calc">Einkaufsliste berechnen</button></div>';
+  if (S.shop) {
+    const L = S.shop.rows.filter(r => r.buy > 0);
+    h += '<div style="font-size:.82rem;color:var(--mu);margin:8px 0 4px">Grundlage: ' + S.shop.days + ' Ausflüge (' + esc(S.shop.range) + '), für ' + S.shop.trips + ' Ausflug' + (S.shop.trips > 1 ? 'e' : '') + ', +' + S.shop.buf + ' % Puffer.</div>' +
+      '<div class="tw"><table><thead><tr><th>Getränk</th><th>Ø</th><th>Bedarf</th><th>Lager</th><th>Kaufen</th></tr></thead><tbody>' +
+      S.shop.rows.map(r => '<tr><td>' + esc(r.name) + '</td><td>' + r.avg.toFixed(1).replace('.', ',') + '</td><td>' + r.need + '</td><td>' + r.stock + '</td><td class="' + (r.buy > 0 ? 'warn' : 'good') + '"><b>' + (r.buy > 0 ? esc(r.packTxt) : 'reicht') + '</b></td></tr>').join('') +
+      '</tbody></table></div>' + (L.length ? '<div class="row"><button class="b sm" data-shop="share">Liste teilen (WhatsApp …)</button><button class="b sm" data-shop="copy">Kopieren</button></div>' : '<div class="note ok">Alles da – nichts einzukaufen.</div>');
+  }
+  return h + '</section>';
+}
+function shopText() {
+  const L = (S.shop ? S.shop.rows : []).filter(r => r.buy > 0);
+  return '🛒 Einkaufsliste Wexhainis (' + S.shop.trips + ' Ausflug' + (S.shop.trips > 1 ? 'e' : '') + ')\n' + L.map(r => '• ' + r.name + ': ' + r.packTxt).join('\n');
+}
+async function shopCalc() {
+  const num = (id, lo, hi, d) => { const v = parseInt($(id).value); return v >= lo && v <= hi ? v : d; };
+  shopCfg = { trips: num('shTrips', 1, 20, 1), base: num('shBase', 1, 20, 5), buf: num('shBuf', 0, 200, 10) };
+  try { localStorage.setItem('strichliste_shop', JSON.stringify(shopCfg)); } catch (e) {}
+  const days = S.days.filter(d => d.date <= todayISO()).filter(d => Object.values(d.load || {}).some(v => v > 0) || d.id === S.active).slice(0, shopCfg.base);
+  if (!days.length) { toast('Noch keine Ausflüge mit eingeladenen Getränken'); return; }
+  toast('Berechne …');
+  try { await Promise.all(days.map(async d => { if (!shopScans[d.id] || d.id === S.active) shopScans[d.id] = (await F.getDocs(F.query(col('scans'), F.where('day', '==', d.id)))).docs.map(x => x.data().p); })); }
+  catch (e) { toast('Dafür wird Internet benötigt'); return; }
+  const rows = S.products.map(p => {
+    let sum = 0, n = 0;
+    days.forEach(d => {
+      const used = shopScans[d.id].filter(x => x === p.id).length, l = (d.load || {})[p.id] || 0, c = (d.count || {})[p.id];
+      if (!l && !used) return;
+      sum += Math.max(used, c != null ? Math.max(0, l - c) : 0); n++;
+    });
+    if (!n) return null;
+    const avg = sum / n, need = Math.ceil(avg * shopCfg.trips * (1 + shopCfg.buf / 100)), stock = p.stock || 0, buy = Math.max(0, need - stock);
+    const pk = (p.packs || []).filter(k => k.n > 1).sort((a, b) => b.n - a.n)[0];
+    const packTxt = pk ? Math.ceil(buy / pk.n) + ' × ' + pk.l + ' ' + pk.n + ' (' + Math.ceil(buy / pk.n) * pk.n + ' Fl.)' : buy + ' Flaschen';
+    return { id: p.id, name: p.name, avg, need, stock, buy, packTxt };
+  }).filter(Boolean).sort((a, b) => b.buy - a.buy || a.name.localeCompare(b.name, 'de'));
+  const ds = days.map(d => d.date).sort();
+  S.shop = { rows, days: days.length, trips: shopCfg.trips, buf: shopCfg.buf, range: fmtDate(ds[0]) + (ds.length > 1 ? ' bis ' + fmtDate(ds[ds.length - 1]) : '') };
+  renderAdmin();
+}
+$('adminBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-shop]'); if (!b || !S.isAdmin) return;
+  const a = b.dataset.shop;
+  if (a === 'calc') shopCalc();
+  if (a === 'fromLast') {
+    const d = S.days.find(x => x.id === b.dataset.id); if (!d) return;
+    if (!confirm('Lagerbestand auf „Übrig“ vom ' + fmtDate(d.date) + ' setzen?')) return;
+    S.products.forEach(p => { const c = (d.count || {})[p.id]; if (c != null) fire(F.updateDoc(dref('products', p.id), { stock: Math.max(0, c) }), 'Lager speichern'); });
+    logEv('getraenk', 'Lager = Übrig vom ' + fmtDate(d.date)); toast('Lager übernommen');
+  }
+  if (a === 'share') {
+    const t = shopText();
+    try { if (navigator.share) { await navigator.share({ text: t, title: 'Einkaufsliste' }); return; } } catch (err) { if (err && err.name === 'AbortError') return; }
+    window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank', 'noopener');
+  }
+  if (a === 'copy') { try { await navigator.clipboard.writeText(shopText()); toast('Kopiert'); } catch (err) { toast('Kopieren nicht möglich'); } }
+});
+$('adminBody').addEventListener('change', e => {
+  const t = e.target; if (!t.dataset.stock || !S.isAdmin) return;
+  const v = parseInt(t.value);
+  fire(F.updateDoc(dref('products', t.dataset.stock), { stock: v >= 0 ? v : F.deleteField() }), 'Lager speichern');
+  logEv('getraenk', 'Lager ' + pname(t.dataset.stock) + ' → ' + (v >= 0 ? v : 'leer'));
+});
+
 const ROLE_LABEL = { '': 'Mitglied', admin: 'Getränke-Admin', vorstand: 'Vorstand' };
 // Vorstand: alles nur lesen – Eingaben werden zu Text, Knöpfe außer Excel verschwinden
 const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo'];
@@ -2564,6 +2847,12 @@ function settingsSection() {
     '<label class="f">WhatsApp (Nummer oder Link)<input id="ctWa" value="' + esc(c.wa || '') + '" placeholder="0171 1234567 oder https://wa.me/…" inputmode="tel"></label>' +
     '<label class="f">Telefon<input id="ctTel" value="' + esc(c.tel || '') + '" placeholder="0171 1234567" inputmode="tel"></label>' +
     '<div class="full"><button class="b pri sm" data-set="contactSave">Kontakt speichern</button></div></div>';
+  const pv = privCfg();
+  h += '<h3 class="sub3">Datenschutzhinweis</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Steht bei der Registrierung und unten auf jeder Seite. Bitte vom Vorstand bzw. Datenschutz-Verantwortlichen prüfen lassen. <button class="linkbtn" data-set="privacyShow">Vorschau</button></div>' +
+    '<div class="grid2"><label class="f full">Verantwortlicher Verein<input id="pvOrg" value="' + esc(pv.org) + '"></label>' +
+    '<label class="f full">Wie lange werden Daten aufbewahrt?<textarea id="pvKeep" rows="3" class="ta">' + esc(pv.keep) + '</textarea></label>' +
+    '<label class="f full">Zusätzlicher Text (optional)<textarea id="pvExtra" rows="2" class="ta">' + esc(pv.extra) + '</textarea></label>' +
+    '<div class="full"><button class="b pri sm" data-set="privacySave">Datenschutz speichern</button></div></div>';
   h += '<h3 class="sub3">Wer sieht was?</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Standard: ausgeblendet. Gezählt wird trotzdem – beim Einschalten sind die Daten da. „Mein Konto“ sehen immer alle.</div>' +
     FEATURES.map(([f, label]) => {
       const fc = (S.features || {})[f] || {}, m = fc.mode || 'none', uids = fc.uids || [];
@@ -2586,6 +2875,11 @@ $('adminBody').addEventListener('click', e => {
     const c = { name: $('ctName').value.trim().slice(0, 40), wa: $('ctWa').value.trim().slice(0, 120), tel: $('ctTel').value.trim().slice(0, 30), t: Date.now() };
     S.contact = c; fire(F.setDoc(dref('config', 'contact'), c), 'Kontakt speichern'); logEv('system', 'ändert den Kontakt: ' + c.name); toast('Kontakt gespeichert'); renderAll();
   }
+  if (b.dataset.set === 'privacySave') {
+    const pv = { org: $('pvOrg').value.trim().slice(0, 120) || PRIV_DEFAULT.org, keep: $('pvKeep').value.trim().slice(0, 800) || PRIV_DEFAULT.keep, extra: $('pvExtra').value.trim().slice(0, 1500), t: Date.now() };
+    S.privacy = pv; fire(F.setDoc(dref('config', 'privacy'), pv), 'Datenschutz speichern'); logEv('system', 'ändert den Datenschutzhinweis'); toast('Datenschutzhinweis gespeichert');
+  }
+  if (b.dataset.set === 'privacyShow') openModal(privacyHTML());
   if (b.dataset.set === 'regSeen') { try { localStorage.setItem('strichliste_regseen', String(Date.now())); } catch (e) {} renderAdmin(); }
 });
 $('adminBody').addEventListener('change', e => {
@@ -2607,7 +2901,7 @@ $('adminBody').addEventListener('change', e => {
 
 // Bereiche im Admin: Überschrift antippen klappt ein/aus, Navigation springt hin
 const ADM_KEY = 'strichliste_adm_open';
-const ADM_DEFAULT_CLOSED = ['Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
+const ADM_DEFAULT_CLOSED = ['Einkaufsliste', 'Löschanträge', 'Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
 let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || '{}'); } catch (e) {}
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
@@ -3203,11 +3497,13 @@ $('fileIn').addEventListener('change', async e => {
 function renderVersion() {
   let txt = 'Version ' + APP_VERSION;
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) txt += ' · offline verfügbar';
-  $('ver').textContent = txt;
+  $('ver').innerHTML = esc(txt) + ' · <button class="linkbtn" id="dsLink">Datenschutz</button>';
+  $('dsLink').onclick = () => openModal(privacyHTML());
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
 function renderAll() {
-  renderVersion();
+  renderVersion(); renderDs();
+  if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
   document.body.classList.toggle('noauth', noauth);
   $('authSec').hidden = !noauth;
