@@ -32,6 +32,8 @@ service cloud.firestore {
         && profile().get('deleted', false) != true;
     }
     function isAdmin() { return isSuper() || (isActive() && profile().get('role', '') == 'admin'); }
+    // Zählerfelder: alle Getränke, Bier und je eine Sorte
+    function counterKeys() { return ['all', 'beer', 'c_radler', 'c_wasser', 'c_soft', 'c_schnaps', 'c_sonst']; }
 
     // Getränke, Tage und „aktiver Tag“: alle lesen, nur Admins ändern
     match /products/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
@@ -71,7 +73,7 @@ service cloud.firestore {
     match /gstats/{id} {
       allow read: if signedIn();
       allow write: if isAdmin() || (isActive()
-        && request.resource.data.keys().hasOnly(['all', 'beer'])
+        && request.resource.data.keys().hasOnly(counterKeys())
         && request.resource.data.get('all', 0) is int
         && request.resource.data.get('beer', 0) is int);
     }
@@ -79,7 +81,7 @@ service cloud.firestore {
     match /ustats/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
       allow write: if isAdmin() || (isActive() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['all', 'beer']));
+        && request.resource.data.keys().hasOnly(counterKeys()));
     }
     // Easter Eggs: Gruppen-Meldungen, die alle Handys anzeigen (eine pro Meilenstein)
     match /live/{id} {
@@ -110,6 +112,23 @@ service cloud.firestore {
         && request.resource.data.img.size() < 60000
         && request.resource.data.img.matches('^data:image/(jpeg|png|webp);base64,.*');
       allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+    }
+
+    // Easter-Egg-Regeln: alle lesen, nur Super-Admins ändern
+    match /config/{id} {
+      allow read: if signedIn();
+      allow write: if isSuper();
+    }
+
+    // Protokoll aller Änderungen: jeder schreibt eigene Einträge, nur Super-Admins lesen, niemand ändert oder löscht
+    match /log/{id} {
+      allow read: if isSuper();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['t', 'date', 'uid', 'who', 'type', 'text', 'day'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 300
+        && request.resource.data.type in ['person', 'buchung', 'einladen', 'getraenk', 'tag', 'egg', 'system'];
+      allow update, delete: if false;
     }
 
     // Buchungen

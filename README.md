@@ -85,6 +85,18 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 
 Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den Titel** oben tippen (innerhalb von zwei Sekunden), dann öffnet sich der Admin-Bereich. Zurück geht es über „Zurück zum Scannen“ oben rechts. Das ist nur ein Sichtschutz – die eigentlichen Rechte prüfen die Firebase-Regeln. Wer kein Admin ist, sieht dort nur „Keine Admin-Rechte“.
 
+## Historie (Super-Admin)
+
+Unter Admin → **Historie** steht jede Änderung: Mitglieder (Registrierung, Name, Rolle, Sperre, Entfernen, Profilbild, Passwort), Buchungen (Rückgängig, Storno, Nachtrag), Einladen und Zählen, Getränke, Tage, Easter Eggs und System (Zähler, Import, Zurücksetzen). Datum wählen, die Bereiche lassen sich aufklappen. Mit „auch normale Scans“ erscheinen zusätzlich alle Buchungen des Datums. Die Historie kann niemand ändern oder löschen – auch der Super-Admin nicht, und auch „Statistiken zurücksetzen“ lässt sie stehen.
+
+## Buchungen einer Person korrigieren
+
+Unter Admin → **Buchung nachtragen** die Person wählen: Darunter stehen ihre Buchungen des Tages, pro Getränk mit „−1 stornieren“ und aufklappbar einzeln. Nachtragen und Stornieren passen die Easter-Egg-Zähler automatisch an.
+
+## Statistiken zurücksetzen (Super-Admin)
+
+Admin → Daten → **Statistiken zurücksetzen**, dann das eigene Passwort eingeben. Gelöscht werden alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn) und alle Easter-Egg-Verläufe; danach können alle Easter Eggs neu auslösen. Optional lassen sich zusätzlich **alle Buchungen und Tage** löschen. Getränke, Personen, Easter-Egg-Regeln und die Historie bleiben erhalten.
+
 ## Rollen
 
 | | Mitglied | Admin | Super-Admin |
@@ -94,6 +106,8 @@ Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den
 | Tage, Getränke, Einladen, Zählen, Abgleich, Exporte | | ✓ | ✓ |
 | Buchungen stornieren und für andere nachtragen | | ✓ | ✓ |
 | Namen korrigieren | | ✓ | ✓ |
+| Anstehende Easter Eggs sehen | | ✓ | ✓ |
+| Easter Eggs verwalten, Historie, Statistiken zurücksetzen | | | ✓ |
 | Admins ernennen und abberufen | | | ✓ |
 | Konten sperren, entsperren, entfernen, wiederherstellen | | | ✓ |
 | Passwort-Mail an eine Person schicken | | | ✓ |
@@ -160,7 +174,12 @@ Hinweise:
 - **Easter Eggs: an/aus** schaltet alles für alle Handys ab.
 - **Verlauf für alle:** In der Scan-Ansicht steht unter „Deine Getränke heute“ der Abschnitt „Easter Eggs heute“ mit zwei Reitern: *Für alle* (alle gemeinsamen Easter Eggs des Tages mit Uhrzeit und Auslöser) und *Deine* (die eigenen). Die eigenen sind in der Datenbank gespeichert und bleiben auch bei einem Handywechsel erhalten.
 - **Vorschau für Admins:** Im Admin-Bereich zeigt „Anstehende Easter Eggs“ für den aktiven Tag, was als Nächstes kommt – für die Gruppe (Anstich, nächstes Gruppen-Bier, nächste Schnapszahl, 11:11 und 11.11.) und pro Person, sortiert danach, wer am nächsten dran ist.
-- Die Sprüche stehen in `index.html` im Abschnitt `EASTER EGGS` (Suche nach `EGG_TEXT`) und lassen sich dort einfach ändern.
+- **Verwalten (Super-Admin):** Unter Admin → **Easter Eggs verwalten** lässt sich jedes Easter Egg an- und ausschalten, ändern, kopieren, löschen und als Vorschau anzeigen; „Neues Easter Egg“ legt eins an, „Standard wiederherstellen“ setzt alles auf die mitgelieferten zurück. Einstellbar sind:
+  - **Für:** jede Person für sich oder alle gemeinsam
+  - **Wann:** genau bei einer Anzahl, bei jeder n-ten, ab einer Anzahl jedes Mal, bei Schnapszahl, „erstes … nach mindestens n …“, zu einer Uhrzeit, an einem Datum
+  - **Getränk** (Sorte oder alle) und **Zeitraum** (heute oder seit Beginn)
+  - **Texte:** eine Zeile pro Variante im Format `Titel | Text`; mehrere Zeilen wechseln sich ab. `{n}` wird durch die Zahl ersetzt, `{name}` durch die Person.
+- Die mitgelieferten Easter Eggs stehen als `DEFAULT_RULES` in `index.html`. Sobald der Super-Admin etwas ändert, gelten die gespeicherten Regeln aus der Datenbank.
 
 ## Kosten und Grenzen (kostenloser Spark-Tarif)
 
@@ -170,11 +189,11 @@ Hinweise:
 
 ## Update der App
 
-Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 12 auf 13):
-- in `index.html`: `const APP_VERSION = '12';`
-- in `sw.js`: `const VERSION = 'strichliste-v12';`
+Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 13 auf 14):
+- in `index.html`: `const APP_VERSION = '13';`
+- in `sw.js`: `const VERSION = 'strichliste-v13';`
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 12“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 13“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

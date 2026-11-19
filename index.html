@@ -193,6 +193,7 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .egg-name{font-size:.86rem;color:#d9d2bd;margin-top:-2px}
 .egg-name:empty{display:none}
 .pc summary .av{margin-right:8px}
+.pc summary .tag{align-self:center;flex:0 0 auto}
 .egg{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(20,20,20,.86);cursor:pointer}
 .egg-in{position:relative;z-index:2;width:100%;max-width:420px;background:var(--ink);color:#fff;border-radius:18px;padding:26px 22px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;border:4px solid transparent;
   background-image:linear-gradient(var(--ink),var(--ink)),repeating-linear-gradient(-45deg,var(--ink) 0 10px,var(--wy) 10px 20px);background-origin:border-box;background-clip:padding-box,border-box}
@@ -346,7 +347,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '12';
+const APP_VERSION = '13';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -386,7 +387,7 @@ const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
 
 /* Neu zeichnen, ohne laufende Eingaben, Fokus und aufgeklappte Bereiche zu verlieren
    (wichtig, weil andere Handys ständig Buchungen schicken) */
-const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role'];
+const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role', 'data-er'];
 function fieldKey(el) {
   if (el.id) return '#' + el.id;
   for (const a of ATTRS) if (el.hasAttribute(a)) return a + '=' + el.getAttribute(a) + '|' + (el.dataset.id || '');
@@ -478,7 +479,7 @@ const col = name => F.collection(db, name);
 const dref = (name, id) => F.doc(db, name, id);
 const newId = name => F.doc(col(name)).id;
 
-let unsub = { avatars: null, activeScans: null, ueggs: null, ustatsAll: null, gtotal: null, products: null, meta: null, activeDay: null, mine: null, me: null, ustats: null, live: null, days: null, dayScans: null, users: null };
+let unsub = { cfg: null, log: null, avatars: null, activeScans: null, ueggs: null, ustatsAll: null, gtotal: null, products: null, meta: null, activeDay: null, mine: null, me: null, ustats: null, live: null, days: null, dayScans: null, users: null };
 const stop = k => { if (unsub[k]) { unsub[k](); unsub[k] = null; } };
 function fail(where) {
   return err => {
@@ -512,6 +513,11 @@ function startUserListeners() {
   }, fail('products'));
   stop('ustats'); stop('live'); S.ustats = null;
   unsub.ustats = F.onSnapshot(dref('ustats', u.uid), snap => { S.ustats = snap.exists() ? snap.data() : { all: 0, beer: 0 }; }, err => console.warn('ustats', err));
+  stop('cfg');
+  unsub.cfg = F.onSnapshot(dref('config', 'eggs'), snap => {
+    const d = snap.exists() ? snap.data() : null;
+    S.eggRules = d && Array.isArray(d.rules) ? d.rules : null; renderAdmin();
+  }, err => console.warn('config', err));
   unsub.meta = F.onSnapshot(dref('meta', 'state'), snap => {
     S.metaState = snap.exists() ? snap.data() : {};
     const a = snap.exists() ? snap.data().active || null : null;
@@ -598,7 +604,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs'].forEach(stop);
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg'].forEach(stop);
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -611,7 +617,7 @@ function listenActiveScans() {
     S.activeScans = snap.docs.map(d => d.data()); checkLowStock();
   }, err => console.warn('activeScans', err));
 }
-function stopAdminListeners() { stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function stopAdminListeners() { stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
   stop('dayScans'); S.dayScans = []; S.dayScansFor = S.selDay;
@@ -628,6 +634,21 @@ function listenDayScans() {
 // Firestore-Schreibvorgänge werden offline lokal gepuffert. Nicht auf das Promise warten,
 // sonst hängt die Oberfläche bis zur nächsten Verbindung.
 function fire(p, what) { p.catch(err => { console.error(what, err); toast((err && err.code === 'permission-denied' ? 'Keine Berechtigung: ' : 'Fehler: ') + what); }); }
+/* ---------- Protokoll (nur der Super-Admin kann es lesen, niemand ändern) ---------- */
+const LOG_TYPES = [['person', 'Mitglieder'], ['buchung', 'Buchungen'], ['einladen', 'Einladen & Zählen'], ['getraenk', 'Getränke'], ['tag', 'Tage'], ['egg', 'Easter Eggs'], ['system', 'System']];
+function logEv(type, text, dayId) {
+  if (!S.user || !db) return;
+  fire(F.setDoc(dref('log', newId('log')), { t: Date.now(), date: todayISO(), uid: S.user.uid, who: S.me || S.user.email || '', type, text: String(text).slice(0, 300), day: dayId || null }), 'Protokoll');
+}
+const pname = id => (P(id) || {}).name || '(Getränk)';
+const uname = id => (S.users[id] || {}).name || '(Person)';
+// Easter-Egg-Zähler mitziehen, wenn Admins buchen oder stornieren
+function adjustCounters(uid, dayId, pid, d) {
+  const cat = catOf(P(pid));
+  fire(F.setDoc(dref('ustats', uid), incFor(cat, d), { merge: true }), 'Zähler');
+  fire(F.setDoc(dref('gstats', dayId), incFor(cat, d), { merge: true }), 'Zähler');
+  fire(F.setDoc(dref('gstats', 'total'), incFor(cat, d), { merge: true }), 'Zähler');
+}
 const setLoad = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['load.' + pid]: Math.max(0, v) }), 'Menge speichern');
 const setCount = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['count.' + pid]: v == null ? F.deleteField() : Math.max(0, v) }), 'Zählung speichern');
 const incField = (dayId, key, pid, d) => fire(F.updateDoc(dref('days', dayId), { [key + '.' + pid]: F.increment(d) }), 'Menge speichern');
@@ -765,6 +786,7 @@ $('aBtn').addEventListener('click', async () => {
     try {
       const cred = await F.createUserWithEmailAndPassword(auth, mail, pw);
       await F.setDoc(dref('users', cred.user.uid), { name: name.slice(0, 40), email: mail.toLowerCase(), t: Date.now() });
+      S.me = name.slice(0, 40); logEv('person', 'registriert sich (' + mail.toLowerCase() + ')');
       $('aPw').value = $('aPw2').value = '';
     } catch (err) { toast(authMsg(err.code)); }
     S.registering = null; btn.disabled = false; renderAll();
@@ -804,7 +826,7 @@ $('pwSave').addEventListener('click', async () => {
   try {
     await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, oldPw));
     await F.updatePassword(auth.currentUser, nw);
-    toast('Passwort geändert'); $('pwCancel').click();
+    toast('Passwort geändert'); $('pwCancel').click(); logEv('person', 'ändert das eigene Passwort');
   } catch (err) { toast(authMsg(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' ? 'auth/wrong-current' : err.code)); }
   btn.disabled = false;
 });
@@ -815,49 +837,46 @@ $('nameBtn').addEventListener('click', () => {
   if (name.length < 3 || !/\s/.test(name)) { toast('Bitte Vor- und Nachnamen eingeben'); return; }
   if (!confirm('Getränke auf „' + name + '“ buchen? Der Name kann danach nicht mehr geändert werden.')) return;
   fire(F.setDoc(dref('users', S.user.uid), { name: name.slice(0, 40), email: (S.user.email || '').toLowerCase(), t: Date.now() }), 'Name speichern');
+  S.me = name.slice(0, 40); logEv('person', 'legt den Namen „' + name.slice(0, 40) + '“ fest');
 });
 $('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('nameBtn').click(); });
 const nameOf = s => (S.users[s.uid] && S.users[s.uid].name) || s.who || 'ohne Namen';
 
 /* =========================================================
    EASTER EGGS
-   Sprüche hier anpassen. {n} = Zahl, {name} = Person.
+   Die Easter Eggs sind Regeln. Der Super-Admin verwaltet sie in der App
+   (Admin → Easter Eggs verwalten); sie liegen in Firestore unter config/eggs.
+   DEFAULT_RULES gilt, solange dort nichts gespeichert ist.
+   In Texten: {n} = Zahl, {name} = Person.
    ========================================================= */
-const EGG_TEXT = {
-  // eigene Biere am Tag (Radler und Alkoholfreies zählen nicht)
-  beer: {
-    1:  ['Ozapft is!', 'Des erschte Bier – Wefzg, dreh durch!'],
-    3:  ['Drei Bier!', 'Jetzt wird’s gmiatlich.'],
-    5:  ['Fünfe!', 'A ganze Hand voll.'],
-    7:  ['Siebene!', 'So ganz nüchtern isch mr nemme, gell?'],
-    8:  ['Achte!', 'Wer fährt heut eigentlich heim?'],
-    9:  ['Neune!', 'Ab jetzt bitte koi Kegelbahn mehr.'],
-    10: ['Zehne!', 'Jetzt bisch a echter Wexhainer. Autoschlüssel abgebe!']
-  },
-  // ab dem 11. Bier bei jedem weiteren, der Reihe nach
-  beerMore: [
-    ['Bier Nummer {n}!', 'Respekt – aber trink au mol a Wasser.'],
-    ['{n} Bier!', 'Heim gehsch aber net mit em Auto, gell?'],
-    ['{n}!', 'D’Wefzg isch stolz. Dei Leber weniger.'],
-    ['{n} Bier!', 'Soll mr dir scho a Taxi rufe?'],
-    ['{n}!', 'Morge früh wirsch des bereue. Heut net.']
-  ],
-  water:      ['Oha, a Wasser!', 'Vernünftig wird mr ja au no.'],
-  narrenzeit: ['Narrenzeit!', '11:11 Uhr – Wefzg, dreh durch!'],
-  elfelf:     ['Fasnetsbeginn!', 'Heit isch der 11.11. – d’Wefzg isch los!'],
-  // eigene Schnapszahlen
-  schnapsDay:  ['Schnapszahl!', 'Des isch dei {n}. Getränk heut.'],
-  schnapsAll:  ['Schnapszahl für d’Ewigkeit!', 'Dei {n}. Getränk insgesamt.'],
-  // Gruppe – erscheint auf allen Handys
-  anstich:     ['Anstich!', '{name} hat den erschte Scan vom Tag gmacht.'],
-  groupBeer: {
-    10: ['10 Bier für d’Gruppe!', '{name} hat des 10. Bier vom Tag gscannt.'],
-    20: ['20 Bier für d’Gruppe!', '{name} hat des 20. Bier vom Tag gscannt.'],
-    30: ['30 Bier für d’Gruppe!', '{name} hat des 30. Bier vom Tag gscannt – Runde!']
-  },
-  groupSchnapsDay: ['Schnapszahl für alle!', '{n} Getränke heut – ausglöst von {name}.'],
-  groupSchnapsAll: ['Schnapszahl für alle!', '{n} Getränke seit Beginn – ausglöst von {name}.']
-};
+const T = (t, s) => ({ t, s });
+const DEFAULT_RULES = [
+  { id: 'd_b1',  who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 1,  texts: [T('Ozapft is!', 'Des erschte Bier – Wefzg, dreh durch!')] },
+  { id: 'd_b3',  who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 3,  texts: [T('Drei Bier!', 'Jetzt wird’s gmiatlich.')] },
+  { id: 'd_b5',  who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 5,  texts: [T('Fünfe!', 'A ganze Hand voll.')] },
+  { id: 'd_b7',  who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 7,  texts: [T('Siebene!', 'So ganz nüchtern isch mr nemme, gell?')] },
+  { id: 'd_b8',  who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 8,  texts: [T('Achte!', 'Wer fährt heut eigentlich heim?')] },
+  { id: 'd_b9',  who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 9,  texts: [T('Neune!', 'Ab jetzt bitte koi Kegelbahn mehr.')] },
+  { id: 'd_b10', who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 10, texts: [T('Zehne!', 'Jetzt bisch a echter Wexhainer. Autoschlüssel abgebe!')] },
+  { id: 'd_b11', who: 'me', kind: 'from',  cat: 'bier', period: 'day', n: 11, texts: [
+    T('Bier Nummer {n}!', 'Respekt – aber trink au mol a Wasser.'), T('{n} Bier!', 'Heim gehsch aber net mit em Auto, gell?'),
+    T('{n}!', 'D’Wefzg isch stolz. Dei Leber weniger.'), T('{n} Bier!', 'Soll mr dir scho a Taxi rufe?'), T('{n}!', 'Morge früh wirsch des bereue. Heut net.')] },
+  { id: 'd_water', who: 'me', kind: 'after', cat: 'wasser', cat2: 'bier', n2: 3, texts: [T('Oha, a Wasser!', 'Vernünftig wird mr ja au no.')] },
+  { id: 'd_1111',  who: 'me', kind: 'time', time: '11:11', texts: [T('Narrenzeit!', '11:11 Uhr – Wefzg, dreh durch!')] },
+  { id: 'd_elf',   who: 'me', kind: 'date', date: '11.11', texts: [T('Fasnetsbeginn!', 'Heit isch der 11.11. – d’Wefzg isch los!')] },
+  { id: 'd_sday',  who: 'me', kind: 'schnaps', cat: 'all', period: 'day',   texts: [T('Schnapszahl!', 'Des isch dei {n}. Getränk heut.')] },
+  { id: 'd_sall',  who: 'me', kind: 'schnaps', cat: 'all', period: 'total', texts: [T('Schnapszahl für d’Ewigkeit!', 'Dei {n}. Getränk insgesamt.')] },
+  { id: 'd_anst',  who: 'group', kind: 'count', cat: 'all',  period: 'day', n: 1,  texts: [T('Anstich!', '{name} hat den erschte Scan vom Tag gmacht.')] },
+  { id: 'd_g10',   who: 'group', kind: 'count', cat: 'bier', period: 'day', n: 10, texts: [T('10 Bier für d’Gruppe!', '{name} hat des 10. Bier vom Tag gscannt.')] },
+  { id: 'd_g20',   who: 'group', kind: 'count', cat: 'bier', period: 'day', n: 20, texts: [T('20 Bier für d’Gruppe!', '{name} hat des 20. Bier vom Tag gscannt.')] },
+  { id: 'd_g30',   who: 'group', kind: 'count', cat: 'bier', period: 'day', n: 30, texts: [T('30 Bier für d’Gruppe!', '{name} hat des 30. Bier vom Tag gscannt – Runde!')] },
+  { id: 'd_gsday', who: 'group', kind: 'schnaps', cat: 'all', period: 'day',   texts: [T('Schnapszahl für alle!', '{n} Getränke heut – ausglöst von {name}.')] },
+  { id: 'd_gsall', who: 'group', kind: 'schnaps', cat: 'all', period: 'total', texts: [T('Schnapszahl für alle!', '{n} Getränke seit Beginn – ausglöst von {name}.')] }
+];
+const COUNT_KINDS = ['count', 'every', 'from', 'schnaps'];
+const KINDS = [['count', 'genau bei Anzahl'], ['every', 'bei jeder n-ten'], ['from', 'ab Anzahl jedes Mal'], ['schnaps', 'bei Schnapszahl (11, 22 …)'], ['after', 'erstes … nach mind. n …'], ['time', 'Scan zu einer Uhrzeit'], ['date', 'Scan an einem Datum']];
+const allRules = () => S.eggRules || DEFAULT_RULES;
+const activeRules = () => allRules().filter(r => r.on !== false);
 
 /* ---------- Getränkesorte ---------- */
 const CATS = [['bier', 'Bier'], ['radler', 'Radler / Alkoholfrei'], ['wasser', 'Wasser'], ['soft', 'Softdrink / Schorle'], ['schnaps', 'Schnaps'], ['sonst', 'Sonstiges']];
@@ -873,26 +892,75 @@ function guessCat(name) {
 const catOf = p => (p && p.cat) || guessCat(p && p.name);
 const catSelect = (attrs, cur, name) => '<select ' + attrs + '><option value="">automatisch (' + esc(CATS.find(c => c[0] === guessCat(name))[1]) + ')</option>' +
   CATS.map(c => '<option value="' + c[0] + '"' + (cur === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select>';
+// Wörter für Beschreibungen
+const CAT_ONE = { all: 'Getränk', bier: 'Bier', radler: 'Radler/Alkoholfreies', wasser: 'Wasser', soft: 'Softdrink', schnaps: 'Schnaps', sonst: 'sonstige Getränk' };
+const CAT_MANY = { all: 'Getränke', bier: 'Bier', radler: 'Radler/Alkoholfreie', wasser: 'Wasser', soft: 'Softdrinks', schnaps: 'Schnäpse', sonst: 'sonstige Getränke' };
+const unit = (cat, k) => k === 1 ? CAT_ONE[cat] : CAT_MANY[cat];
+
+/* ---------- Zähler: all = alle Getränke, beer = Bier, c_<sorte> = andere Sorten ---------- */
+const ckey = cat => cat === 'all' ? 'all' : cat === 'bier' ? 'beer' : 'c_' + cat;
+const cval = (m, cat) => (m && m[ckey(cat)]) || 0;
+const incFor = (cat, d) => ({ all: F.increment(d), [ckey(cat)]: F.increment(d) });
 
 /* ---------- Hilfen ---------- */
 const isSchnaps = n => n >= 11 && /^(\d)\1+$/.test(String(n));
+function nextSchnaps(n) { for (let k = Math.max(11, n + 1); k < 1e7; k++) if (isSchnaps(k)) return k; return null; }
 const fill = (t, v) => String(t).replace(/\{n\}/g, v.n == null ? '' : v.n).replace(/\{name\}/g, v.name || 'Jemand');
+// „Epoche“: nach „Statistiken zurücksetzen“ dürfen alle Easter Eggs neu auslösen
+const epoch = () => (S.metaState && S.metaState.epoch) || 0;
 function eggOnce(key) {
-  const k = 'strichliste_egg_' + key;
+  const k = 'strichliste_egg_' + epoch() + '_' + key;
   try { if (localStorage.getItem(k)) return false; localStorage.setItem(k, '1'); } catch (e) {}
   return true;
 }
 const eggsOn = () => !(S.metaState && S.metaState.eggs === false);
+function ruleHits(r, v) {
+  if (r.kind === 'count') return v === r.n;
+  if (r.kind === 'every') return r.n > 0 && v > 0 && v % r.n === 0;
+  if (r.kind === 'from') return v >= r.n;
+  if (r.kind === 'schnaps') return isSchnaps(v);
+  return false;
+}
+// wie viele fehlen bis zum nächsten Auslösen (null = vorbei)
+function ruleRemain(r, v) {
+  if (r.kind === 'count') return v < r.n ? r.n - v : null;
+  if (r.kind === 'every') return r.n > 0 ? r.n - (v % r.n) : null;
+  if (r.kind === 'from') return v < r.n ? r.n - v : 1;
+  if (r.kind === 'schnaps') return nextSchnaps(v) - v;
+  return null;
+}
+function pickText(r, v) {
+  const L = (r.texts && r.texts.length) ? r.texts : [T('Easter Egg!', '')];
+  let i = 0;
+  if (r.kind === 'from') i = Math.max(0, v - r.n);
+  else if (r.kind === 'every') i = Math.max(0, v / r.n - 1);
+  else if (r.kind === 'schnaps') i = Math.max(0, String(v).length - 2) * 9 + (Number(String(v)[0]) - 1);
+  return L[i % L.length];
+}
+function describeRule(r) {
+  const w = r.who === 'group' ? 'Alle' : 'Pro Person';
+  const per = r.period === 'total' ? ' insgesamt' : ' heute';
+  const c = r.cat || 'all';
+  let d = '';
+  if (r.kind === 'count') d = r.n + '. ' + CAT_ONE[c] + per;
+  else if (r.kind === 'every') d = 'jedes ' + r.n + '. ' + CAT_ONE[c] + per;
+  else if (r.kind === 'from') d = 'ab dem ' + r.n + '. ' + CAT_ONE[c] + per + ' jedes Mal';
+  else if (r.kind === 'schnaps') d = 'Schnapszahl bei ' + (c === 'all' ? 'allen Getränken' : CAT_MANY[c]) + per;
+  else if (r.kind === 'after') d = 'erstes ' + CAT_ONE[c] + ' nach mind. ' + r.n2 + ' ' + unit(r.cat2 || 'bier', r.n2);
+  else if (r.kind === 'time') d = 'Scan um ' + (r.time || '?') + ' Uhr';
+  else if (r.kind === 'date') d = 'Scan am ' + (r.date || '?');
+  return w + ': ' + d;
+}
 
 /* ---------- Anzeige ---------- */
 const eggQueue = []; let eggShowing = false, eggTimer = null, curEgg = null;
-function showEgg(e) {
-  if (!eggsOn()) return;
-  if (eggQueue.length < 4) eggQueue.push(e);
+function showEgg(e, force) {
+  if (!eggsOn() && !force) return;
+  if (eggQueue.length < 4) eggQueue.push(Object.assign({ force: !!force }, e));
   if (!eggShowing) nextEgg();
 }
 function nextEgg() {
-  if (!eggsOn()) eggQueue.length = 0;
+  if (!eggsOn()) for (let i = eggQueue.length - 1; i >= 0; i--) if (!eggQueue[i].force) eggQueue.splice(i, 1);
   const e = eggQueue.shift(), el = $('egg');
   if (!e) { eggShowing = false; el.hidden = true; return; }
   eggShowing = true;
@@ -900,8 +968,7 @@ function nextEgg() {
   $('eggTitle').textContent = e.title; $('eggSub').textContent = e.sub || '';
   $('eggAv').innerHTML = avatarHTML(e.uid, e.name, 104);
   $('eggName').textContent = e.group && e.name ? e.name : '';
-  $('eggKind').textContent = e.group ? 'Für alle' : '';
-  // Konfetti neu erzeugen
+  $('eggKind').textContent = e.force ? 'Vorschau' : e.group ? 'Für alle' : '';
   const box = $('eggConfetti'); box.innerHTML = '';
   for (let i = 0; i < 28; i++) {
     const c = document.createElement('i');
@@ -932,83 +999,84 @@ $('egg').addEventListener('click', () => { clearTimeout(eggTimer); nextEgg(); })
 /* ---------- Auslösen nach einer Buchung ---------- */
 async function eggsAfterBook(pid, scanId) {
   const day = S.activeDay; if (!day || !S.user) return;
-  const p = P(pid), cat = catOf(p), uid = S.user.uid, dk = day.id + '_' + uid;
-  // eigene Buchungen heute inkl. der neuen (der Listener kann einen Moment hinterher sein)
+  const cat = catOf(P(pid)), uid = S.user.uid, dayId = day.id, rules = activeRules();
   const mine = S.myScans.filter(s => s.id !== scanId).concat([{ id: scanId, p: pid }]);
-  const nAll = mine.length;
-  const nBeer = mine.filter(s => catOf(P(s.p)) === 'bier').length;
-  const beersBefore = mine.filter(s => s.id !== scanId && catOf(P(s.p)) === 'bier').length;
+  const dayCount = c => c === 'all' ? mine.length : mine.filter(s => catOf(P(s.p)) === c).length;
+  const before = c => dayCount(c) - ((c === 'all' || c === cat) ? 1 : 0);
+  const us = S.ustats || {};
+  const myTot = c => cval(us, c) + ((c === 'all' || c === cat) ? 1 : 0);
+  const now = new Date(), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const ddmm = String(now.getDate()).padStart(2, '0') + '.' + String(now.getMonth() + 1).padStart(2, '0');
   const out = [];
-  const add = (key, txt, vals, group) => { if (txt && eggOnce(key)) out.push({ title: fill(txt[0], vals), sub: fill(txt[1], vals), group, uid, name: S.me }); };
+  rules.filter(r => r.who !== 'group').forEach(r => {
+    let v = null, key = null;
+    if (COUNT_KINDS.includes(r.kind)) {
+      const rc = r.cat || 'all';
+      if (rc !== 'all' && rc !== cat) return;
+      v = r.period === 'total' ? myTot(rc) : dayCount(rc);
+      if (!ruleHits(r, v)) return;
+      // am ersten Tag sind „heute“ und „insgesamt“ gleich – dann nur einmal melden
+      if (r.kind === 'schnaps' && r.period === 'total' && v === dayCount(rc) && rules.some(x => x.who !== 'group' && x.kind === 'schnaps' && x.period !== 'total' && (x.cat || 'all') === rc)) return;
+      key = (r.period === 'total' ? 'tot' : dayId) + '_' + uid + '_' + r.id + '_' + v;
+    } else if (r.kind === 'after') {
+      if (cat !== r.cat || before(r.cat2 || 'bier') < (r.n2 || 1)) return;
+      v = before(r.cat2 || 'bier'); key = dayId + '_' + uid + '_' + r.id;
+    } else if (r.kind === 'time') {
+      if (hhmm !== r.time) return; key = dayId + '_' + uid + '_' + r.id;
+    } else if (r.kind === 'date') {
+      if (ddmm !== r.date) return; key = now.getFullYear() + '_' + uid + '_' + r.id;
+    } else return;
+    if (!eggOnce(key)) return;
+    const tx = pickText(r, v || 0), vals = { n: v, name: S.me };
+    out.push({ title: fill(tx.t, vals), sub: fill(tx.s, vals), uid, name: S.me });
+  });
 
-  if (cat === 'bier') {
-    const t = EGG_TEXT.beer[nBeer] || (nBeer > 10 ? EGG_TEXT.beerMore[(nBeer - 11) % EGG_TEXT.beerMore.length] : null);
-    add(dk + '_beer_' + nBeer, t, { n: nBeer });
-  }
-  if (cat === 'wasser' && beersBefore >= 3) add(dk + '_water', EGG_TEXT.water, {});
-  const now = new Date();
-  if (now.getHours() === 11 && now.getMinutes() === 11) add(dk + '_1111', EGG_TEXT.narrenzeit, {});
-  if (now.getDate() === 11 && now.getMonth() === 10) add(uid + '_' + now.getFullYear() + '_elfelf', EGG_TEXT.elfelf, {});
-  if (isSchnaps(nAll)) add(dk + '_sday_' + nAll, EGG_TEXT.schnapsDay, { n: nAll });
+  // eigene Gesamtzahl
+  fire(F.setDoc(dref('ustats', uid), incFor(cat, 1), { merge: true }), 'Zähler');
+  S.ustats = Object.assign({}, us, { all: cval(us, 'all') + 1, [ckey(cat)]: cval(us, cat) + 1 });
 
-  // eigene Gesamtzahl (über alle Tage)
-  const myAll = ((S.ustats && S.ustats.all) || 0) + 1;
-  fire(F.setDoc(dref('ustats', uid), { all: F.increment(1), beer: F.increment(cat === 'bier' ? 1 : 0) }, { merge: true }), 'Zähler');
-  if (S.ustats) S.ustats = Object.assign({}, S.ustats, { all: myAll });
-  if (isSchnaps(myAll) && myAll !== nAll) add(uid + '_sall_' + myAll, EGG_TEXT.schnapsAll, { n: myAll });
-
-  out.forEach(showEgg);
+  out.forEach(e => showEgg(e));
   if (out.length) {
     const t0 = Date.now();
-    const items = out.map((e, i) => ({ t: t0 + i, title: e.title, sub: e.sub }));
-    fire(F.setDoc(dref('ueggs', uid + '_' + day.id), { uid, day: day.id, items: F.arrayUnion(...items) }, { merge: true }), 'Easter Egg merken');
+    fire(F.setDoc(dref('ueggs', uid + '_' + dayId), { uid, day: dayId, items: F.arrayUnion(...out.map((e, i) => ({ t: t0 + i, title: e.title, sub: e.sub }))) }, { merge: true }), 'Easter Egg merken');
   }
 
   // Gruppe: genaue Zählung nur online per Transaktion
-  const gDay = dref('gstats', day.id), gAll = dref('gstats', 'total');
-  const beerInc = cat === 'bier' ? 1 : 0;
-  if (!navigator.onLine) {
-    fire(F.setDoc(gDay, { all: F.increment(1), beer: F.increment(beerInc) }, { merge: true }), 'Zähler');
-    fire(F.setDoc(gAll, { all: F.increment(1) }, { merge: true }), 'Zähler');
-    return;
-  }
-  let res = null;
+  const gDay = dref('gstats', dayId), gAll = dref('gstats', 'total');
+  const k = ckey(cat);
+  const fallback = () => { fire(F.setDoc(gDay, incFor(cat, 1), { merge: true }), 'Zähler'); fire(F.setDoc(gAll, incFor(cat, 1), { merge: true }), 'Zähler'); };
+  if (!navigator.onLine) { fallback(); return; }
+  let res;
   try {
     res = await F.runTransaction(db, async tx => {
       const a = await tx.get(gDay), b = await tx.get(gAll);
-      const da = (a.exists() ? a.data().all || 0 : 0) + 1, db_ = (a.exists() ? a.data().beer || 0 : 0) + beerInc, ta = (b.exists() ? b.data().all || 0 : 0) + 1;
-      tx.set(gDay, { all: da, beer: db_ }, { merge: true });
-      tx.set(gAll, { all: ta }, { merge: true });
-      return { da, db: db_, ta };
+      const dm = Object.assign({}, a.exists() ? a.data() : {}), tm = Object.assign({}, b.exists() ? b.data() : {});
+      dm.all = (dm.all || 0) + 1; tm.all = (tm.all || 0) + 1;
+      if (k !== 'all') { dm[k] = (dm[k] || 0) + 1; tm[k] = (tm[k] || 0) + 1; }
+      tx.set(gDay, { all: dm.all, [k]: dm[k] }, { merge: true });
+      tx.set(gAll, { all: tm.all, [k]: tm[k] }, { merge: true });
+      return { dm, tm };
     });
-  } catch (err) {
-    // nicht gezählt – normal hochzählen, ohne Gruppen-Easter-Egg
-    fire(F.setDoc(gDay, { all: F.increment(1), beer: F.increment(beerInc) }, { merge: true }), 'Zähler');
-    fire(F.setDoc(gAll, { all: F.increment(1) }, { merge: true }), 'Zähler');
-    return;
-  }
+  } catch (err) { fallback(); return; }
   if (!eggsOn()) return;
-  const vals = { name: S.me };
-  const group = [];
-  if (res.da === 1) group.push(['anstich', EGG_TEXT.anstich, {}]);
-  if (beerInc && EGG_TEXT.groupBeer[res.db]) group.push(['gbeer' + res.db, EGG_TEXT.groupBeer[res.db], {}]);
-  if (isSchnaps(res.da)) group.push(['gsday' + res.da, EGG_TEXT.groupSchnapsDay, { n: res.da }]);
-  if (isSchnaps(res.ta) && res.ta !== res.da) group.push(['gsall' + res.ta, EGG_TEXT.groupSchnapsAll, { n: res.ta }]);
-  group.forEach(([k, txt, v]) => {
-    const e = { title: fill(txt[0], Object.assign({}, vals, v)), sub: fill(txt[1], Object.assign({}, vals, v)), group: true, uid, name: S.me };
-    const id = day.id + '_' + k;
+  rules.filter(r => r.who === 'group' && COUNT_KINDS.includes(r.kind)).forEach(r => {
+    const rc = r.cat || 'all';
+    if (rc !== 'all' && rc !== cat) return;
+    const v = cval(r.period === 'total' ? res.tm : res.dm, rc);
+    if (!ruleHits(r, v)) return;
+    if (r.kind === 'schnaps' && r.period === 'total' && v === cval(res.dm, rc) && rules.some(x => x.who === 'group' && x.kind === 'schnaps' && x.period !== 'total' && (x.cat || 'all') === rc)) return;
+    const id = dayId + '_' + r.id + '_' + v;
     if (!eggOnce('sent_' + uid + '_' + id)) return; // nach Rückgängig nicht noch einmal
     eggOnce('seen_' + uid + '_' + id);
+    const tx = pickText(r, v), vals = { n: v, name: S.me };
+    const e = { title: fill(tx.t, vals), sub: fill(tx.s, vals), group: true, uid, name: S.me };
     showEgg(e);
-    fire(F.setDoc(dref('live', id.replace(/[^\w-]/g, '_')), { id, day: day.id, title: e.title, sub: e.sub, uid, name: S.me, t: Date.now() }), 'Easter Egg senden');
+    fire(F.setDoc(dref('live', (epoch() + '_' + id).replace(/[^\w-]/g, '_')), { id: epoch() + '_' + id, day: dayId, title: e.title, sub: e.sub, uid, name: S.me, t: Date.now() }), 'Easter Egg senden');
   });
 }
 function eggsAfterUndo(pid) {
   const day = S.activeDay; if (!day || !S.user) return;
-  const beer = catOf(P(pid)) === 'bier' ? -1 : 0;
-  fire(F.setDoc(dref('ustats', S.user.uid), { all: F.increment(-1), beer: F.increment(beer) }, { merge: true }), 'Zähler');
-  fire(F.setDoc(dref('gstats', day.id), { all: F.increment(-1), beer: F.increment(beer) }, { merge: true }), 'Zähler');
-  fire(F.setDoc(dref('gstats', 'total'), { all: F.increment(-1) }, { merge: true }), 'Zähler');
+  adjustCounters(S.user.uid, day.id, pid, -1);
 }
 // Gruppen-Easter-Eggs der anderen empfangen
 function onLiveEgg(d) {
@@ -1018,71 +1086,167 @@ function onLiveEgg(d) {
   showEgg({ title: d.title, sub: d.sub, group: true, uid: d.uid, name: d.name });
 }
 
-/* ---------- Admin: Zähler aus allen Buchungen neu berechnen ---------- */
 /* ---------- Admin: anstehende Easter Eggs ---------- */
-const BEER_STEPS = [1, 3, 5, 7, 8, 9, 10];
-function nextSchnaps(n) { for (let k = Math.max(11, n + 1); k < 1e7; k++) if (isSchnaps(k)) return k; return null; }
-const nextBeerStep = b => b < 10 ? BEER_STEPS.find(m => m > b) : b + 1;
-const beerEggTitle = m => (EGG_TEXT.beer[m] || EGG_TEXT.beerMore[(m - 11) % EGG_TEXT.beerMore.length])[0].replace(/\{n\}/g, m);
-const noch = (k, one, many) => 'noch ' + k + ' ' + (k === 1 ? one : many);
+const noch = (k, cat) => 'noch ' + k + ' ' + unit(cat, k);
 function eggPreview(day, scans) {
   let h = '<section><h2>Anstehende Easter Eggs</h2>';
   if (!eggsOn()) return h + '<div class="note">Easter Eggs sind ausgeschaltet (Admin → Daten).</div></section>';
   if (day.id !== S.active) return h + '<div class="note">Easter Eggs laufen nur am Tag, der gerade gescannt wird.</div></section>';
-  const isBeer = s => catOf(P(s.p)) === 'bier', isWater = s => catOf(P(s.p)) === 'wasser';
-  const dayAll = scans.length, dayBeer = scans.filter(isBeer).length;
-  const totAll = S.gtotal ? S.gtotal.all || 0 : null;
+  const rules = activeRules();
+  const dm = { all: 0 }; scans.forEach(s => { const c = catOf(P(s.p)); dm.all++; dm[ckey(c)] = (dm[ckey(c)] || 0) + 1; });
+  const tm = S.gtotal || null;
   const rows = [];
-  // Gruppe
-  rows.push(['Anstich', dayAll ? 'erledigt – ' + esc(nameOf(scans[0])) : 'beim ersten Scan des Tages']);
-  const gb = [10, 20, 30].find(m => m > dayBeer);
-  rows.push(['Gruppen-Bier', gb ? 'Nr. ' + gb + ' – ' + noch(gb - dayBeer, 'Bier', 'Bier') + ' (jetzt ' + dayBeer + ')' : 'alle drei erreicht (' + dayBeer + ' Bier)']);
-  const gs = nextSchnaps(dayAll);
-  rows.push(['Schnapszahl heute', gs + ' Getränke – ' + noch(gs - dayAll, 'Getränk', 'Getränke')]);
-  if (totAll != null) { const ts = nextSchnaps(totAll); rows.push(['Schnapszahl gesamt', ts + ' Getränke – ' + noch(ts - totAll, 'Getränk', 'Getränke') + ' (jetzt ' + totAll + ')']); }
+  rules.filter(r => r.who === 'group' && COUNT_KINDS.includes(r.kind)).forEach(r => {
+    if (r.period === 'total' && !tm) return;
+    const rc = r.cat || 'all', v = cval(r.period === 'total' ? tm : dm, rc), k = ruleRemain(r, v);
+    const nextV = k == null ? null : v + k, tx = pickText(r, nextV || v);
+    let txt;
+    if (k == null) txt = (r.kind === 'count' && r.n === 1 && v > 0 && scans.length ? 'erledigt – ' + esc(nameOf(scans[0])) : 'erledigt');
+    else txt = '„' + esc(fill(tx.t, { n: nextV, name: '…' })) + '“ – ' + noch(k, rc) + ' (jetzt ' + v + ')';
+    rows.push({ k: k == null ? 1e9 : k, label: esc(describeRule(r).replace(/^Alle: /, '')), txt });
+  });
   const now = new Date(), isToday = day.date === todayISO();
-  if (isToday) rows.push(['Narrenzeit', (now.getHours() < 11 || (now.getHours() === 11 && now.getMinutes() <= 11)) ? 'heute um 11:11 Uhr' : 'heute schon vorbei']);
-  const ny = now.getMonth() > 10 || (now.getMonth() === 10 && now.getDate() > 11) ? now.getFullYear() + 1 : now.getFullYear();
-  const dElf = Math.round((new Date(ny, 10, 11) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
-  rows.push(['11.11.', dElf === 0 ? 'heute – beim ersten Scan jeder Person' : 'in ' + dElf + ' Tag' + (dElf === 1 ? '' : 'en')]);
-  h += '<div class="tw"><table><tbody>' + rows.map(r => '<tr><td>' + r[0] + '</td><td style="text-align:right">' + r[1] + '</td></tr>').join('') + '</tbody></table></div>';
+  rules.filter(r => r.kind === 'time' && r.time).forEach(r => {
+    const [hh, mm] = r.time.split(':').map(Number), passed = now.getHours() * 60 + now.getMinutes() > hh * 60 + mm;
+    rows.push({ k: 1e8, label: esc(describeRule(r)), txt: isToday && !passed ? 'heute um ' + r.time + ' Uhr' : 'heute vorbei' });
+  });
+  rules.filter(r => r.kind === 'date' && r.date).forEach(r => {
+    const [dd, mo] = r.date.split('.').map(Number); if (!dd || !mo) return;
+    let y = now.getFullYear(); const today0 = new Date(y, now.getMonth(), now.getDate());
+    if (new Date(y, mo - 1, dd) < today0) y++;
+    const n = Math.round((new Date(y, mo - 1, dd) - today0) / 864e5);
+    rows.push({ k: 1e8, label: esc(describeRule(r)), txt: n === 0 ? 'heute' : 'in ' + n + ' Tag' + (n === 1 ? '' : 'en') });
+  });
+  rows.sort((a, b) => a.k - b.k);
+  h += rows.length ? '<div class="tw"><table><tbody>' + rows.map(r => '<tr><td>' + r.label + '</td><td style="text-align:right">' + r.txt + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="empty">Keine gemeinsamen Easter Eggs aktiv.</div>';
 
   // pro Person
   const per = {};
-  scans.forEach(s => { const x = per[s.uid] = per[s.uid] || { uid: s.uid, name: nameOf(s), all: 0, beer: 0, water: 0 }; x.all++; if (isBeer(s)) x.beer++; if (isWater(s)) x.water++; });
+  scans.forEach(s => { const x = per[s.uid] = per[s.uid] || { uid: s.uid, name: nameOf(s), m: { all: 0 } }; const c = catOf(P(s.p)); x.m.all++; x.m[ckey(c)] = (x.m[ckey(c)] || 0) + 1; });
+  const meRules = rules.filter(r => r.who !== 'group');
   const people = Object.values(per).map(x => {
-    const nb = nextBeerStep(x.beer), parts = [];
-    parts.push({ k: nb - x.beer, t: noch(nb - x.beer, 'Bier', 'Bier') + ' bis „' + esc(beerEggTitle(nb)) + '“' });
-    if (x.beer >= 3 && !x.water) parts.push({ k: 1, t: 'nächstes Wasser: „' + esc(EGG_TEXT.water[0]) + '“' });
-    const sd = nextSchnaps(x.all); parts.push({ k: sd - x.all, t: noch(sd - x.all, 'Getränk', 'Getränke') + ' bis Schnapszahl ' + sd });
-    const tot = S.ustatsAll && S.ustatsAll[x.uid] ? S.ustatsAll[x.uid].all || 0 : null;
-    if (tot != null && tot !== x.all) { const st = nextSchnaps(tot); parts.push({ k: st - tot, t: noch(st - tot, 'Getränk', 'Getränke') + ' bis ' + st + ' gesamt' }); }
+    const tot = S.ustatsAll && S.ustatsAll[x.uid];
+    const parts = [];
+    meRules.forEach(r => {
+      if (COUNT_KINDS.includes(r.kind)) {
+        if (r.period === 'total' && !tot) return;
+        const rc = r.cat || 'all', v = cval(r.period === 'total' ? tot : x.m, rc), k = ruleRemain(r, v);
+        if (k == null) return;
+        if (r.kind === 'schnaps' && r.period === 'total' && v === cval(x.m, rc)) return;
+        const tx = pickText(r, v + k);
+        parts.push({ k, t: noch(k, rc) + ' bis „' + esc(fill(tx.t, { n: v + k, name: x.name })) + '“' + (r.period === 'total' ? ' (insgesamt)' : '') });
+      } else if (r.kind === 'after') {
+        if (cval(x.m, r.cat2 || 'bier') >= (r.n2 || 1) && !cval(x.m, r.cat)) parts.push({ k: 1, t: 'nächstes ' + CAT_ONE[r.cat] + ': „' + esc(fill(pickText(r, 0).t, {})) + '“' });
+      }
+    });
     parts.sort((a, b) => a.k - b.k);
-    return { x, parts, soon: parts[0].k };
+    return { x, parts, soon: parts.length ? parts[0].k : 1e9 };
   }).sort((a, b) => a.soon - b.soon || a.x.name.localeCompare(b.x.name, 'de'));
   const idle = Object.keys(S.users).filter(u => !S.users[u].deleted && !per[u]).length;
+  const firstBeer = meRules.find(r => r.kind === 'count' && r.n === 1);
   h += '<h2 style="margin-top:14px;font-size:1.05rem">Pro Person</h2>' + (people.length ? people.map(({ x, parts }) =>
-    '<div class="rw" style="align-items:flex-start"><span style="min-width:0"><b>' + esc(x.name) + '</b><br><small>' + x.beer + ' Bier · ' + x.all + ' Getränke heute</small></span>' +
-    '<span style="font-weight:400;font-size:.84rem;text-align:right">' + parts.slice(0, 3).map((p, i) => i === 0 ? '<b>' + p.t + '</b>' : p.t).join('<br>') + '</span></div>').join('') : '<div class="empty">Heute hat noch niemand gebucht.</div>') +
-    (idle ? '<div style="font-size:.82rem;color:var(--mu);margin-top:6px">' + idle + ' weitere Person' + (idle === 1 ? '' : 'en') + ' ohne Getränk heute – beim ersten Bier kommt „' + esc(EGG_TEXT.beer[1][0]) + '“.</div>' : '') +
+    '<div class="rw" style="align-items:flex-start"><span style="min-width:0;display:flex;gap:8px;align-items:flex-start">' + avatarHTML(x.uid, x.name, 32) + '<span><b>' + esc(x.name) + '</b><br><small>' + cval(x.m, 'bier') + ' Bier · ' + x.m.all + ' Getränke heute</small></span></span>' +
+    '<span style="font-weight:400;font-size:.84rem;text-align:right">' + (parts.length ? parts.slice(0, 3).map((p, i) => i === 0 ? '<b>' + p.t + '</b>' : p.t).join('<br>') : 'nichts mehr offen') + '</span></div>').join('') : '<div class="empty">Heute hat noch niemand gebucht.</div>') +
+    (idle ? '<div style="font-size:.82rem;color:var(--mu);margin-top:6px">' + idle + ' weitere Person' + (idle === 1 ? '' : 'en') + ' ohne Getränk heute' + (firstBeer ? ' – beim ersten ' + CAT_ONE[firstBeer.cat || 'all'] + ' kommt „' + esc(fill(pickText(firstBeer, 1).t, { n: 1 })) + '“' : '') + '.</div>' : '') +
     '<div style="font-size:.8rem;color:var(--mu);margin-top:6px">Die Gesamtzahlen stammen aus den Zählern; nach Stornos oder Nachträgen unter „Daten“ neu berechnen.</div>';
   return h + '</section>';
 }
 
+/* ---------- Super-Admin: Easter Eggs verwalten ---------- */
+let erNewOpen = null;
+function rulesEditor() {
+  const rules = allRules();
+  const catOpts = (cur, withAll) => (withAll ? '<option value="all"' + (cur === 'all' ? ' selected' : '') + '>Alle Getränke</option>' : '') + CATS.map(c => '<option value="' + c[0] + '"' + (cur === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('');
+  let h = '<section><h2>Easter Eggs verwalten (' + rules.length + ')</h2>' +
+    '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Nur für Super-Admins. Änderungen gelten sofort auf allen Handys. In Texten: <code>{n}</code> = Zahl, <code>{name}</code> = Person. Mehrere Zeilen „Titel | Text“ wechseln sich ab.</div>' +
+    (S.eggRules ? '' : '<div class="note" style="margin-bottom:6px">Es gelten die Standard-Easter-Eggs. Sobald du etwas änderst, werden sie gespeichert.</div>');
+  rules.forEach(r => {
+    const k = r.id, q = f => 'data-er="' + k + '|' + f + '"';
+    const isCount = COUNT_KINDS.includes(r.kind);
+    const kinds = KINDS.filter(x => r.who !== 'group' || COUNT_KINDS.includes(x[0]));
+    h += '<details class="pc" data-k="er' + k + '"' + (erNewOpen === k ? ' open' : '') + '><summary><span style="min-width:0"><b>' + esc((r.texts && r.texts[0] && r.texts[0].t) || 'Easter Egg') + '</b><br><small>' + esc(describeRule(r)) + '</small></span>' +
+      '<span class="tag ' + (r.on === false ? 'cls' : 'act') + '">' + (r.on === false ? 'aus' : 'an') + '</span></summary><div class="grid2">' +
+      '<label class="chk full"><input type="checkbox" ' + q('on') + (r.on === false ? '' : ' checked') + '> Aktiv</label>' +
+      '<label class="f">Für<select ' + q('who') + '><option value="me"' + (r.who !== 'group' ? ' selected' : '') + '>jede Person für sich</option><option value="group"' + (r.who === 'group' ? ' selected' : '') + '>alle gemeinsam</option></select></label>' +
+      '<label class="f">Wann<select ' + q('kind') + '>' + kinds.map(x => '<option value="' + x[0] + '"' + (r.kind === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
+    if (isCount) {
+      h += '<label class="f">Getränk<select ' + q('cat') + '>' + catOpts(r.cat || 'all', true) + '</select></label>' +
+        '<label class="f">Zeitraum<select ' + q('period') + '><option value="day"' + (r.period !== 'total' ? ' selected' : '') + '>heute</option><option value="total"' + (r.period === 'total' ? ' selected' : '') + '>seit Beginn</option></select></label>' +
+        (r.kind !== 'schnaps' ? '<label class="f">' + (r.kind === 'every' ? 'jede n-te: n =' : 'Anzahl') + '<input ' + q('n') + ' inputmode="numeric" value="' + (r.n || '') + '"></label><div></div>' : '');
+    } else if (r.kind === 'after') {
+      h += '<label class="f">Erstes<select ' + q('cat') + '>' + catOpts(r.cat || 'wasser', false) + '</select></label><div></div>' +
+        '<label class="f">nach mindestens<input ' + q('n2') + ' inputmode="numeric" value="' + (r.n2 || '') + '"></label>' +
+        '<label class="f">von<select ' + q('cat2') + '>' + catOpts(r.cat2 || 'bier', true) + '</select></label>';
+    } else if (r.kind === 'time') {
+      h += '<label class="f">Uhrzeit<input type="time" ' + q('time') + ' value="' + esc(r.time || '11:11') + '"></label><div></div>';
+    } else if (r.kind === 'date') {
+      h += '<label class="f">Datum (TT.MM)<input ' + q('date') + ' value="' + esc(r.date || '') + '" placeholder="11.11" inputmode="numeric"></label><div></div>';
+    }
+    h += '<label class="f full">Texte (eine Zeile pro Variante: Titel | Text)<textarea ' + q('texts') + ' rows="' + Math.max(2, (r.texts || []).length + 1) + '" style="font:inherit;font-size:16px;border:1.5px solid var(--line);border-radius:8px;padding:8px;width:100%">' +
+      esc((r.texts || []).map(x => x.t + ' | ' + x.s).join('\n')) + '</textarea></label>' +
+      '<div class="full row" style="margin-top:0"><button class="b sm" data-act="erTest" data-id="' + k + '">Vorschau</button><button class="b sm" data-act="erCopy" data-id="' + k + '">Kopieren</button><button class="b sm dng" data-act="erDel" data-id="' + k + '">Löschen</button></div></div></details>';
+  });
+  h += '<div class="row"><button class="b pri" data-act="erAdd">Neues Easter Egg</button><button class="b sm" data-act="erReset">Standard wiederherstellen</button></div></section>';
+  return h;
+}
+function saveRules(rules) {
+  S.eggRules = rules;
+  fire(F.setDoc(dref('config', 'eggs'), { rules, t: Date.now() }), 'Easter Eggs speichern');
+  renderAdmin();
+}
+function editRule(id, f, val) {
+  const rules = allRules().map(r => Object.assign({}, r));
+  const r = rules.find(x => x.id === id); if (!r) return;
+  if (f === 'on') r.on = !!val;
+  else if (f === 'n' || f === 'n2') { const v = parseInt(val); if (!(v >= 1)) { toast('Bitte eine Zahl ab 1'); renderAdmin(); return; } r[f] = v; }
+  else if (f === 'texts') {
+    r.texts = String(val).split('\n').map(l => l.trim()).filter(Boolean).map(l => { const i = l.indexOf('|'); return i < 0 ? T(l.slice(0, 80), '') : T(l.slice(0, i).trim().slice(0, 80), l.slice(i + 1).trim().slice(0, 160)); }).slice(0, 20);
+    if (!r.texts.length) r.texts = [T('Easter Egg!', '')];
+  }
+  else if (f === 'date') { const m = String(val).trim().match(/^(\d{1,2})\.(\d{1,2})\.?$/); if (!m || +m[1] > 31 || +m[2] > 12 || !+m[1] || !+m[2]) { toast('Datum als TT.MM, z. B. 11.11'); renderAdmin(); return; } r.date = m[1].padStart(2, '0') + '.' + m[2].padStart(2, '0'); }
+  else r[f] = val;
+  // sinnvolle Vorgaben, wenn sich die Art ändert
+  if (f === 'who' && r.who === 'group' && !COUNT_KINDS.includes(r.kind)) r.kind = 'count';
+  if (f === 'kind') {
+    if (COUNT_KINDS.includes(r.kind)) { r.cat = r.cat || 'bier'; r.period = r.period || 'day'; if (r.kind !== 'schnaps') r.n = r.n || 5; }
+    if (r.kind === 'after') { r.cat = r.cat && r.cat !== 'all' ? r.cat : 'wasser'; r.cat2 = r.cat2 || 'bier'; r.n2 = r.n2 || 3; }
+    if (r.kind === 'time') r.time = r.time || '11:11';
+    if (r.kind === 'date') r.date = r.date || '11.11';
+  }
+  saveRules(rules);
+}
+
+/* ---------- Admin: Zähler aus allen Buchungen neu berechnen ---------- */
 async function recomputeCounters() {
   const all = await allScans();
-  const per = {}, users = {}; let total = 0;
+  const per = {}, users = {}, total = { all: 0 };
+  const add = (m, c) => { m.all = (m.all || 0) + 1; if (c !== 'all') m[ckey(c)] = (m[ckey(c)] || 0) + 1; };
   all.forEach(s => {
-    const beer = catOf(P(s.p)) === 'bier' ? 1 : 0;
-    per[s.day] = per[s.day] || { all: 0, beer: 0 }; per[s.day].all++; per[s.day].beer += beer;
-    users[s.uid] = users[s.uid] || { all: 0, beer: 0 }; users[s.uid].all++; users[s.uid].beer += beer;
-    total++;
+    const c = catOf(P(s.p));
+    add(per[s.day] = per[s.day] || { all: 0 }, c);
+    add(users[s.uid] = users[s.uid] || { all: 0 }, c);
+    add(total, c);
   });
   const ops = Object.keys(per).map(d => ({ ref: dref('gstats', d), data: per[d] }))
     .concat(Object.keys(users).map(u => ({ ref: dref('ustats', u), data: users[u] })))
-    .concat([{ ref: dref('gstats', 'total'), data: { all: total } }]);
+    .concat([{ ref: dref('gstats', 'total'), data: total }]);
   await commitInChunks(ops);
-  return total;
+  return total.all;
+}
+
+/* ---------- Super-Admin: alle Statistiken zurücksetzen ---------- */
+async function resetStats(withData) {
+  const cols = ['gstats', 'ustats', 'live', 'ueggs'].concat(withData ? ['scans', 'days'] : []);
+  let n = 0;
+  for (const c of cols) {
+    const snap = await F.getDocs(col(c));
+    n += snap.docs.length;
+    await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true })));
+  }
+  const upd = { epoch: Date.now() };
+  if (withData) upd.active = null;
+  await F.setDoc(dref('meta', 'state'), upd, { merge: true });
+  return n;
 }
 
 /* ---------- Bestandswarnung für Admins ---------- */
@@ -1197,14 +1361,14 @@ $('avIn').addEventListener('change', async e => {
   try {
     const img = await makeAvatar(f), v = { img, t: Date.now() };
     setAvatarCache(S.user.uid, v); renderMe(); avatarsChanged();
-    fire(F.setDoc(dref('avatars', S.user.uid), v), 'Profilbild speichern');
+    fire(F.setDoc(dref('avatars', S.user.uid), v), 'Profilbild speichern'); logEv('person', 'setzt ein neues Profilbild');
     toast('Profilbild gespeichert');
   } catch (err) { toast(err.message || 'Bild konnte nicht verarbeitet werden'); }
 });
 $('avDel').addEventListener('click', () => {
   if (!S.user || !confirm('Profilbild entfernen?')) return;
   setAvatarCache(S.user.uid, null); renderMe(); avatarsChanged();
-  fire(F.deleteDoc(dref('avatars', S.user.uid)), 'Profilbild entfernen');
+  fire(F.deleteDoc(dref('avatars', S.user.uid)), 'Profilbild entfernen'); logEv('person', 'entfernt das eigene Profilbild');
 });
 
 /* ---------- Verlauf der Easter Eggs ---------- */
@@ -1222,7 +1386,7 @@ function renderHist() {
   const list = (histTab === 'all' ? g : m).slice().reverse();
   const own = histTab !== 'all';
   $('hist').innerHTML = list.length ? list.map(x => '<div class="hi">' + avatarHTML(own ? S.user.uid : x.uid, own ? S.me : (x.name || ''), 38) + '<b>' + esc(x.title) + '</b><time>' + fmtTime(x.t) + '</time><span>' + esc(x.sub) + '</span></div>').join('')
-    : '<div class="empty">' + (histTab === 'all' ? 'Heute noch kein gemeinsames Easter Egg. Das erste gibt’s beim Anstich.' : 'Noch keins. Dein erstes Bier bringt „' + esc(EGG_TEXT.beer[1][0]) + '“.') + '</div>';
+    : '<div class="empty">' + (histTab === 'all' ? 'Heute noch kein gemeinsames Easter Egg. Das erste gibt’s beim Anstich.' : (() => { const r = activeRules().find(x => x.who !== 'group' && x.kind === 'count' && x.n === 1); return r ? 'Noch keins. Dein erstes ' + CAT_ONE[r.cat || 'all'] + ' bringt „' + esc(fill(pickText(r, 1).t, { n: 1 })) + '“.' : 'Noch keins.'; })()) + '</div>';
 }
 
 function setMsg(t) { $('msg').hidden = !t; $('msg').innerHTML = t || ''; }
@@ -1251,7 +1415,7 @@ function onMainCode(code) {
 $('last').addEventListener('click', e => {
   const u = e.target.closest('[data-undo]'); if (!u) return;
   fire(F.deleteDoc(dref('scans', u.dataset.undo)), 'Rückgängig');
-  if (u.dataset.up) eggsAfterUndo(u.dataset.up);
+  if (u.dataset.up) { eggsAfterUndo(u.dataset.up); logEv('buchung', 'nimmt eigene Buchung zurück: ' + pname(u.dataset.up), S.active); }
   $('last').hidden = true; toast('Buchung zurückgenommen');
 });
 $('list').addEventListener('click', e => { const b = e.target.closest('[data-plus]'); if (b) book(b.dataset.plus, 'manuell'); });
@@ -1332,7 +1496,7 @@ function onSheetCode(code) {
     const target = sh.assignTo === 'new' ? null : P(sh.assignTo);
     if (p && p !== target) { toast('Barcode gehört schon zu „' + p.name + '“'); return; }
     if (sh.assignTo === 'new') newDraft.codes = (newDraft.codes ? newDraft.codes + ', ' : '') + code;
-    else if (target) fire(F.updateDoc(dref('products', target.id), { codes: F.arrayUnion(code) }), 'Barcode speichern');
+    else if (target) { fire(F.updateDoc(dref('products', target.id), { codes: F.arrayUnion(code) }), 'Barcode speichern'); logEv('getraenk', target.name + ': Barcode ' + code + ' hinzugefügt'); }
     toast('Barcode übernommen'); closeSheet(); return;
   }
   if (p) { sh.pid = p.id; sh.unknown = null; } else { sh.pid = null; sh.unknown = code; }
@@ -1350,12 +1514,14 @@ function sheetAdd(pid, qty, label) {
   day[key] = Object.assign({}, day[key], { [pid]: (cur || 0) + d });
   sh.last = { key, pid, d, prev: cur == null ? null : cur, text: (d > 0 ? '+' : '−') + Math.abs(d) + ' ' + P(pid).name + ' (' + label + ')' };
   toast(sh.last.text); renderSheet();
+  logEv('einladen', (key === 'count' ? 'Rest gezählt: ' : 'Einladen: ') + sh.last.text + ' → ' + day[key][pid], day.id);
 }
 function sheetUndo() {
   const l = sh.last; if (!l) return;
   const day = S.days.find(d => d.id === sh.dayId); if (!day) return;
   if (l.key === 'count' && l.prev == null) { setCount(day.id, l.pid, null); const c = Object.assign({}, day.count); delete c[l.pid]; day.count = c; }
   else { incField(day.id, l.key, l.pid, -l.d); day[l.key] = Object.assign({}, day[l.key], { [l.pid]: ((day[l.key] || {})[l.pid] || 0) - l.d }); }
+  logEv('einladen', 'nimmt zurück: ' + l.text, day.id);
   sh.last = null; toast('Zurückgenommen'); renderSheet();
 }
 function renderSheet() {
@@ -1422,13 +1588,13 @@ $('sheetBody').addEventListener('click', e => {
     const id = newId('products'), data = { name, codes: [sh.unknown], price: Math.max(0, num($('qPrice').value) || 0), packs: parsePacks($('qPacks').value) };
     if ($('qCat').value) data.cat = $('qCat').value;
     fire(F.setDoc(dref('products', id), data), 'Getränk anlegen');
-    S.products.push(Object.assign({ id }, data));
+    S.products.push(Object.assign({ id }, data)); logEv('getraenk', 'legt Getränk „' + name + '“ an (Barcode ' + data.codes[0] + ')');
     sh.pid = id; sh.unknown = null; toast('„' + name + '“ angelegt'); renderSheet();
   }
   else if (a === 'assignExisting') {
     const p = P($('qAssign').value); if (!p) { toast('Bitte ein Getränk wählen'); return; }
     fire(F.updateDoc(dref('products', p.id), { codes: F.arrayUnion(sh.unknown) }), 'Barcode speichern');
-    p.codes = [...(p.codes || []), sh.unknown];
+    p.codes = [...(p.codes || []), sh.unknown]; logEv('getraenk', p.name + ': Barcode ' + sh.unknown + ' hinzugefügt');
     sh.pid = p.id; sh.unknown = null; toast('Barcode zu „' + p.name + '“ hinzugefügt'); renderSheet();
   }
 });
@@ -1436,7 +1602,7 @@ $('sheetBody').addEventListener('click', e => {
 /* =========================================================
    Admin
    ========================================================= */
-let showNewDay = false, showNewProd = false, overview = null;
+let showNewDay = false, showNewProd = false, overview = null, nbSel = '', showReset = false, logDate = todayISO(), logWithScans = false;
 let newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' };
 
 function setView(v) {
@@ -1540,7 +1706,17 @@ function renderAdmin() {
         '<label class="f full">Person<select id="nbWho"><option value="">Wählen …</option>' + people.map(x => '<option value="' + x.uid + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
         '<label class="f">Getränk<select id="nbP"><option value="">Wählen …</option>' + S.products.map(x => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
         '<label class="f">Anzahl<input id="nbN" inputmode="numeric" value="1"></label>' +
-        '<div class="full"><button class="b pri" data-act="addBooking">Nachtragen</button></div></div></section>';
+        '<div class="full"><button class="b pri" data-act="addBooking">Nachtragen</button></div></div>';
+      if (nbSel && S.users[nbSel]) {
+        const ps = scans.filter(x => x.uid === nbSel), byP = {};
+        ps.forEach(x => { byP[x.p] = (byP[x.p] || 0) + 1; });
+        h += '<h2 style="margin-top:14px;font-size:1.05rem">Heute gebucht von ' + esc(uname(nbSel)) + ' (' + ps.length + ')</h2>' +
+          (ps.length ? Object.keys(byP).sort((x, y) => pname(x).localeCompare(pname(y), 'de')).map(pid => '<div class="rw"><span></span><span>' + esc(pname(pid)) + '</span><small>' + byP[pid] + '×</small><button class="b sm dng" data-act="nbMinus" data-id="' + pid + '">−1 stornieren</button></div>').join('') +
+            '<details class="pc" data-k="nbList"><summary><b>Einzelne Buchungen</b><small>' + ps.length + '</small></summary>' +
+            ps.slice().reverse().map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(pname(x.p)) + '</span><small>' + (x.src === 'nachgetragen' ? 'nachgetragen' : x.src === 'manuell' ? 'ohne Scan' : 'Scan') + '</small><button class="b sm" data-act="storno" data-id="' + x.id + '">Stornieren</button></div>').join('') + '</details>'
+            : '<div class="empty">Heute noch nichts gebucht.</div>');
+      }
+      h += '</section>';
     }
 
     const recent = scans.slice(-30).reverse();
@@ -1602,16 +1778,57 @@ function renderAdmin() {
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Entfernen sperrt das Konto in der App. Das Login selbst (E-Mail und Passwort) löschst du in der <a href="' + consoleUrl + '" target="_blank" rel="noopener">Firebase-Konsole → Authentication → Nutzer</a> über das Menü „⋮“ der Person.</div>' : '') +
       '</section>';
   }
+  if (S.isSuper) h += rulesEditor() + historySection();
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     ('Notification' in window && Notification.permission !== 'granted' ? '<button class="b sm" data-act="notifyPerm">Warnungen aufs Handy erlauben</button>' : '') +
     '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup importieren</button>' +
-    (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') + '</div>' +
+    (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
+    (S.isSuper ? '<button class="b sm dng" data-act="resetToggle">Statistiken zurücksetzen</button>' : '') + '</div>' +
+    (S.isSuper && showReset ? '<div class="grid2" style="margin-top:10px;border:2px solid var(--pen);border-radius:12px;padding:12px;background:var(--white)">' +
+      '<div class="full" style="font-size:.88rem">Löscht alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn) und alle Easter-Egg-Verläufe. Danach können alle Easter Eggs neu ausgelöst werden. Das Protokoll bleibt erhalten.</div>' +
+      '<label class="chk full"><input type="checkbox" id="rsData"> Auch alle Buchungen und Tage löschen</label>' +
+      '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
+      '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig zurücksetzen</button><button class="b" data-act="resetToggle">Abbrechen</button></div></div>' : '') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
   keepState(el, h);
 }
 
 /* ---------- CSV / Backup ---------- */
+/* ---------- Super-Admin: Historie aller Änderungen ---------- */
+function listenLog() {
+  if (!S.isSuper) return;
+  if (S.logFor === logDate && unsub.log) return;
+  stop('log'); S.logs = null; S.logFor = logDate;
+  unsub.log = F.onSnapshot(F.query(col('log'), F.where('date', '==', logDate)), snap => {
+    S.logs = snap.docs.map(d => d.data()).sort((a, b) => b.t - a.t); renderAdmin();
+  }, err => { console.warn('log', err); S.logs = []; renderAdmin(); });
+}
+async function loadLogScans() {
+  const [y, m, d] = logDate.split('-').map(Number), a = new Date(y, m - 1, d).getTime(), b = a + 864e5;
+  try { S.logScans = (await F.getDocs(F.query(col('scans'), F.where('t', '>=', a), F.where('t', '<', b)))).docs.map(x => x.data()).sort((p, q) => q.t - p.t); }
+  catch (err) { S.logScans = []; toast('Scans konnten nicht geladen werden'); }
+  renderAdmin();
+}
+function historySection() {
+  listenLog();
+  if (logWithScans && !S.logScans) { S.logScans = []; loadLogScans(); }
+  let h = '<section><h2>Historie</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Alle Änderungen, nur für Super-Admins sichtbar. Einträge lassen sich nicht ändern oder löschen.</div>' +
+    '<div class="grid2"><label class="f">Datum<input type="date" id="logDate" value="' + logDate + '"></label><label class="chk" style="align-self:end"><input type="checkbox" id="logScans"' + (logWithScans ? ' checked' : '') + '> auch normale Scans</label></div>';
+  const L = S.logs;
+  if (!L) return h + '<div class="empty">Lade …</div></section>';
+  const groups = LOG_TYPES.map(([k, label]) => [k, label, L.filter(x => x.type === k)]).filter(g => g[2].length);
+  if (logWithScans && S.logScans && S.logScans.length) groups.push(['scans', 'Normale Scans', S.logScans.map(x => ({ t: x.t, uid: x.uid, who: nameOf(x), text: pname(x.p) + (x.src === 'manuell' ? ' (ohne Scan)' : x.src === 'nachgetragen' ? ' (nachgetragen)' : '') }))]);
+  if (!groups.length) return h + '<div class="empty">Für den ' + fmtDate(logDate) + ' gibt es keine Einträge.</div></section>';
+  h += '<div style="font-size:.84rem;margin:8px 0 2px">' + L.length + ' Änderung' + (L.length === 1 ? '' : 'en') + ' am ' + fmtDate(logDate) + '</div>';
+  groups.forEach(([k, label, list]) => {
+    h += '<details class="pc" data-k="log_' + k + '"><summary><b>' + label + '</b><small>' + list.length + '</small></summary>' +
+      list.map(x => '<div class="rw" style="align-items:flex-start"><span style="font-variant-numeric:tabular-nums;color:var(--mu);font-size:.8rem;padding-top:6px">' + fmtTime(x.t) + '</span>' +
+        '<span style="font-weight:400;display:flex;gap:8px;align-items:flex-start">' + avatarHTML(x.uid, x.who, 28) + '<span><b>' + esc(x.who || '?') + '</b> ' + esc(x.text) + '</span></span></div>').join('') + '</details>';
+  });
+  return h + '</section>';
+}
+
 function download(name, text, type) {
   const a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type }));
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -1643,17 +1860,23 @@ adminBody.addEventListener('change', e => { const n = e.target.dataset.n; if (n)
 adminBody.addEventListener('change', e => {
   const t = e.target, day = selDayObj();
   if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
-  if (t.dataset.day && day) { const v = t.value.trim(); if (t.dataset.day === 'date' && !v) return; fire(F.updateDoc(dref('days', day.id), { [t.dataset.day]: v }), 'Tag speichern'); return; }
-  if (t.dataset.cnt && day) { const v = t.value.trim(); setCount(day.id, t.dataset.cnt, v === '' || isNaN(parseInt(v)) ? null : parseInt(v)); return; }
-  if (t.dataset.load && day) { setLoad(day.id, t.dataset.load, parseInt(t.value) || 0); return; }
+  if (t.id === 'nbWho') { nbSel = t.value; renderAdmin(); return; }
+  if (t.id === 'logDate') { logDate = t.value || todayISO(); S.logScans = null; renderAdmin(); return; }
+  if (t.id === 'logScans') { logWithScans = t.checked; S.logScans = null; renderAdmin(); return; }
+  if (t.dataset.er) { const [rid, f] = t.dataset.er.split('|'); const r = allRules().find(x => x.id === rid); editRule(rid, f, t.type === 'checkbox' ? t.checked : t.value); logEv('egg', 'ändert Easter Egg „' + ((r && r.texts && r.texts[0] && r.texts[0].t) || rid) + '“ (' + f + ')'); return; }
+  if (t.dataset.day && day) { const v = t.value.trim(); if (t.dataset.day === 'date' && !v) return; fire(F.updateDoc(dref('days', day.id), { [t.dataset.day]: v }), 'Tag speichern'); logEv('tag', dayLabel(day) + ': ' + (t.dataset.day === 'date' ? 'Datum' : 'Ziel') + ' → ' + v, day.id); return; }
+  if (t.dataset.cnt && day) { const v = t.value.trim(), nv = v === '' || isNaN(parseInt(v)) ? null : parseInt(v); setCount(day.id, t.dataset.cnt, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.cnt) + ' gezählt → ' + (nv == null ? 'leer' : nv), day.id); return; }
+  if (t.dataset.load && day) { const nv = parseInt(t.value) || 0; setLoad(day.id, t.dataset.load, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.load) + ' mitgenommen → ' + nv, day.id); return; }
   if (t.dataset.role) {
     const uid = t.dataset.role, role = t.value;
     fire(F.updateDoc(dref('users', uid), { role: role ? role : F.deleteField() }), 'Rolle ändern');
+    logEv('person', uname(uid) + ': Rolle → ' + (role ? 'Admin' : 'Mitglied'));
     toast(role ? (S.users[uid] || {}).name + ' ist jetzt Admin' : (S.users[uid] || {}).name + ' ist jetzt Mitglied'); return;
   }
   if (t.dataset.u) {
     const name = t.value.trim().replace(/\s+/g, ' ').slice(0, 40);
     if (name.length < 2) { toast('Name zu kurz'); renderAdmin(); return; }
+    logEv('person', 'ändert Namen „' + uname(t.dataset.u) + '“ → „' + name + '“');
     fire(F.updateDoc(dref('users', t.dataset.u), { name }), 'Name korrigieren'); toast('Name geändert'); return;
   }
   if (t.dataset.p) {
@@ -1670,6 +1893,8 @@ adminBody.addEventListener('change', e => {
     if (f === 'cat') upd.cat = t.value ? t.value : F.deleteField();
     if (f === 'low') { const v = parseInt(t.value); upd.low = v > 0 ? v : F.deleteField(); }
     fire(F.updateDoc(dref('products', p.id), upd), 'Getränk speichern');
+    const FL = { name: 'Name', codes: 'Barcodes', price: 'Preis', packs: 'Gebinde', cat: 'Sorte', low: 'Warnen ab' };
+    logEv('getraenk', p.name + ': ' + FL[f] + ' → ' + (t.value.trim() || 'leer'));
   }
 });
 adminBody.addEventListener('click', async e => {
@@ -1691,20 +1916,21 @@ adminBody.addEventListener('click', async e => {
     fire(F.setDoc(dref('days', nid), nd), 'Tag anlegen');
     fire(F.setDoc(dref('meta', 'state'), { active: nid }, { merge: true }), 'Tag aktivieren');
     S.selDay = nid; showNewDay = false; toast('Tag angelegt und aktiviert');
+    logEv('tag', 'legt Tag an: ' + fmtDate(date) + (place ? ' – ' + place : '') + (carry && pv ? ' (Rest vom Vortag übernommen)' : ''), nid);
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
-  else if (a === 'activate' && day) { fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag aktivieren'); toast('Scannen bucht jetzt auf diesen Tag'); }
+  else if (a === 'activate' && day) { fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag aktivieren'); toast('Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'aktiviert ' + dayLabel(day) + ' zum Scannen', day.id); }
   else if (a === 'close' && day) {
     const open = dayRows(day, S.dayScans).filter(r => r.c == null).length;
     if (open && !confirm(open + ' Getränke sind noch nicht gezählt. Trotzdem abschließen?')) return;
-    fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen'); toast('Tag abgeschlossen');
+    fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen'); toast('Tag abgeschlossen'); logEv('tag', 'schließt ' + dayLabel(day) + ' ab', day.id);
   }
-  else if (a === 'reopen' && day) fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen');
+  else if (a === 'reopen' && day) { fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); logEv('tag', 'öffnet ' + dayLabel(day) + ' wieder', day.id); }
   else if (a === 'sheetLoad' && day) openSheet({ mode: 'load', dayId: day.id });
   else if (a === 'sheetCount' && day) openSheet({ mode: 'count', dayId: day.id });
   else if (a === 'zeroOpen' && day) {
     const upd = {}; dayRows(day, S.dayScans).forEach(r => { if (r.c == null) upd['count.' + r.p.id] = 0; });
-    if (Object.keys(upd).length) fire(F.updateDoc(dref('days', day.id), upd), 'Zählung speichern');
+    if (Object.keys(upd).length) { fire(F.updateDoc(dref('days', day.id), upd), 'Zählung speichern'); logEv('einladen', 'setzt nicht Gezähltes auf 0 (' + Object.keys(upd).length + ' Getränke)', day.id); }
   }
   else if (a === 'csvDay' && day) download('getraenke-' + day.date + (day.place ? '-' + day.place.replace(/[^\wäöüÄÖÜß-]+/g, '_') : '') + '.csv', csvFor([day], { [day.id]: S.dayScans }), 'text/csv;charset=utf-8');
   else if (a === 'csvPers' && day) {
@@ -1717,10 +1943,10 @@ adminBody.addEventListener('click', async e => {
     try { const r = await Notification.requestPermission(); toast(r === 'granted' ? 'Warnungen werden auch angezeigt, wenn die App im Hintergrund ist' : 'Nicht erlaubt – Warnungen erscheinen nur in der App'); } catch (e) { toast('Dieses Handy unterstützt das nicht'); }
     renderAdmin();
   }
-  else if (a === 'eggsToggle') { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); }
+  else if (a === 'eggsToggle') { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); logEv('egg', 'schaltet Easter Eggs ' + (on ? 'an' : 'aus')); }
   else if (a === 'recount') {
     if (!confirm('Zähler für Easter Eggs (Gruppe und Personen) aus allen Buchungen neu berechnen? Nötig nach Stornos, Nachträgen oder einem Import.')) return;
-    try { b.disabled = true; const n = await recomputeCounters(); toast('Zähler neu berechnet: ' + n + ' Buchungen'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
+    try { b.disabled = true; const n = await recomputeCounters(); toast('Zähler neu berechnet: ' + n + ' Buchungen'); logEv('system', 'berechnet die Zähler neu (' + n + ' Buchungen)'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
     b.disabled = false;
   }
   else if (a === 'csvAll') {
@@ -1741,17 +1967,29 @@ adminBody.addEventListener('click', async e => {
     const b2 = F.writeBatch(db);
     for (let i = 0; i < n; i++) b2.set(dref('scans', newId('scans')), { uid, day: day.id, p: pid, src: 'nachgetragen', t: Date.now() + i, at: F.serverTimestamp(), who: name });
     fire(b2.commit(), 'Nachtragen'); toast(n + '× ' + (P(pid) || {}).name + ' für ' + name + ' nachgetragen');
+    adjustCounters(uid, day.id, pid, n);
+    logEv('buchung', 'trägt nach: ' + n + '× ' + pname(pid) + ' für ' + name, day.id);
+    nbSel = uid;
+  }
+  else if (a === 'nbMinus' && day) {
+    const list = S.dayScans.filter(s => s.uid === nbSel && s.p === id).sort((x, y) => y.t - x.t);
+    if (!list.length) return;
+    const sc = list[0];
+    fire(F.deleteDoc(dref('scans', sc.id)), 'Stornieren'); adjustCounters(sc.uid, sc.day, sc.p, -1);
+    toast('1× ' + pname(id) + ' für ' + uname(nbSel) + ' storniert');
+    logEv('buchung', 'storniert 1× ' + pname(id) + ' von ' + uname(nbSel) + ' (' + fmtTime(sc.t) + ')', day.id);
   }
   else if (a === 'block' || a === 'unblock') {
     const u = S.users[id]; if (!u) return;
     if (a === 'block' && !confirm('„' + u.name + '“ sperren? Die Person kann dann nichts mehr buchen.')) return;
     fire(F.updateDoc(dref('users', id), { blocked: a === 'block' }), a === 'block' ? 'Sperren' : 'Entsperren');
+    logEv('person', (a === 'block' ? 'sperrt ' : 'entsperrt ') + u.name);
     toast(a === 'block' ? u.name + ' gesperrt' : u.name + ' entsperrt');
   }
   else if (a === 'resetPw') {
     const u = S.users[id]; if (!u || !u.email) return;
     if (!confirm('E-Mail zum Zurücksetzen des Passworts an ' + u.email + ' senden?')) return;
-    try { await F.sendPasswordResetEmail(auth, u.email); toast('Mail an ' + u.email + ' verschickt'); } catch (err) { toast('Senden fehlgeschlagen: ' + err.code); }
+    try { await F.sendPasswordResetEmail(auth, u.email); toast('Mail an ' + u.email + ' verschickt'); logEv('person', 'schickt ' + u.name + ' eine Passwort-Mail'); } catch (err) { toast('Senden fehlgeschlagen: ' + err.code); }
   }
   else if (a === 'removeUser') {
     const u = S.users[id]; if (!u) return;
@@ -1763,26 +2001,31 @@ adminBody.addEventListener('click', async e => {
       if (delScans) await commitInChunks(list.map(d => ({ ref: d.ref, del: true })));
       await F.updateDoc(dref('users', id), { deleted: true, blocked: true, role: F.deleteField() });
       toast(u.name + ' entfernt' + (delScans ? ', ' + list.length + ' Buchungen gelöscht' : ''));
+      logEv('person', 'entfernt ' + u.name + (delScans ? ' und löscht ' + list.length + ' Buchungen' : ' (Buchungen bleiben)'));
     } catch (err) { toast('Entfernen fehlgeschlagen: ' + (err.code || err.message)); }
   }
-  else if (a === 'restoreUser') { fire(F.updateDoc(dref('users', id), { deleted: false, blocked: false }), 'Wiederherstellen'); toast('Wiederhergestellt'); }
+  else if (a === 'restoreUser') { fire(F.updateDoc(dref('users', id), { deleted: false, blocked: false }), 'Wiederherstellen'); toast('Wiederhergestellt'); logEv('person', 'stellt ' + uname(id) + ' wieder her'); }
   else if (a === 'purgeUser') {
     const u = S.users[id]; if (!u) return;
     if (!confirm('Eintrag „' + u.name + '“ endgültig löschen? Danach könnte sich die Person mit ihrem Login einen neuen Namen geben. Vorher das Login in der Firebase-Konsole löschen.')) return;
-    fire(F.deleteDoc(dref('users', id)), 'Eintrag löschen');
+    fire(F.deleteDoc(dref('users', id)), 'Eintrag löschen'); logEv('person', 'löscht den Eintrag von ' + u.name + ' endgültig');
   }
   else if (a === 'delAv') {
     const u = S.users[id]; if (!u || !confirm('Profilbild von „' + u.name + '“ entfernen?')) return;
-    fire(F.deleteDoc(dref('avatars', id)), 'Profilbild entfernen'); toast('Profilbild entfernt');
+    fire(F.deleteDoc(dref('avatars', id)), 'Profilbild entfernen'); toast('Profilbild entfernt'); logEv('person', 'entfernt das Profilbild von ' + u.name);
   }
-  else if (a === 'storno') { fire(F.deleteDoc(dref('scans', id)), 'Stornieren'); toast('Buchung storniert'); }
+  else if (a === 'storno') {
+    const sc = S.dayScans.find(x => x.id === id);
+    fire(F.deleteDoc(dref('scans', id)), 'Stornieren'); toast('Buchung storniert');
+    if (sc) { adjustCounters(sc.uid, sc.day, sc.p, -1); logEv('buchung', 'storniert ' + pname(sc.p) + ' von ' + nameOf(sc) + ' (' + fmtTime(sc.t) + ')', sc.day); }
+  }
   else if (a === 'delDay' && day) {
     if (!confirm('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
     try {
       const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
       await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat([{ ref: dref('days', day.id), del: true }]));
       if (S.active === day.id) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Tag deaktivieren');
-      toast('Tag gelöscht');
+      toast('Tag gelöscht'); logEv('tag', 'löscht ' + dayLabel(day) + ' mit ' + sc.length + ' Buchungen', day.id);
     } catch (err) { toast('Löschen fehlgeschlagen – Internet nötig'); }
   }
   else if (a === 'assign') openSheet({ mode: 'assign', assignTo: id });
@@ -1793,13 +2036,13 @@ adminBody.addEventListener('click', async e => {
     const nd = { name, codes: list, price: Math.max(0, num(newDraft.price) || 0), packs: parsePacks(newDraft.packs) };
     if (newDraft.cat) nd.cat = newDraft.cat;
     if (parseInt(newDraft.low) > 0) nd.low = parseInt(newDraft.low);
-    fire(F.setDoc(dref('products', newId('products')), nd), 'Getränk anlegen');
+    fire(F.setDoc(dref('products', newId('products')), nd), 'Getränk anlegen'); logEv('getraenk', 'legt Getränk „' + name + '“ an');
     newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }; showNewProd = false; toast('Getränk angelegt');
   }
   else if (a === 'delProd') {
     const p = P(id); if (!p) return;
     if (!confirm('„' + p.name + '“ löschen? Bisherige Buchungen bleiben erhalten und erscheinen als „gelöschtes Getränk“.')) return;
-    fire(F.deleteDoc(dref('products', id)), 'Getränk löschen');
+    fire(F.deleteDoc(dref('products', id)), 'Getränk löschen'); logEv('getraenk', 'löscht Getränk „' + p.name + '“');
   }
   else if (a === 'backup') {
     try {
@@ -1809,6 +2052,45 @@ adminBody.addEventListener('click', async e => {
     } catch (err) { toast('Backup braucht Internet'); }
   }
   else if (a === 'restore') $('fileIn').click();
+  else if (a === 'erTest') {
+    const r = allRules().find(x => x.id === id); if (!r) return;
+    const v = r.kind === 'schnaps' ? 11 : r.kind === 'after' ? r.n2 : r.n || 1, tx = pickText(r, v);
+    showEgg({ title: fill(tx.t, { n: v, name: S.me }), sub: fill(tx.s, { n: v, name: S.me }), uid: S.user.uid, name: S.me, group: r.who === 'group' }, true);
+  }
+  else if (a === 'erAdd') {
+    const nr = { id: 'r' + Date.now().toString(36), who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 6, texts: [T('Sechse!', '{name} hat {n} Bier.')] };
+    erNewOpen = nr.id; saveRules(allRules().concat([nr])); logEv('egg', 'legt ein neues Easter Egg an');
+  }
+  else if (a === 'erCopy') {
+    const r = allRules().find(x => x.id === id); if (!r) return;
+    const nr = JSON.parse(JSON.stringify(r)); nr.id = 'r' + Date.now().toString(36); nr.texts = (nr.texts || []).map((x, i) => i ? x : T(x.t + ' (Kopie)', x.s));
+    erNewOpen = nr.id; saveRules(allRules().concat([nr])); logEv('egg', 'kopiert Easter Egg „' + ((r.texts[0] || {}).t || '') + '“');
+  }
+  else if (a === 'erDel') {
+    const r = allRules().find(x => x.id === id); if (!r) return;
+    if (!confirm('Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ löschen?')) return;
+    saveRules(allRules().filter(x => x.id !== id)); logEv('egg', 'löscht Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ (' + describeRule(r) + ')');
+  }
+  else if (a === 'erReset') {
+    if (!confirm('Alle Easter Eggs auf den Standard zurücksetzen? Eigene Easter Eggs gehen dabei verloren.')) return;
+    saveRules(JSON.parse(JSON.stringify(DEFAULT_RULES))); logEv('egg', 'stellt die Standard-Easter-Eggs wieder her');
+  }
+  else if (a === 'resetToggle') { showReset = !showReset; renderAdmin(); }
+  else if (a === 'resetGo') {
+    const pw = $('rsPw').value, withData = $('rsData').checked;
+    if (!pw) { toast('Bitte dein Passwort eingeben'); return; }
+    if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return; }
+    if (withData && !confirm('Wirklich ALLE Buchungen und Tage löschen? Das lässt sich nicht rückgängig machen.')) return;
+    b.disabled = true;
+    try { await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, pw)); }
+    catch (err) { b.disabled = false; toast('Passwort falsch'); return; }
+    try {
+      const n = await resetStats(withData);
+      logEv('system', 'setzt alle Statistiken zurück' + (withData ? ' und löscht alle Buchungen und Tage' : '') + ' (' + n + ' Einträge)');
+      showReset = false; toast('Zurückgesetzt: ' + n + ' Einträge gelöscht');
+    } catch (err) { toast('Zurücksetzen fehlgeschlagen: ' + (err.code || err.message)); }
+    b.disabled = false; renderAdmin();
+  }
 });
 $('fileIn').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -1825,7 +2107,7 @@ $('fileIn').addEventListener('change', async e => {
   try {
     toast('Importiere …'); await commitInChunks(ops);
     if (d.active && !S.active) await F.setDoc(dref('meta', 'state'), { active: String(d.active) }, { merge: true });
-    toast('Import fertig: ' + ops.length + ' Einträge');
+    toast('Import fertig: ' + ops.length + ' Einträge'); logEv('system', 'importiert ein Backup (' + ops.length + ' Einträge)');
   } catch (err) { console.error(err); toast('Import fehlgeschlagen: ' + (err.code || err.message)); }
 });
 
