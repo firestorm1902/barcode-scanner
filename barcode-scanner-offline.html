@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>ScanPro – Offline Barcode & QR Scanner</title>
+
+  <!-- Lokale Bibliotheken im selben Ordner ablegen (kein Internet nötig!):
+       1) zxing.min.js       (von https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js)
+       2) html5-qrcode.min.js (von https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js)
+       Falls lokale Dateien fehlen, wird automatisch auf das CDN zurückgegriffen. -->
+  <script>
+    (function loadScannerLibs() {
+      const libs = [
+        {
+          local: './zxing.min.js',
+          cdn: 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'
+        },
+        {
+          local: './html5-qrcode.min.js',
+          cdn: 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+        }
+      ];
+
+      function injectScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = false;
+          s.onload = () => resolve(src);
+          s.onerror = () => reject(new Error('Failed to load ' + src));
+          document.head.appendChild(s);
+        });
+      }
+
+      window.__libsReady = Promise.all(
+        libs.map(async (item) => {
+          try {
+            await injectScript(item.local);
+            return { name: item.local, source: 'local' };
+          } catch (e) {
+            if (navigator.onLine) {
+              await injectScript(item.cdn);
+              return { name: item.cdn, source: 'cdn' };
+            }
+            throw new Error('Bibliothek nicht offline verfügbar: ' + item.local);
+          }
+        })
+      );
+    })();
+  </script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --border: #334155;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      padding-bottom: 56px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: white;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .offline-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.16);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .offline-pill.is-offline {
+      background: rgba(245, 158, 11, 0.16);
+      color: #fcd34d;
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.95);
+    }
+
+    .icon-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .status-banner {
+      background: rgba(59, 130, 246, 0.14);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #bfdbfe;
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-size: 0.84rem;
+      line-height: 1.4;
+      display: none;
+    }
+
+    .status-banner.warn {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fcd34d;
+    }
+
+    .status-banner.error {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .status-banner.success {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+
+    .scanner-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+
+    .viewport-wrapper {
+      position: relative;
+      width: 100%;
+      min-height: 280px;
+      background: #020617;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #reader {
+      width: 100% !important;
+      border: none !important;
+    }
+
+    #reader video {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 380px;
+      object-fit: cover !important;
+      display: block;
+    }
+
+    #reader__dashboard_section_csr,
+    #reader__dashboard_section_swaplink,
+    #reader__header_message {
+      display: none !important;
+    }
+
+    .scan-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+    }
+
+    .viewfinder {
+      width: 75%;
+      max-width: 280px;
+      height: 165px;
+      position: relative;
+      border-radius: 14px;
+      box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.48);
+    }
+
+    .corner {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: #38bdf8;
+      border-style: solid;
+    }
+    .corner.tl { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 12px; }
+    .corner.tr { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-top-right-radius: 12px; }
+    .corner.bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-bottom-left-radius: 12px; }
+    .corner.br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-bottom-right-radius: 12px; }
+
+    .scan-line {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #38bdf8, #818cf8, transparent);
+      box-shadow: 0 0 8px #38bdf8;
+      animation: scanMove 2.2s ease-in-out infinite;
+      display: none;
+    }
+
+    .scanning .scan-line {
+      display: block;
+    }
+
+    @keyframes scanMove {
+      0%, 100% { top: 14px; }
+      50% { top: calc(100% - 16px); }
+    }
+
+    .placeholder-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      z-index: 6;
+      background: #020617;
+    }
+
+    #previewImg {
+      max-width: 100%;
+      max-height: 220px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      display: none;
+      object-fit: contain;
+    }
+
+    .controls-panel {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--card);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.18);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+
+    .btn-secondary {
+      background: var(--card-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .camera-select-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    select {
+      flex: 1;
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+
+    .result-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .result-card.visible {
+      display: flex;
+    }
+
+    .result-card.flash {
+      border-color: var(--success);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .badge {
+      background: rgba(59, 130, 246, 0.18);
+      color: #93c5fd;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .result-value {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1.05rem;
+      word-break: break-all;
+      color: #f8fafc;
+      user-select: all;
+    }
+
+    .history-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .history-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .small-btn {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .small-btn:hover {
+      color: var(--text);
+      border-color: #475569;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .history-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .history-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-sub {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .empty-history {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      padding: 16px 0;
+    }
+
+    .visually-hidden-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-icon">|||</div>
+        <div>
+          <h1>ScanPro <span id="netBadge" class="offline-pill">Offline-fähig</span></h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="torchBtn" class="icon-btn" title="Taschenlampe" style="display: none;" aria-label="Taschenlampe" type="button">
+          🔦
+        </button>
+        <button id="soundBtn" class="icon-btn active" title="Scan-Ton an/aus" aria-label="Ton umschalten" type="button">
+          🔊
+        </button>
+      </div>
+    </header>
+
+    <div id="httpsWarning" class="status-banner warn">
+      <strong>Hinweis für iPhone & Android:</strong> Browser erlauben den Live-Kamerazugriff nur über <strong>HTTPS</strong> (oder <code>localhost</code>). Galerie-Upload & Verlauf funktionieren auch ohne HTTPS.
+    </div>
+
+    <div id="statusBanner" class="status-banner"></div>
+
+    <div class="scanner-card" id="scannerCard">
+      <div class="viewport-wrapper">
+        <div id="reader"></div>
+
+        <div class="scan-overlay" id="scanOverlay" style="display: none;">
+          <div class="viewfinder">
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+            <div class="scan-line"></div>
+          </div>
+        </div>
+
+        <div class="placeholder-state" id="placeholderState">
+          <img id="previewImg" alt="Hochgeladenes Bild" />
+          <div id="placeholderIcon" style="font-size: 2.2rem;">📷</div>
+          <div style="font-weight: 600; color: var(--text);" id="placeholderTitle">Bereit zum Scannen</div>
+          <div style="font-size: 0.85rem; max-width: 290px;" id="placeholderSub">
+            Starte die Rückkamera oder wähle ein Foto aus deiner Galerie. Für 100% Offline-Betrieb <code>zxing.min.js</code> &amp; <code>html5-qrcode.min.js</code> neben diese Datei legen.
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-panel">
+        <div class="btn-row">
+          <button id="startBtn" class="btn btn-primary" type="button">
+            <span>▶ Kamera starten</span>
+          </button>
+          <button id="stopBtn" class="btn btn-danger" type="button" style="display: none;">
+            <span>■ Stoppen</span>
+          </button>
+          <button id="galleryBtn" class="btn btn-secondary" type="button" style="flex: 0 0 auto; padding: 12px 14px;" title="Bild aus Galerie scannen">
+            🖼️ Foto
+          </button>
+          <input type="file" id="fileInput" class="visually-hidden-input" accept="image/*" />
+        </div>
+
+        <div class="camera-select-row" id="cameraSelectRow" style="display: none;">
+          <select id="cameraSelect" aria-label="Kamera auswählen"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aktuelles Scan-Ergebnis -->
+    <div class="result-card" id="resultCard">
+      <div class="result-header">
+        <span class="badge" id="resultFormat">EAN-13</span>
+        <span style="font-size: 0.78rem; color: var(--text-muted);" id="resultTime">Gerade eben</span>
+      </div>
+      <div class="result-value" id="resultValue"></div>
+      <div class="btn-row">
+        <button id="copyBtn" class="btn btn-primary" type="button">📋 Kopieren</button>
+        <a id="openLinkBtn" class="btn btn-secondary" href="#" target="_blank" rel="noopener noreferrer" style="display: none; text-decoration: none;">
+          🔗 Öffnen
+        </a>
+        <a id="searchWebBtn" class="btn btn-secondary" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+          🔍 Suchen
+        </a>
+      </div>
+    </div>
+
+    <!-- Scan-Verlauf -->
+    <div class="history-section">
+      <div class="history-header">
+        <h2>Verlauf (<span id="historyCount">0</span>)</h2>
+        <div class="history-actions">
+          <button id="exportCsvBtn" class="small-btn" type="button">CSV Export</button>
+          <button id="clearHistoryBtn" class="small-btn" type="button">Löschen</button>
+        </div>
+      </div>
+      <div class="history-list" id="historyList">
+        <div class="empty-history">Noch keine Barcodes gescannt.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Kopiert!</div>
+
+  <script>
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      document.getElementById('httpsWarning').style.display = 'block';
+    }
+
+    const netBadge = document.getElementById('netBadge');
+    function updateNetworkBadge() {
+      if (navigator.onLine) {
+        netBadge.textContent = 'Online / Cache';
+        netBadge.classList.remove('is-offline');
+      } else {
+        netBadge.textContent = 'Offline-Modus';
+        netBadge.classList.add('is-offline');
+      }
+    }
+    updateNetworkBadge();
+    window.addEventListener('online', updateNetworkBadge);
+    window.addEventListener('offline', updateNetworkBadge);
+
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+      const swCode = `
+        const CACHE_NAME = 'scanpro-offline-v2';
+        self.addEventListener('install', (event) => {
+          event.waitUntil(
+            caches.open(CACHE_NAME).then((cache) => cache.addAll([
+              './zxing.min.js',
+              './html5-qrcode.min.js'
+            ]).catch(() => {})).then(() => self.skipWaiting())
+          );
+        });
+        self.addEventListener('activate', (event) => {
+          event.waitUntil(self.clients.claim());
+        });
+        self.addEventListener('fetch', (event) => {
+          if (event.request.method !== 'GET') return;
+          event.respondWith(
+            caches.match(event.request).then((cached) => {
+              return cached || fetch(event.request).then((resp) => {
+                const copy = resp.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
+                return resp;
+              }).catch(() => cached);
+            })
+          );
+        });
+      `;
+      const swBlob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const galleryBtn = document.getElementById('galleryBtn');
+    const torchBtn = document.getElementById('torchBtn');
+    const soundBtn = document.getElementById('soundBtn');
+    const cameraSelectRow = document.getElementById('cameraSelectRow');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const fileInput = document.getElementById('fileInput');
+    const placeholderState = document.getElementById('placeholderState');
+    const placeholderIcon = document.getElementById('placeholderIcon');
+    const placeholderTitle = document.getElementById('placeholderTitle');
+    const placeholderSub = document.getElementById('placeholderSub');
+    const previewImg = document.getElementById('previewImg');
+    const scanOverlay = document.getElementById('scanOverlay');
+    const scannerCard = document.getElementById('scannerCard');
+    const statusBanner = document.getElementById('statusBanner');
+
+    const resultCard = document.getElementById('resultCard');
+    const resultFormat = document.getElementById('resultFormat');
+    const resultTime = document.getElementById('resultTime');
+    const resultValue = document.getElementById('resultValue');
+    const copyBtn = document.getElementById('copyBtn');
+    const openLinkBtn = document.getElementById('openLinkBtn');
+    const searchWebBtn = document.getElementById('searchWebBtn');
+
+    const historyList = document.getElementById('historyList');
+    const historyCount = document.getElementById('historyCount');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    const toast = document.getElementById('toast');
+
+    let html5QrCode = null;
+    let isScanning = false;
+    let soundEnabled = true;
+    let torchOn = false;
+    let lastScannedCode = null;
+    let lastScanTimestamp = 0;
+    let scanHistory = JSON.parse(localStorage.getItem('scanpro_history') || '[]');
+
+    function getSupportedFormats() {
+      if (!window.Html5QrcodeSupportedFormats) return undefined;
+      return [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.DATA_MATRIX,
+        Html5QrcodeSupportedFormats.AZTEC,
+        Html5QrcodeSupportedFormats.PDF_417
+      ];
+    }
+
+    function setStatus(type, msg) {
+      statusBanner.className = 'status-banner ' + (type || '');
+      statusBanner.innerHTML = msg;
+      statusBanner.style.display = 'block';
+    }
+
+    function clearStatus() {
+      statusBanner.style.display = 'none';
+      statusBanner.className = 'status-banner';
+    }
+
+    function playBeep() {
+      if (!soundEnabled) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1046.5, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.14);
+      } catch (e) {}
+    }
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function enforceVideoAttributes() {
+      const video = document.querySelector('#reader video');
+      if (video) {
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+        video.setAttribute('muted', 'true');
+      }
+    }
+
+    async function populateCameras() {
+      if (!window.Html5Qrcode) return;
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          cameraSelect.innerHTML = '';
+          devices.forEach((cam, idx) => {
+            const opt = document.createElement('option');
+            opt.value = cam.id;
+            opt.text = cam.label || `Kamera ${idx + 1}`;
+            cameraSelect.appendChild(opt);
+          });
+          const backCam = devices.find(d => /back|rear|environment|rück/i.test(d.label));
+          if (backCam) cameraSelect.value = backCam.id;
+          if (devices.length > 1) {
+            cameraSelectRow.style.display = 'flex';
+          }
+        }
+      } catch (err) {
+        console.warn('Kameraliste konnte nicht geladen werden:', err);
+      }
+    }
+
+    async function startScanner(cameraIdOrConfig = null) {
+      clearStatus();
+      previewImg.style.display = 'none';
+      placeholderIcon.style.display = 'block';
+      if (isScanning) await stopScanner();
+
+      try {
+        await window.__libsReady;
+      } catch (e) {
+        setStatus('error', '<strong>Offline-Hinweis:</strong> Scanner-Bibliotheken fehlen und es besteht keine Internetverbindung.');
+        return;
+      }
+
+      if (!window.Html5Qrcode) {
+        setStatus('error', '<strong>Fehler:</strong> <code>Html5Qrcode</code> ist nicht geladen.');
+        return;
+      }
+
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode('reader', {
+          verbose: false,
+          formatsToSupport: getSupportedFormats()
+        });
+      }
+
+      const config = {
+        fps: 12,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const width = Math.min(Math.floor(viewfinderWidth * 0.78), 300);
+          const height = Math.min(Math.floor(viewfinderHeight * 0.55), 180);
+          return { width: Math.max(width, 180), height: Math.max(height, 120) };
+        },
+        aspectRatio: 1.333334
+      };
+
+      const targetCamera = cameraIdOrConfig || { facingMode: 'environment' };
+
+      try {
+        await html5QrCode.start(
+          targetCamera,
+          config,
+          onScanSuccess,
+          () => {}
+        );
+
+        isScanning = true;
+        placeholderState.style.display = 'none';
+        scanOverlay.style.display = 'flex';
+        scannerCard.classList.add('scanning');
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'flex';
+
+        enforceVideoAttributes();
+        await populateCameras();
+        checkTorchSupport();
+      } catch (err) {
+        console.error(err);
+        setStatus('error', '<strong>Kamera-Fehler:</strong> Kamera konnte nicht gestartet werden. Bitte Kameraberechtigung prüfen oder HTTPS/localhost verwenden.');
+      }
+    }
+
+    async function stopScanner() {
+      if (html5QrCode && isScanning) {
+        try {
+          await html5QrCode.stop();
+        } catch (e) {}
+      }
+      isScanning = false;
+      torchOn = false;
+      torchBtn.classList.remove('active');
+      torchBtn.style.display = 'none';
+      scannerCard.classList.remove('scanning');
+      scanOverlay.style.display = 'none';
+      placeholderState.style.display = 'flex';
+      startBtn.style.display = 'flex';
+      stopBtn.style.display = 'none';
+    }
+
+    function checkTorchSupport() {
+      try {
+        const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
+        if (capabilities && capabilities.torchFeature && capabilities.torchFeature().isSupported()) {
+          torchBtn.style.display = 'flex';
+        } else {
+          torchBtn.style.display = 'none';
+        }
+      } catch (e) {
+        torchBtn.style.display = 'none';
+      }
+    }
+
+    torchBtn.addEventListener('click', async () => {
+      if (!isScanning || !html5QrCode) return;
+      try {
+        const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
+        const torch = capabilities.torchFeature();
+        torchOn = !torchOn;
+        await torch.apply(torchOn);
+        torchBtn.classList.toggle('active', torchOn);
+      } catch (e) {
+        showToast('Taschenlampe nicht verfügbar');
+      }
+    });
+
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+      soundBtn.classList.toggle('active', soundEnabled);
+    });
+
+    function onScanSuccess(decodedText, decodedResult) {
+      const now = Date.now();
+      if (decodedText === lastScannedCode && now - lastScanTimestamp < 2000) {
+        return;
+      }
+      lastScannedCode = decodedText;
+      lastScanTimestamp = now;
+
+      playBeep();
+      if (navigator.vibrate) {
+        navigator.vibrate(80);
+      }
+
+      const formatName = decodedResult?.result?.format?.formatName || 'BARCODE';
+      displayResult(decodedText, formatName);
+      addToHistory(decodedText, formatName);
+    }
+
+    function displayResult(code, format) {
+      resultFormat.textContent = format;
+      resultTime.textContent = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      resultValue.textContent = code;
+
+      const isUrl = /^https?:\/\//i.test(code.trim());
+      if (isUrl) {
+        openLinkBtn.href = code.trim();
+        openLinkBtn.style.display = 'flex';
+        searchWebBtn.style.display = 'none';
+      } else {
+        openLinkBtn.style.display = 'none';
+        searchWebBtn.href = 'https://www.google.com/search?q=' + encodeURIComponent(code.trim());
+        searchWebBtn.style.display = 'flex';
+      }
+
+      resultCard.classList.add('visible', 'flash');
+      setTimeout(() => resultCard.classList.remove('flash'), 600);
+    }
+
+    function addToHistory(code, format) {
+      const entry = {
+        code,
+        format,
+        timestamp: new Date().toISOString()
+      };
+      scanHistory.unshift(entry);
+      if (scanHistory.length > 100) scanHistory.pop();
+      localStorage.setItem('scanpro_history', JSON.stringify(scanHistory));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      historyCount.textContent = scanHistory.length;
+      if (scanHistory.length === 0) {
+        historyList.innerHTML = '<div class="empty-history">Noch keine Barcodes gescannt.</div>';
+        return;
+      }
+
+      historyList.innerHTML = '';
+      scanHistory.forEach((item) => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+
+        const meta = document.createElement('div');
+        meta.className = 'history-meta';
+
+        const codeEl = document.createElement('div');
+        codeEl.className = 'history-code';
+        codeEl.textContent = item.code;
+
+        const subEl = document.createElement('div');
+        subEl.className = 'history-sub';
+        const d = new Date(item.timestamp);
+        subEl.textContent = `${item.format} • ${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+
+        meta.appendChild(codeEl);
+        meta.appendChild(subEl);
+
+        const copyItemBtn = document.createElement('button');
+        copyItemBtn.className = 'small-btn';
+        copyItemBtn.type = 'button';
+        copyItemBtn.textContent = 'Kopieren';
+        copyItemBtn.addEventListener('click', () => copyText(item.code));
+
+        div.appendChild(meta);
+        div.appendChild(copyItemBtn);
+        historyList.appendChild(div);
+      });
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('In Zwischenablage kopiert!');
+      } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Kopiert!');
+      }
+    }
+
+    copyBtn.addEventListener('click', () => {
+      copyText(resultValue.textContent);
+    });
+
+    startBtn.addEventListener('click', () => startScanner());
+    stopBtn.addEventListener('click', () => stopScanner());
+
+    galleryBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    cameraSelect.addEventListener('change', (e) => {
+      if (isScanning) {
+        startScanner(e.target.value);
+      }
+    });
+
+    async function loadOrientedImage(file) {
+      if ('createImageBitmap' in window) {
+        try {
+          return await createImageBitmap(file, { imageOrientation: 'from-image' });
+        } catch (e) {
+          try {
+            return await createImageBitmap(file);
+          } catch (e2) {}
+        }
+      }
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(img);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Bild konnte nicht geladen werden.'));
+        };
+        img.src = url;
+      });
+    }
+
+    function renderToCanvas(source, maxDim = 1800, angleDeg = 0, contrastBoost = false) {
+      const srcW = source.width || source.naturalWidth;
+      const srcH = source.height || source.naturalHeight;
+      const swap = Math.abs(angleDeg) === 90;
+      const baseW = swap ? srcH : srcW;
+      const baseH = swap ? srcW : srcH;
+
+      let outW = baseW;
+      let outH = baseH;
+      if (outW > maxDim || outH > maxDim) {
+        if (outW > outH) {
+          outH = Math.round((outH * maxDim) / outW);
+          outW = maxDim;
+        } else {
+          outW = Math.round((outW * maxDim) / outH);
+          outH = maxDim;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, outW, outH);
+
+      if (contrastBoost) {
+        ctx.filter = 'contrast(1.35) brightness(1.05)';
+      }
+
+      ctx.save();
+      ctx.translate(outW / 2, outH / 2);
+      ctx.rotate((angleDeg * Math.PI) / 180);
+      const drawW = swap ? outH : outW;
+      const drawH = swap ? outW : outH;
+      ctx.drawImage(source, -drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.restore();
+
+      return canvas;
+    }
+
+    function canvasToFile(canvas, name = 'scan.jpg', quality = 0.92) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('Konvertierung fehlgeschlagen'));
+          resolve(new File([blob], name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality);
+      });
+    }
+
+    async function decodeFromCanvas(canvas, zxingReader) {
+      if (zxingReader) {
+        try {
+          const result = await zxingReader.decodeFromCanvas(canvas);
+          if (result && result.getText()) {
+            const fmt = result.getBarcodeFormat ? String(result.getBarcodeFormat()) : 'BARCODE';
+            return { text: result.getText(), format: fmt };
+          }
+        } catch (e) {}
+      }
+
+      if (html5QrCode) {
+        try {
+          const file = await canvasToFile(canvas);
+          const res = await html5QrCode.scanFileV2(file, false);
+          if (res && res.decodedText) {
+            return {
+              text: res.decodedText,
+              format: res?.result?.format?.formatName || 'BARCODE'
+            };
+          }
+        } catch (e) {}
+      }
+
+      return null;
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        setStatus('warn', '<strong>Kein Bild ausgewählt:</strong> Es wurde keine Datei aus der Galerie übergeben.');
+        return;
+      }
+
+      if (isScanning) {
+        await stopScanner();
+      }
+
+      const sizeKB = Math.round(file.size / 1024);
+      setStatus('', `<strong>Hochgeladen:</strong> <code>${file.name}</code> (${sizeKB} KB). Bild wird lokal verarbeitet...`);
+
+      placeholderState.style.display = 'flex';
+      placeholderIcon.style.display = 'none';
+      previewImg.src = URL.createObjectURL(file);
+      previewImg.style.display = 'block';
+      placeholderTitle.textContent = 'Verarbeite Bild...';
+      placeholderSub.textContent = 'Prüfe Orientierung, Kontrast und Barcode-Formate...';
+
+      try {
+        await window.__libsReady;
+      } catch (e) {}
+
+      let zxingReader = null;
+      if (window.ZXing && window.ZXing.BrowserMultiFormatReader) {
+        const hints = new Map();
+        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
+        zxingReader = new window.ZXing.BrowserMultiFormatReader(hints);
+      }
+
+      if (!html5QrCode && window.Html5Qrcode) {
+        html5QrCode = new Html5Qrcode('reader', {
+          verbose: false,
+          formatsToSupport: getSupportedFormats()
+        });
+      }
+
+      try {
+        const sourceImg = await loadOrientedImage(file);
+        const srcW = sourceImg.width || sourceImg.naturalWidth || 0;
+        const srcH = sourceImg.height || sourceImg.naturalHeight || 0;
+
+        if (!srcW || !srcH) {
+          throw new Error('Bildabmessungen konnten nicht gelesen werden (ungültiges Bildformat).');
+        }
+
+        let found = null;
+        if ('BarcodeDetector' in window) {
+          try {
+            const detector = new BarcodeDetector();
+            const detected = await detector.detect(sourceImg);
+            if (detected && detected.length > 0 && detected[0].rawValue) {
+              found = {
+                text: detected[0].rawValue,
+                format: (detected[0].format || 'BARCODE').toUpperCase()
+              };
+            }
+          } catch (e) {}
+        }
+
+        const passes = [
+          { maxDim: 1800, angle: 0, contrast: false, label: 'Standard' },
+          { maxDim: 1800, angle: 0, contrast: true, label: 'Kontrast+' },
+          { maxDim: 1600, angle: 90, contrast: true, label: '90° gedreht' },
+          { maxDim: 1600, angle: -90, contrast: true, label: '-90° gedreht' },
+          { maxDim: 1400, angle: 180, contrast: true, label: '180° gedreht' },
+          { maxDim: 1000, angle: 0, contrast: true, label: 'Fein-Skalierung' }
+        ];
+
+        for (let i = 0; i < passes.length && !found; i++) {
+          const p = passes[i];
+          setStatus('', `<strong>Verarbeitung läuft:</strong> Durchlauf ${i + 1}/${passes.length} (${p.label}, ${srcW}×${srcH}px)...`);
+          const canvas = renderToCanvas(sourceImg, p.maxDim, p.angle, p.contrast);
+          found = await decodeFromCanvas(canvas, zxingReader);
+          canvas.width = 0;
+          canvas.height = 0;
+        }
+
+        if (sourceImg && typeof sourceImg.close === 'function') {
+          sourceImg.close();
+        }
+
+        if (found && found.text) {
+          setStatus('success', `<strong>Erfolgreich verarbeitet:</strong> Code erkannt (${found.format}).`);
+          playBeep();
+          if (navigator.vibrate) navigator.vibrate(80);
+          displayResult(found.text, found.format);
+          addToHistory(found.text, found.format);
+        } else {
+          setStatus(
+            'error',
+            `<strong>Nicht erkannt:</strong> Bild (${srcW}×${srcH}px) wurde verarbeitet, aber es konnte kein Barcode/QR-Code decodiert werden.`
+          );
+        }
+      } catch (err) {
+        console.error('Fehler beim Verarbeiten des Bildes:', err);
+        setStatus(
+          'error',
+          `<strong>Verarbeitung fehlgeschlagen:</strong> ${err.message || 'Das Bild konnte nicht verarbeitet werden.'}`
+        );
+      } finally {
+        try {
+          if (zxingReader) zxingReader.reset();
+        } catch (e) {}
+        placeholderTitle.textContent = 'Bereit zum Scannen';
+        placeholderSub.textContent = 'Starte die Rückkamera oder wähle ein Foto aus deiner Galerie.';
+        fileInput.value = '';
+      }
+    });
+
+    exportCsvBtn.addEventListener('click', () => {
+      if (scanHistory.length === 0) {
+        showToast('Verlauf ist leer');
+        return;
+      }
+      const rows = [['Zeitstempel', 'Format', 'Inhalt']];
+      scanHistory.forEach(item => {
+        rows.push([item.timestamp, item.format, `"${item.code.replace(/"/g, '""')}"`]);
+      });
+      const csvContent = 'data:text/csv;charset=utf-8,﻿' + rows.map(r => r.join(';')).join('
+');
+      const link = document.createElement('a');
+      link.setAttribute('href', encodeURI(csvContent));
+      link.setAttribute('download', `scanpro-export-${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    clearHistoryBtn.addEventListener('click', () => {
+      if (scanHistory.length === 0) return;
+      scanHistory = [];
+      localStorage.removeItem('scanpro_history');
+      renderHistory();
+      showToast('Verlauf gelöscht');
+    });
+
+    renderHistory();
+  </script>
+</body>
+</html>
