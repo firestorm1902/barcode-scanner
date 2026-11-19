@@ -1,0 +1,59 @@
+/* Service Worker: hält die App offline startbar.
+   Firestore selbst puffert Buchungen eigenständig (IndexedDB). */
+const VERSION = 'strichliste-v3';
+const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
+const CORE = [
+  './',
+  './index.html',
+  './index_min.js',
+  FB + 'firebase-app.js',
+  FB + 'firebase-auth.js',
+  FB + 'firebase-firestore.js'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(VERSION)
+      .then(cache => Promise.all(CORE.map(url => cache.add(url).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const cdn = url.hostname === 'www.gstatic.com' || url.hostname === 'unpkg.com';
+  // Datenbank- und Anmelde-Anfragen nie anfassen
+  if (!sameOrigin && !cdn) return;
+
+  // Seite selbst: erst Netz (für Updates), sonst Cache
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); return res; })
+        .catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
+    );
+    return;
+  }
+
+  // Skripte: aus dem Cache, im Hintergrund aktualisieren
+  event.respondWith(
+    caches.match(req).then(cached => {
+      const net = fetch(req).then(res => {
+        if (res && (res.ok || res.type === 'opaque')) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+        return res;
+      }).catch(() => cached);
+      return cached || net;
+    })
+  );
+});

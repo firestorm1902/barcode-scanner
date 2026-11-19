@@ -4,11 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Strichliste" />
 <meta name="theme-color" content="#eef2f1" />
 <title>Strichliste – Getränke pro Tag</title>
 <script>
+/* ZXing (Barcode-Erkennung): erst lokal, dann CDN */
 (function () {
-  const local = ['./zxing.min.js', './index_min.js', './zxing_min.js'];
+  const local = ['./index_min.js', './zxing.min.js'];
   const cdn = 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js';
   const ok = () => !!(window.ZXing && window.ZXing.MultiFormatReader);
   const inject = src => new Promise((res, rej) => {
@@ -23,6 +26,9 @@
     return ok();
   })();
 })();
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 </script>
 <style>
 :root{--bg:#eef2f1;--ink:#16222e;--mu:#5d6b78;--line:#c9d3d1;--pen:#c1272d;--pet:#0b6e69;--amb:#9a5b00;--white:#fff}
@@ -120,17 +126,28 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+<style>
+.net{font-size:.74rem;font-weight:700;border-radius:999px;padding:3px 9px;border:1.5px solid var(--pet);color:var(--pet);white-space:nowrap}
+.net.off{border-color:var(--amb);color:var(--amb)}
+.net.err{border-color:var(--pen);color:var(--pen)}
+.hl{display:flex;align-items:center;gap:10px}
+.me{display:flex;gap:8px;align-items:center;font-size:.86rem;color:var(--mu)}
+.me input{flex:1;padding:6px 8px}
+.setup{background:var(--white);border:1.5px solid var(--ink);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
+.setup code{background:#e6ecea;padding:1px 5px;border-radius:4px;word-break:break-all}
+.uid{font-family:ui-monospace,Menlo,monospace;background:#e6ecea;padding:6px 8px;border-radius:6px;word-break:break-all;user-select:all}
+</style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Strichliste</h1>
+    <div class="hl"><h1>Strichliste</h1><span class="net" id="net">…</span></div>
     <nav><button data-v="scan" class="on">Scannen</button><button data-v="admin">Admin</button></nav>
   </header>
 
   <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
-    <div id="dayInfo"></div>
-    <section style="border-top:0;padding-top:0" id="scanSec">
+    <div id="dayInfo"><div class="empty">Lade …</div></div>
+    <section style="border-top:0;padding-top:0" id="scanSec" hidden>
       <div class="vp">
         <div class="cam" id="camMain"></div>
         <div class="frame" id="frameMain" hidden></div>
@@ -140,10 +157,11 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
+      <label class="me" style="margin-top:10px">Dein Name <input id="whoIn" placeholder="optional, für die Abrechnung" autocomplete="name" /></label>
     </section>
     <div class="note" id="msg" hidden></div>
     <div id="last" hidden></div>
-    <section id="listSec"><h2>Getränke heute</h2><div id="list"></div></section>
+    <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div></section>
   </main>
 
   <main id="v-admin" hidden><div id="adminBody" style="display:flex;flex-direction:column;gap:18px"></div></main>
@@ -170,81 +188,37 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
 <input type="file" id="fileIn" accept="application/json,.json" hidden />
 <div class="toast" id="toast" role="status"></div>
 
-<script>
-const $ = id => document.getElementById(id);
-const KEY = 'strichliste_v2';
-const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
+<script type="module">
 /* =========================================================
-   Daten
-   products: {id,name,codes[],price,packs:[{l,n}]}
-   days:     {id,date,place,note,closed,load:{pid:n},count:{pid:n},log:[{id,t,p,k,d}]}
-   scans:    {id,t,day,p,src}
+   KONFIGURATION – hier die Werte aus der Firebase-Konsole
+   (Projekteinstellungen → Allgemein → Meine Apps → Web-App) eintragen
    ========================================================= */
-const uid = () => Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 7);
-const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const firebaseConfig = {
+  apiKey: "DEIN_API_KEY",
+  authDomain: "DEIN-PROJEKT.firebaseapp.com",
+  projectId: "DEIN-PROJEKT",
+  storageBucket: "DEIN-PROJEKT.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "DEINE_APP_ID"
+};
+const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
+/* ========================================================= */
 
-function migrateV1() {
-  try {
-    const o = JSON.parse(localStorage.getItem('strichliste_v1'));
-    if (!o || !Array.isArray(o.drinks) || !o.drinks.length) return null;
-    const day = { id: uid(), date: todayISO(), place: 'Übernommen', note: '', closed: false, load: {}, count: {}, log: [] };
-    const products = o.drinks.map(d => { if (d.start) day.load[d.id] = d.start; if (d.counted != null) day.count[d.id] = d.counted; return { id: d.id, name: d.name, codes: d.codes || [], price: d.price || 0, packs: [] }; });
-    return { v: 2, pin: o.pin || '1234', products, days: [day], scans: (o.scans || []).map(s => ({ id: s.id, t: s.t, day: day.id, p: s.d, src: s.src || 'scan' })), active: day.id };
-  } catch (e) { return null; }
-}
-function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && Array.isArray(d.products)) return Object.assign({ pin: '1234', days: [], scans: [], active: null }, d); } catch (e) {}
-  return migrateV1() || { v: 2, pin: '1234', products: [], days: [], scans: [], active: null };
-}
-let db = load();
-function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('Speichern fehlgeschlagen – Speicher voll?'); } }
+const $ = id => document.getElementById(id);
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const configured = !String(firebaseConfig.apiKey).startsWith('DEIN');
 
+/* ---------- Hilfsfunktionen ---------- */
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const num = v => parseFloat(String(v).replace(',', '.'));
 const money = n => (n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const norm = c => { c = String(c).trim(); return /^\d+$/.test(c) ? c.replace(/^0+(?=\d)/, '') : c; };
-const P = id => db.products.find(p => p.id === id);
-const D = id => db.days.find(d => d.id === id);
-const byCode = code => db.products.find(p => p.codes.includes(norm(code)));
-const fmtDate = iso => { const [y, m, d] = iso.split('-'); return new Date(+y, m - 1, +d).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }); };
+const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const fmtDate = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return new Date(+y, m - 1, +d).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }); };
 const fmtTime = t => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 const dayLabel = d => fmtDate(d.date) + (d.place ? ' – ' + d.place : '');
-const sortedDays = () => db.days.slice().sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-
-const loaded = (day, pid) => day.load[pid] || 0;
-const used = (day, pid) => db.scans.reduce((a, s) => a + (s.day === day.id && s.p === pid ? 1 : 0), 0);
-const counted = (day, pid) => (day.count[pid] == null ? null : day.count[pid]);
-const soll = (day, pid) => loaded(day, pid) - used(day, pid);
-
-function dayRows(day) {
-  const ids = new Set(Object.keys(day.load).filter(k => day.load[k] > 0));
-  db.scans.forEach(s => { if (s.day === day.id) ids.add(s.p); });
-  Object.keys(day.count).forEach(k => { if (day.count[k] != null) ids.add(k); });
-  return db.products.filter(p => ids.has(p.id)).map(p => {
-    const l = loaded(day, p.id), u = used(day, p.id), s = l - u, c = counted(day, p.id);
-    return { p, l, u, s, c, diff: c == null ? null : c - s };
-  });
-}
-
-function parsePacks(txt) {
-  const out = [];
-  String(txt || '').split(/[;\n]+/).forEach(part => {
-    const m = part.trim().match(/^(.*?)\s*(\d+)\s*(?:er|x|fl\.?|flaschen)?\s*$/i);
-    if (m && +m[2] > 1) out.push({ l: m[1].trim() || 'Kasten', n: +m[2] });
-  });
-  return out;
-}
-const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
-function parseCodes(txt, self) {
-  const list = [...new Set(String(txt || '').split(/[,;\s]+/).map(norm).filter(Boolean))], ok = [];
-  list.forEach(c => { const o = byCode(c); if (o && o !== self) toast('Barcode ' + c + ' gehört schon zu „' + o.name + '“'); else ok.push(c); });
-  return ok;
-}
-
 let toastT;
-function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); }
-
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
 function tally(n) {
   if (n <= 0 || n > 60) return '';
   const grp = k => {
@@ -256,9 +230,180 @@ function tally(n) {
   let h = ''; for (let i = 0; i < Math.floor(n / 5); i++) h += grp(5);
   return h + (n % 5 ? grp(n % 5) : '');
 }
+function parsePacks(txt) {
+  const out = [];
+  String(txt || '').split(/[;\n]+/).forEach(part => {
+    const m = part.trim().match(/^(.*?)\s*(\d+)\s*(?:er|x|fl\.?|flaschen)?\s*$/i);
+    if (m && +m[2] > 1) out.push({ l: m[1].trim() || 'Kasten', n: +m[2] });
+  });
+  return out;
+}
+const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
+
+/* Neu zeichnen, ohne laufende Eingaben, Fokus und aufgeklappte Bereiche zu verlieren
+   (wichtig, weil andere Handys ständig Buchungen schicken) */
+const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel'];
+function fieldKey(el) {
+  if (el.id) return '#' + el.id;
+  for (const a of ATTRS) if (el.hasAttribute(a)) return a + '=' + el.getAttribute(a) + '|' + (el.dataset.id || '');
+  if (el.tagName === 'DETAILS' && el.dataset.k) return 'det=' + el.dataset.k;
+  return null;
+}
+function keepState(container, html) {
+  const act = document.activeElement, inside = act && container.contains(act);
+  const fk = inside ? fieldKey(act) : null;
+  const typed = {}, open = new Set();
+  container.querySelectorAll('input[id],select[id]').forEach(el => { typed[el.id] = el.type === 'checkbox' ? el.checked : el.value; });
+  container.querySelectorAll('details[open]').forEach(el => open.add(fieldKey(el)));
+  let fv = null, s0 = null, s1 = null;
+  if (fk && 'value' in act) { fv = act.value; try { s0 = act.selectionStart; s1 = act.selectionEnd; } catch (e) {} }
+  container.innerHTML = html;
+  Object.keys(typed).forEach(id => { const el = container.querySelector('#' + CSS.escape(id)); if (el) { if (el.type === 'checkbox') el.checked = typed[id]; else el.value = typed[id]; } });
+  container.querySelectorAll('details').forEach(el => { if (open.has(fieldKey(el))) el.open = true; });
+  if (fk) {
+    const el = [...container.querySelectorAll('input,select,textarea')].find(x => fieldKey(x) === fk);
+    if (el) { if (fv != null && el.tagName !== 'SELECT') el.value = fv; el.focus({ preventScroll: true }); try { if (s0 != null) el.setSelectionRange(s0, s1); } catch (e) {} }
+  }
+}
+
+/* ---------- Zustand (wird von Firestore-Listenern gefüllt) ---------- */
+const S = {
+  user: null, isAdmin: false, adminChecked: false,
+  products: [], active: null, activeDay: null, activeLoaded: false,
+  myScans: [], pending: 0,
+  days: [], selDay: null, dayScans: [], dayScansFor: null,
+  online: navigator.onLine, dbError: null
+};
+const P = id => S.products.find(p => p.id === id);
+const byCode = code => S.products.find(p => (p.codes || []).includes(norm(code)));
+
+function dayRows(day, scans) {
+  if (!day) return [];
+  const load = day.load || {}, count = day.count || {};
+  const ids = new Set(Object.keys(load).filter(k => load[k] > 0));
+  scans.forEach(s => ids.add(s.p));
+  Object.keys(count).forEach(k => { if (count[k] != null) ids.add(k); });
+  const used = {}; scans.forEach(s => { used[s.p] = (used[s.p] || 0) + 1; });
+  const rows = [];
+  ids.forEach(id => {
+    const p = P(id) || { id, name: '(gelöschtes Getränk)', price: 0, packs: [], codes: [] };
+    const l = load[id] || 0, u = used[id] || 0, s = l - u, c = count[id] == null ? null : count[id];
+    rows.push({ p, l, u, s, c, diff: c == null ? null : c - s });
+  });
+  return rows.sort((a, b) => a.p.name.localeCompare(b.p.name, 'de'));
+}
+
+/* ---------- Netzanzeige ---------- */
+function renderNet() {
+  const n = $('net');
+  if (!configured) { n.className = 'net err'; n.textContent = 'nicht eingerichtet'; return; }
+  if (S.dbError) { n.className = 'net err'; n.textContent = 'Fehler'; return; }
+  if (!S.online) { n.className = 'net off'; n.textContent = S.pending ? 'offline · ' + S.pending + ' warten' : 'offline'; return; }
+  n.className = 'net'; n.textContent = S.pending ? S.pending + ' werden gesendet' : 'online';
+}
+window.addEventListener('online', () => { S.online = true; renderNet(); });
+window.addEventListener('offline', () => { S.online = false; renderNet(); });
 
 /* =========================================================
-   Kamera / Scanner (ZXing auf Video-Frames, einer für alles)
+   Firebase
+   ========================================================= */
+let F = {}, db, auth;
+async function initFirebase() {
+  const [appM, authM, fsM] = await Promise.all([
+    import(FB + 'firebase-app.js'), import(FB + 'firebase-auth.js'), import(FB + 'firebase-firestore.js')
+  ]);
+  F = Object.assign({}, appM, authM, fsM);
+  const app = F.initializeApp(firebaseConfig);
+  try {
+    db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
+  } catch (e) {
+    db = F.getFirestore(app);
+  }
+  auth = F.getAuth(app);
+  F.onAuthStateChanged(auth, u => {
+    S.user = u; S.isAdmin = false; S.adminChecked = false;
+    if (!u) { F.signInAnonymously(auth).catch(err => { S.dbError = 'Anmeldung fehlgeschlagen (' + err.code + '). Beim ersten Start wird Internet benötigt.'; renderAll(); }); return; }
+    startUserListeners();
+    if (!u.isAnonymous) startAdminListeners(); else stopAdminListeners();
+    renderAll();
+  });
+}
+const col = name => F.collection(db, name);
+const dref = (name, id) => F.doc(db, name, id);
+const newId = name => F.doc(col(name)).id;
+
+let unsub = { products: null, meta: null, activeDay: null, mine: null, days: null, dayScans: null };
+const stop = k => { if (unsub[k]) { unsub[k](); unsub[k] = null; } };
+function fail(where) {
+  return err => {
+    console.error(where, err);
+    if (err && err.code === 'permission-denied') {
+      if (where === 'dayScans' || where === 'days') { S.isAdmin = false; S.adminChecked = true; renderAdmin(); return; }
+      S.dbError = 'Keine Berechtigung beim Lesen (' + where + '). Sind die Sicherheitsregeln veröffentlicht und „Anonym“ als Anmeldung aktiviert?';
+    } else S.dbError = 'Datenbankfehler (' + where + '): ' + (err && (err.code || err.message));
+    renderAll();
+  };
+}
+
+function startUserListeners() {
+  stop('products'); stop('meta');
+  unsub.products = F.onSnapshot(col('products'), snap => {
+    S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    renderAll();
+  }, fail('products'));
+  unsub.meta = F.onSnapshot(dref('meta', 'state'), snap => {
+    const a = snap.exists() ? snap.data().active || null : null;
+    if (a !== S.active || !unsub.activeDay) { S.active = a; listenActiveDay(); }
+    renderAll();
+  }, fail('meta'));
+}
+function listenActiveDay() {
+  stop('activeDay'); stop('mine');
+  S.activeDay = null; S.activeLoaded = false; S.myScans = []; S.pending = 0;
+  if (!S.active) { S.activeLoaded = true; renderAll(); return; }
+  unsub.activeDay = F.onSnapshot(dref('days', S.active), snap => {
+    S.activeDay = snap.exists() ? Object.assign({ id: snap.id, load: {}, count: {} }, snap.data()) : null;
+    S.activeLoaded = true; renderAll();
+  }, fail('activeDay'));
+  const q = F.query(col('scans'), F.where('uid', '==', S.user.uid), F.where('day', '==', S.active));
+  unsub.mine = F.onSnapshot(q, { includeMetadataChanges: true }, snap => {
+    S.myScans = snap.docs.map(d => Object.assign({ id: d.id, _pending: d.metadata.hasPendingWrites }, d.data())).sort((a, b) => a.t - b.t);
+    S.pending = S.myScans.filter(s => s._pending).length;
+    renderScan(); renderNet();
+  }, fail('mine'));
+}
+function startAdminListeners() {
+  stop('days');
+  const q = F.query(col('days'), F.orderBy('date', 'desc'), F.limit(150));
+  unsub.days = F.onSnapshot(q, snap => {
+    S.days = snap.docs.map(d => Object.assign({ id: d.id, load: {}, count: {} }, d.data()));
+    if (!S.days.find(d => d.id === S.selDay)) S.selDay = (S.days.find(d => d.id === S.active) || S.days[0] || {}).id || null;
+    listenDayScans(); renderAdmin(); if (!$('sheet').hidden) renderSheet();
+  }, fail('days'));
+}
+function stopAdminListeners() { stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function listenDayScans() {
+  if (S.dayScansFor === S.selDay && unsub.dayScans) return;
+  stop('dayScans'); S.dayScans = []; S.dayScansFor = S.selDay;
+  if (!S.selDay) return;
+  const q = F.query(col('scans'), F.where('day', '==', S.selDay));
+  unsub.dayScans = F.onSnapshot(q, snap => {
+    S.isAdmin = true; S.adminChecked = true;
+    S.dayScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.t - b.t);
+    renderAdmin();
+  }, fail('dayScans'));
+}
+
+/* ---------- Schreibzugriffe ---------- */
+// Firestore-Schreibvorgänge werden offline lokal gepuffert. Nicht auf das Promise warten,
+// sonst hängt die Oberfläche bis zur nächsten Verbindung.
+function fire(p, what) { p.catch(err => { console.error(what, err); toast((err && err.code === 'permission-denied' ? 'Keine Berechtigung: ' : 'Fehler: ') + what); }); }
+const setLoad = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['load.' + pid]: Math.max(0, v) }), 'Menge speichern');
+const setCount = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['count.' + pid]: v == null ? F.deleteField() : Math.max(0, v) }), 'Zählung speichern');
+const incField = (dayId, key, pid, d) => fire(F.updateDoc(dref('days', dayId), { [key + '.' + pid]: F.increment(d) }), 'Menge speichern');
+
+/* =========================================================
+   Kamera / Scanner (ZXing auf Video-Frames)
    ========================================================= */
 const cam = { stream: null, video: null, timer: null, on: false, tk: 0, zx: null, nat: null, cv: null, cx: null, handler: null, box: null, lastCode: '', lastT: 0 };
 function buildReader() {
@@ -305,7 +450,6 @@ async function openStream() {
   let err; for (const c of tries) { try { return await navigator.mediaDevices.getUserMedia(c); } catch (e) { err = e; } }
   throw err;
 }
-// box = {cam, frame, ph}; liefert Fehlermeldung oder null
 async function camStart(box, handler) {
   camStop();
   cam.handler = handler; cam.box = box;
@@ -313,7 +457,7 @@ async function camStart(box, handler) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return '<b>Kein Kamerazugriff:</b> Die Seite muss über HTTPS direkt in Safari oder Chrome geöffnet werden.';
   cam.zx = buildReader(); cam.nat = null;
   if (!IS_IOS && 'BarcodeDetector' in window) { try { cam.nat = new BarcodeDetector(); } catch (e) {} }
-  if (!cam.zx && !cam.nat) return '<b>Scanner-Bibliothek fehlt:</b> Lege <code>index_min.js</code> (ZXing) neben diese Datei oder prüfe die Internetverbindung.';
+  if (!cam.zx && !cam.nat) return '<b>Scanner-Bibliothek fehlt:</b> <code>index_min.js</code> (ZXing) neben die Seite legen.';
   try {
     cam.stream = await openStream();
     if (cam.box !== box) { cam.stream.getTracks().forEach(t => t.stop()); cam.stream = null; return null; }
@@ -347,55 +491,72 @@ const boxMain = { cam: $('camMain'), frame: $('frameMain'), ph: $('phMain') };
 const boxSheet = { cam: $('camSheet'), frame: $('frameSheet'), ph: $('phSheet') };
 
 /* =========================================================
-   Scan-Ansicht (Mitglieder)
+   Scan-Ansicht (alle Handys)
    ========================================================= */
+let who = ''; try { who = localStorage.getItem('strichliste_who') || ''; } catch (e) {}
+$('whoIn').value = who;
+$('whoIn').addEventListener('change', e => { who = e.target.value.trim().slice(0, 40); try { localStorage.setItem('strichliste_who', who); } catch (err) {} });
+
 function setMsg(t) { $('msg').hidden = !t; $('msg').innerHTML = t || ''; }
-function setMainButtons() { $('startBtn').hidden = cam.on && cam.box === boxMain; $('stopBtn').hidden = !(cam.on && cam.box === boxMain); }
+function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBtn').hidden = on; $('stopBtn').hidden = !on; }
 
 function book(pid, src) {
-  const day = D(db.active); if (!day) return;
-  const s = { id: uid(), t: Date.now(), day: day.id, p: pid, src };
-  db.scans.push(s); save();
-  const p = P(pid), r = soll(day, pid), notLoaded = loaded(day, pid) === 0;
-  $('last').className = 'last' + (notLoaded || r < 0 ? ' unk' : ''); $('last').hidden = false;
-  $('last').innerHTML = '<div><b>' + esc(p.name) + ' gebucht</b><span>' +
-    (notLoaded ? 'Heute nicht als mitgenommen eingetragen – bitte im Admin nachtragen.' : r < 0 ? 'Mehr gebucht als mitgenommen (' + r + ').' : 'Noch ' + r + ' übrig' + (r <= 3 ? ' – fast leer' : '')) +
-    '</span></div><button class="b sm" data-undo="' + s.id + '">Rückgängig</button>';
-  renderScan();
+  const day = S.activeDay; if (!day || !S.user) return;
+  const id = newId('scans');
+  const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp() };
+  if (who) data.who = who;
+  fire(F.setDoc(dref('scans', id), data), 'Buchung');
+  const p = P(pid), notLoaded = !((day.load || {})[pid] > 0);
+  $('last').className = 'last' + (notLoaded ? ' unk' : ''); $('last').hidden = false;
+  $('last').innerHTML = '<div><b>' + esc(p ? p.name : 'Getränk') + ' gebucht</b><span>' +
+    (notLoaded ? 'Heute nicht als mitgenommen eingetragen – bitte dem Admin Bescheid geben.' : (S.online ? 'Gespeichert.' : 'Offline gespeichert, wird später gesendet.')) +
+    '</span></div><button class="b sm" data-undo="' + id + '">Rückgängig</button>';
 }
 function onMainCode(code) {
+  if (!S.activeDay) return;
   const p = byCode(code);
-  if (!D(db.active)) return;
   if (p) { book(p.id, 'scan'); return; }
   $('last').className = 'last unk'; $('last').hidden = false;
-  $('last').innerHTML = '<div><b>Unbekannter Barcode</b><span>' + esc(code) + ' – im Admin einem Getränk zuordnen.</span></div>';
+  $('last').innerHTML = '<div><b>Unbekannter Barcode</b><span>' + esc(code) + ' – der Admin muss ihn einem Getränk zuordnen.</span></div>';
 }
 $('last').addEventListener('click', e => {
   const u = e.target.closest('[data-undo]'); if (!u) return;
-  db.scans = db.scans.filter(s => s.id !== u.dataset.undo); save(); $('last').hidden = true; renderScan(); toast('Buchung zurückgenommen');
+  fire(F.deleteDoc(dref('scans', u.dataset.undo)), 'Rückgängig');
+  $('last').hidden = true; toast('Buchung zurückgenommen');
 });
 $('list').addEventListener('click', e => { const b = e.target.closest('[data-plus]'); if (b) book(b.dataset.plus, 'manuell'); });
 $('startBtn').addEventListener('click', async () => { setMsg(''); const err = await camStart(boxMain, onMainCode); if (err) setMsg(err); setMainButtons(); });
 $('stopBtn').addEventListener('click', () => { camStop(); setMainButtons(); });
 
 function renderScan() {
-  const day = D(db.active);
-  $('scanSec').hidden = !day; $('listSec').hidden = !day;
-  if (!day) {
+  const info = $('dayInfo');
+  const show = !!S.activeDay;
+  $('scanSec').hidden = !show; $('listSec').hidden = !show;
+  if (!configured) {
+    info.innerHTML = '<div class="setup"><b>Noch nicht eingerichtet</b><span>In <code>index.html</code> fehlen die Firebase-Zugangsdaten (<code>firebaseConfig</code>). Die Schritte stehen in der <code>README.md</code>.</span></div>';
+    return;
+  }
+  if (S.dbError) { info.innerHTML = '<div class="note bad">' + esc(S.dbError) + '</div>'; return; }
+  if (!S.user || !S.activeLoaded) { info.innerHTML = '<div class="empty">Verbinde …' + (S.online ? '' : ' Beim allerersten Start wird einmal Internet benötigt.') + '</div>'; return; }
+  if (!show) {
     if (cam.box === boxMain) camStop();
-    $('dayInfo').innerHTML = '<div class="note"><b>Kein Tag aktiv.</b> Im Admin-Bereich einen Tag anlegen und die mitgenommenen Getränke eintragen.</div>';
+    info.innerHTML = '<div class="note"><b>Kein Tag aktiv.</b> Der Admin muss einen Tag anlegen und für das Scannen aktivieren.</div>';
     $('last').hidden = true; setMainButtons(); return;
   }
-  const isToday = day.date === todayISO();
-  $('dayInfo').innerHTML = '<div class="day-head"><b>' + esc(day.place || 'Ohne Ziel') + '</b><span>' + fmtDate(day.date) + '</span></div>' +
-    (!isToday ? '<div class="note" style="margin-top:8px">Achtung: Gebucht wird auf den ' + fmtDate(day.date) + ', nicht auf heute.</div>' : '') +
-    (day.closed ? '<div class="note bad" style="margin-top:8px">Dieser Tag ist abgeschlossen. Neue Buchungen landen trotzdem hier.</div>' : '');
-  const rows = dayRows(day);
-  $('list').innerHTML = rows.length ? rows.map(r => {
-    const low = r.l > 0 && r.s <= 3;
-    return '<div class="dr"><div class="nm"><b>' + esc(r.p.name) + '</b><small class="' + (low || r.s < 0 ? 'low' : '') + '">' + (r.l ? 'noch ' + r.s + ' von ' + r.l : 'nicht mitgenommen') + (r.p.price ? ' · ' + money(r.p.price) : '') + '</small></div>' +
-      '<span class="cnt">' + r.u + '</span><button class="b sm" data-plus="' + r.p.id + '" aria-label="' + esc(r.p.name) + ' ohne Scan +1">+1</button><div class="tl">' + tally(r.u) + '</div></div>';
-  }).join('') : '<div class="empty">Für diesen Tag ist noch nichts eingetragen.</div>';
+  const day = S.activeDay, isToday = day.date === todayISO();
+  info.innerHTML = '<div class="day-head"><b>' + esc(day.place || 'Ohne Ziel') + '</b><span>' + fmtDate(day.date) + '</span></div>' +
+    (!isToday ? '<div class="note" style="margin-top:8px">Gebucht wird auf den ' + fmtDate(day.date) + ', nicht auf heute.</div>' : '');
+  // eigene Buchungen pro Getränk
+  const mine = {}; S.myScans.forEach(s => { mine[s.p] = (mine[s.p] || 0) + 1; });
+  const ids = new Set(Object.keys(day.load || {}).filter(k => day.load[k] > 0)); Object.keys(mine).forEach(k => ids.add(k));
+  const list = [...ids].map(id => P(id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const total = S.myScans.length, sum = S.myScans.reduce((a, s) => a + ((P(s.p) || {}).price || 0), 0);
+  $('listHead').textContent = 'Deine Getränke heute' + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
+  $('list').innerHTML = list.length ? list.map(p => {
+    const n = mine[p.id] || 0, loaded = (day.load || {})[p.id] > 0;
+    return '<div class="dr"><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded ? '' : 'low') + '">' + (loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
+      '<span class="cnt">' + n + '</span><button class="b sm" data-plus="' + p.id + '" aria-label="' + esc(p.name) + ' ohne Scan +1">+1</button><div class="tl">' + tally(n) + '</div></div>';
+  }).join('') : '<div class="empty">Für heute ist noch nichts eingetragen.</div>';
   setMainButtons();
 }
 
@@ -403,18 +564,18 @@ function renderScan() {
    Admin-Scan-Sheet: Produkt scannen → Flaschen/Kasten wählen
    ========================================================= */
 const sh = { mode: 'load', dayId: null, pid: null, unknown: null, assignTo: null, minus: false, last: null };
+const selDayObj = () => S.days.find(d => d.id === S.selDay) || null;
 
 async function openSheet(opts) {
   Object.assign(sh, { mode: 'load', pid: null, unknown: null, assignTo: null, minus: false, last: null }, opts);
-  $('sheet').hidden = false;
-  document.body.style.overflow = 'hidden';
+  if (cam.box === boxMain) { camStop(); setMainButtons(); }
+  $('sheet').hidden = false; document.body.style.overflow = 'hidden';
   renderSheet();
   const err = await camStart(boxSheet, onSheetCode);
-  if (err) { boxSheet.ph.innerHTML = '<span style="color:#fff">' + err + '</span>'; }
+  if (err) boxSheet.ph.innerHTML = '<span style="color:#fff">' + err + '</span>';
 }
 function closeSheet() {
-  camStop();
-  boxSheet.ph.innerHTML = '<b>Kamera startet …</b>';
+  camStop(); boxSheet.ph.innerHTML = '<b>Kamera startet …</b>';
   $('sheet').hidden = true; document.body.style.overflow = '';
   renderAdmin();
 }
@@ -424,38 +585,39 @@ function onSheetCode(code) {
     const target = sh.assignTo === 'new' ? null : P(sh.assignTo);
     if (p && p !== target) { toast('Barcode gehört schon zu „' + p.name + '“'); return; }
     if (sh.assignTo === 'new') newDraft.codes = (newDraft.codes ? newDraft.codes + ', ' : '') + code;
-    else if (target && !target.codes.includes(code)) { target.codes.push(code); save(); }
+    else if (target) fire(F.updateDoc(dref('products', target.id), { codes: F.arrayUnion(code) }), 'Barcode speichern');
     toast('Barcode übernommen'); closeSheet(); return;
   }
   if (p) { sh.pid = p.id; sh.unknown = null; } else { sh.pid = null; sh.unknown = code; }
   renderSheet();
 }
 function sheetAdd(pid, qty, label) {
-  const day = D(sh.dayId); if (!day || !qty) return;
-  const d = sh.minus ? -qty : qty, key = sh.mode === 'count' ? 'count' : 'load';
-  const before = day[key][pid] == null ? null : day[key][pid];
-  day[key][pid] = Math.max(0, (before || 0) + d);
-  const entry = { id: uid(), t: Date.now(), p: pid, k: key, d: day[key][pid] - (before || 0), prev: before };
-  day.log.push(entry); save();
-  sh.last = { entry, text: (d > 0 ? '+' : '−') + Math.abs(d) + ' ' + P(pid).name + ' (' + label + ')' };
-  toast(sh.last.text);
-  renderSheet();
+  const day = S.days.find(d => d.id === sh.dayId); if (!day || !qty) return;
+  const key = sh.mode === 'count' ? 'count' : 'load';
+  const cur = (day[key] || {})[pid];
+  let d = sh.minus ? -qty : qty;
+  if ((cur || 0) + d < 0) d = -(cur || 0);
+  if (!d) { toast('Schon bei 0'); return; }
+  incField(day.id, key, pid, d);
+  // lokale Kopie sofort anpassen, damit Mehrfachtipps richtig rechnen
+  day[key] = Object.assign({}, day[key], { [pid]: (cur || 0) + d });
+  sh.last = { key, pid, d, prev: cur == null ? null : cur, text: (d > 0 ? '+' : '−') + Math.abs(d) + ' ' + P(pid).name + ' (' + label + ')' };
+  toast(sh.last.text); renderSheet();
 }
-function undoLog(day, id) {
-  const e = day.log.find(x => x.id === id); if (!e) return;
-  const key = e.k;
-  if (e.prev === null && (day[key][e.p] || 0) - e.d <= 0 && key === 'count') delete day[key][e.p];
-  else day[key][e.p] = Math.max(0, (day[key][e.p] || 0) - e.d);
-  day.log = day.log.filter(x => x !== e); save();
+function sheetUndo() {
+  const l = sh.last; if (!l) return;
+  const day = S.days.find(d => d.id === sh.dayId); if (!day) return;
+  if (l.key === 'count' && l.prev == null) { setCount(day.id, l.pid, null); const c = Object.assign({}, day.count); delete c[l.pid]; day.count = c; }
+  else { incField(day.id, l.key, l.pid, -l.d); day[l.key] = Object.assign({}, day[l.key], { [l.pid]: ((day[l.key] || {})[l.pid] || 0) - l.d }); }
+  sh.last = null; toast('Zurückgenommen'); renderSheet();
 }
 function renderSheet() {
-  const day = D(sh.dayId), body = $('sheetBody');
+  const day = S.days.find(d => d.id === sh.dayId), body = $('sheetBody');
   $('sheetMode').hidden = sh.mode === 'assign';
   $('sheetMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === sh.mode));
   if (sh.mode === 'assign') {
-    const t = sh.assignTo === 'new' ? 'neues Getränk' : '„' + (P(sh.assignTo) || {}).name + '“';
-    $('sheetTitle').textContent = 'Barcode für ' + t;
-    body.innerHTML = '<div class="note">Halte den Barcode der Flasche oder des Kastens in den Rahmen.</div>';
+    $('sheetTitle').textContent = 'Barcode für ' + (sh.assignTo === 'new' ? 'neues Getränk' : '„' + ((P(sh.assignTo) || {}).name || '') + '“');
+    keepState(body, '<div class="note">Halte den Barcode der Flasche oder des Kastens in den Rahmen.</div>');
     return;
   }
   $('sheetTitle').textContent = day ? dayLabel(day) : 'Tag';
@@ -466,32 +628,32 @@ function renderSheet() {
       '<label class="f">Preis pro Flasche in €<input id="qPrice" inputmode="decimal" placeholder="1,50"></label>' +
       '<label class="f">Gebinde<input id="qPacks" value="Kasten 20; Kasten 24"></label></div>' +
       '<div class="row" style="margin-top:0"><button class="b pri grow" data-sh="create">Anlegen</button><button class="b" data-sh="cancelNew">Abbrechen</button></div>' +
-      '<div style="font-size:.84rem;color:var(--mu)">Oder diesen Barcode einem vorhandenen Getränk zuordnen:</div>' +
-      '<div class="row" style="margin-top:0"><select id="qAssign"><option value="">Getränk wählen …</option>' + db.products.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('') + '</select><button class="b" data-sh="assignExisting">Zuordnen</button></div></div>';
-  } else if (sh.pid) {
-    const p = P(sh.pid), cur = sh.mode === 'count' ? counted(day, p.id) : loaded(day, p.id);
-    const curTxt = sh.mode === 'count' ? 'gezählt' : 'mitgenommen';
-    h += '<div class="prod"><div class="prod-h"><b>' + esc(p.name) + '</b><span><strong>' + (cur == null ? '–' : cur) + '</strong> ' + curTxt + '</span></div>' +
+      (S.products.length ? '<div style="font-size:.84rem;color:var(--mu)">Oder diesen Barcode einem vorhandenen Getränk zuordnen (z. B. Kasten-Barcode zur Flasche):</div>' +
+      '<div class="row" style="margin-top:0"><select id="qAssign"><option value="">Getränk wählen …</option>' + S.products.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('') + '</select><button class="b" data-sh="assignExisting">Zuordnen</button></div>' : '') + '</div>';
+  } else if (sh.pid && P(sh.pid) && day) {
+    const p = P(sh.pid), v = (day[sh.mode === 'count' ? 'count' : 'load'] || {})[p.id];
+    const sign = sh.minus ? '−' : '+';
+    h += '<div class="prod"><div class="prod-h"><b>' + esc(p.name) + '</b><span><strong>' + (v == null ? '–' : v) + '</strong> ' + (sh.mode === 'count' ? 'gezählt' : 'mitgenommen') + '</span></div>' +
       '<div class="packs' + (sh.minus ? ' minus' : '') + '">' +
-      '<button class="b" data-qty="1" data-l="Flasche">' + (sh.minus ? '−' : '+') + ' 1 Flasche<small>einzeln</small></button>' +
-      p.packs.map(k => '<button class="b" data-qty="' + k.n + '" data-l="' + esc(k.l) + '">' + (sh.minus ? '−' : '+') + ' 1 ' + esc(k.l) + '<small>' + k.n + ' Flaschen</small></button>').join('') +
+      '<button class="b" data-qty="1" data-l="Flasche">' + sign + ' 1 Flasche<small>einzeln</small></button>' +
+      (p.packs || []).map(k => '<button class="b" data-qty="' + k.n + '" data-l="' + esc(k.l) + '">' + sign + ' 1 ' + esc(k.l) + '<small>' + k.n + ' Flaschen</small></button>').join('') +
       '</div>' +
       '<div class="row" style="margin-top:0;align-items:center"><input id="qQty" inputmode="numeric" placeholder="Anzahl Flaschen" style="flex:1"><button class="b" data-sh="addQty">' + (sh.minus ? 'Abziehen' : 'Hinzufügen') + '</button></div>' +
       '<label class="chk"><input type="checkbox" id="qMinus"' + (sh.minus ? ' checked' : '') + '> Korrektur: abziehen statt hinzufügen</label>' +
-      (p.packs.length ? '' : '<div style="font-size:.84rem;color:var(--mu)">Für Kästen unter „Getränke“ ein Gebinde eintragen, z. B. „Kasten 20“.</div>') +
-      '</div>';
+      ((p.packs || []).length ? '' : '<div style="font-size:.84rem;color:var(--mu)">Für Kästen unter „Getränke“ ein Gebinde eintragen, z. B. „Kasten 20“.</div>') + '</div>';
   } else {
     h += '<div class="note">' + (sh.mode === 'count' ? 'Scanne, was zurückgekommen ist, und tippe danach die Menge an.' : 'Scanne Flasche oder Kasten, dann die Menge antippen.') + '</div>';
   }
-  if (!sh.unknown) {
-    h += '<div class="row" style="margin-top:0"><select id="qPick"><option value="">Ohne Scan wählen …</option>' + db.products.map(p => '<option value="' + p.id + '"' + (p.id === sh.pid ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select></div>';
+  if (!sh.unknown && S.products.length) {
+    h += '<select id="qPick"><option value="">Ohne Scan wählen …</option>' + S.products.map(p => '<option value="' + p.id + '"' + (p.id === sh.pid ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select>';
   }
   if (sh.last) h += '<div class="last"><div><b style="font-size:1rem">' + esc(sh.last.text) + '</b></div><button class="b sm" data-sh="undo">Rückgängig</button></div>';
   if (day) {
-    const rows = dayRows(day);
-    if (rows.length) h += '<div style="font-size:.86rem;color:var(--mu)">' + (sh.mode === 'count' ? 'Gezählt bisher: ' + rows.filter(r => r.c != null).map(r => esc(r.p.name) + ' ' + r.c).join(', ') : 'Mitgenommen bisher: ' + rows.filter(r => r.l).map(r => esc(r.p.name) + ' ' + r.l).join(', ')) + '</div>';
+    const rows = dayRows(day, S.dayScansFor === day.id ? S.dayScans : []);
+    const parts = sh.mode === 'count' ? rows.filter(r => r.c != null).map(r => esc(r.p.name) + ' ' + r.c) : rows.filter(r => r.l).map(r => esc(r.p.name) + ' ' + r.l);
+    if (parts.length) h += '<div style="font-size:.86rem;color:var(--mu)">' + (sh.mode === 'count' ? 'Gezählt bisher: ' : 'Mitgenommen bisher: ') + parts.join(', ') + '</div>';
   }
-  body.innerHTML = h;
+  keepState(body, h);
 }
 $('sheetClose').addEventListener('click', closeSheet);
 $('sheetMode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) { sh.mode = b.dataset.m; sh.last = null; renderSheet(); } });
@@ -505,23 +667,27 @@ $('sheetBody').addEventListener('click', e => {
   const b = e.target.closest('[data-sh]'); if (!b) return;
   const a = b.dataset.sh;
   if (a === 'addQty') { const n = parseInt($('qQty').value); if (n > 0) sheetAdd(sh.pid, n, n === 1 ? 'Flasche' : 'Flaschen'); else toast('Bitte eine Anzahl eingeben'); }
-  else if (a === 'undo' && sh.last) { undoLog(D(sh.dayId), sh.last.entry.id); toast('Zurückgenommen'); sh.last = null; renderSheet(); }
+  else if (a === 'undo') sheetUndo();
   else if (a === 'cancelNew') { sh.unknown = null; renderSheet(); }
   else if (a === 'create') {
     const name = $('qName').value.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
-    const p = { id: uid(), name, codes: [sh.unknown], price: Math.max(0, num($('qPrice').value) || 0), packs: parsePacks($('qPacks').value) };
-    db.products.push(p); save(); sh.pid = p.id; sh.unknown = null; toast('„' + name + '“ angelegt'); renderSheet();
+    const id = newId('products'), data = { name, codes: [sh.unknown], price: Math.max(0, num($('qPrice').value) || 0), packs: parsePacks($('qPacks').value) };
+    fire(F.setDoc(dref('products', id), data), 'Getränk anlegen');
+    S.products.push(Object.assign({ id }, data));
+    sh.pid = id; sh.unknown = null; toast('„' + name + '“ angelegt'); renderSheet();
   }
   else if (a === 'assignExisting') {
     const p = P($('qAssign').value); if (!p) { toast('Bitte ein Getränk wählen'); return; }
-    if (!p.codes.includes(sh.unknown)) p.codes.push(sh.unknown); save(); sh.pid = p.id; sh.unknown = null; toast('Barcode zu „' + p.name + '“ hinzugefügt'); renderSheet();
+    fire(F.updateDoc(dref('products', p.id), { codes: F.arrayUnion(sh.unknown) }), 'Barcode speichern');
+    p.codes = [...(p.codes || []), sh.unknown];
+    sh.pid = p.id; sh.unknown = null; toast('Barcode zu „' + p.name + '“ hinzugefügt'); renderSheet();
   }
 });
 
 /* =========================================================
    Admin
    ========================================================= */
-let adminOK = false, selDay = null, showNewDay = false, showNewProd = false;
+let showNewDay = false, showNewProd = false, overview = null;
 let newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' };
 
 function setView(v) {
@@ -533,9 +699,7 @@ function setView(v) {
 }
 document.querySelector('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { setMsg(''); setView(b.dataset.v); } });
 
-function prevDay(dateISO) { return sortedDays().find(d => d.date < dateISO || (d.date === dateISO)) || null; }
-
-function summary(day, rows) {
+function summary(rows) {
   if (!rows.length) return '<div class="note">Noch nichts eingetragen. Mit „Einladen per Scan“ die mitgenommenen Getränke erfassen.</div>';
   const drunk = rows.reduce((a, r) => a + r.u, 0), value = rows.reduce((a, r) => a + r.u * (r.p.price || 0), 0);
   const open = rows.filter(r => r.c == null).length, bad = rows.filter(r => r.diff !== null && r.diff !== 0);
@@ -553,39 +717,43 @@ function summary(day, rows) {
 }
 
 function renderAdmin() {
+  if ($('v-admin').hidden) return;
   const el = $('adminBody');
-  if (!adminOK) {
-    el.innerHTML = '<section><h2>Admin-Bereich</h2><div class="row" style="margin-top:0"><input id="pinIn" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off" style="flex:1"><button class="b pri" data-act="login">Anmelden</button></div></section>';
+  if (!configured) { el.innerHTML = '<div class="setup"><b>Firebase ist noch nicht eingerichtet.</b><span>Trage die Zugangsdaten in <code>index.html</code> ein (siehe <code>README.md</code>).</span></div>'; return; }
+  if (!S.user || S.user.isAnonymous) {
+    el.innerHTML = '<section><h2>Admin-Anmeldung</h2><div class="grid2"><label class="f full">E-Mail<input id="admMail" type="email" autocomplete="username"></label><label class="f full">Passwort<input id="admPw" type="password" autocomplete="current-password"></label>' +
+      '<div class="full"><button class="b pri" data-act="login">Anmelden</button></div></div></section>';
     return;
   }
-  if (!D(selDay)) selDay = D(db.active) ? db.active : (sortedDays()[0] || {}).id || null;
-  const day = D(selDay);
+  if (S.adminChecked && !S.isAdmin) {
+    el.innerHTML = '<section><h2>Keine Admin-Rechte</h2><div class="setup"><span>Du bist als <b>' + esc(S.user.email) + '</b> angemeldet, aber dieses Konto steht nicht in den Sicherheitsregeln. Trage diese Nutzer-ID in <code>firestore.rules</code> bei <code>adminUids</code> ein und veröffentliche die Regeln:</span><div class="uid">' + esc(S.user.uid) + '</div></div><div class="row"><button class="b" data-act="logout">Abmelden</button></div></section>';
+    return;
+  }
+  const day = selDayObj(), scans = S.dayScansFor === S.selDay ? S.dayScans : [];
   let h = '';
-  if (db.pin === '1234') h += '<div class="note">Die Standard-PIN <b>1234</b> ist noch aktiv. Ändere sie unten unter „Daten“.</div>';
 
-  // Tage
   h += '<section><h2>Tag</h2>';
-  if (db.days.length) {
-    h += '<div class="row" style="margin-top:0"><select data-act-sel="day" style="flex:1">' + sortedDays().map(d => '<option value="' + d.id + '"' + (d.id === selDay ? ' selected' : '') + '>' + esc(dayLabel(d)) + (d.id === db.active ? ' (aktiv)' : '') + (d.closed ? ' (abgeschlossen)' : '') + '</option>').join('') + '</select>' +
+  if (S.days.length) {
+    h += '<div class="row" style="margin-top:0"><select data-sel="day" style="flex:1">' + S.days.map(d => '<option value="' + d.id + '"' + (d.id === S.selDay ? ' selected' : '') + '>' + esc(dayLabel(d)) + (d.id === S.active ? ' (aktiv)' : '') + (d.closed ? ' (abgeschlossen)' : '') + '</option>').join('') + '</select>' +
       '<button class="b" data-act="toggleNewDay">Neuer Tag</button></div>';
   }
-  if (showNewDay || !db.days.length) {
-    const pv = prevDay(todayISO());
+  if (showNewDay || !S.days.length) {
+    const pv = S.days.find(d => d.date <= todayISO());
     h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" id="ndDate" value="' + todayISO() + '"></label>' +
       '<label class="f">Ziel / Ort<input id="ndPlace" placeholder="z. B. Turnier Rottenburg"></label>' +
       (pv ? '<label class="chk full"><input type="checkbox" id="ndCarry"> Rest vom ' + esc(dayLabel(pv)) + ' als mitgenommen übernehmen</label>' : '') +
-      '<div class="full row" style="margin-top:0"><button class="b pri grow" data-act="createDay">Tag anlegen und aktivieren</button>' + (db.days.length ? '<button class="b" data-act="toggleNewDay">Abbrechen</button>' : '') + '</div></div>';
+      '<div class="full row" style="margin-top:0"><button class="b pri grow" data-act="createDay">Tag anlegen und aktivieren</button>' + (S.days.length ? '<button class="b" data-act="toggleNewDay">Abbrechen</button>' : '') + '</div></div>';
   }
   if (day) {
-    h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" data-day="date" value="' + day.date + '"></label><label class="f">Ziel / Ort<input data-day="place" value="' + esc(day.place) + '"></label></div>' +
-      '<div class="row">' + (day.id === db.active ? '<span class="tag act" style="align-self:center">Wird gerade gescannt</span>' : '<button class="b pri" data-act="activate">Für Scannen aktivieren</button>') +
+    h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" data-day="date" value="' + esc(day.date) + '"></label><label class="f">Ziel / Ort<input data-day="place" value="' + esc(day.place) + '"></label></div>' +
+      '<div class="row">' + (day.id === S.active ? '<span class="tag act" style="align-self:center">Wird gerade gescannt</span>' : '<button class="b pri" data-act="activate">Für Scannen aktivieren</button>') +
       (day.closed ? '<button class="b" data-act="reopen">Wieder öffnen</button>' : '<button class="b" data-act="close">Tag abschließen</button>') + '</div>';
   }
   h += '</section>';
 
   if (day) {
-    const rows = dayRows(day);
-    h += summary(day, rows);
+    const rows = dayRows(day, scans);
+    h += summary(rows);
     h += '<section><h2>Mitnehmen und zurückzählen</h2><div class="row" style="margin-top:0">' +
       '<button class="b pri grow" data-act="sheetLoad">Einladen per Scan</button><button class="b grow" data-act="sheetCount">Rest zählen per Scan</button></div></section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Gezählt</th><th>Diff.</th></tr></thead><tbody>' +
@@ -596,15 +764,23 @@ function renderAdmin() {
       '<div class="row"><button class="b sm" data-act="zeroOpen">Nicht Gezähltes = 0 (alles leer)</button><button class="b sm" data-act="csvDay">Tag als CSV</button></div>'
       : '<div class="empty">Noch keine Getränke für diesen Tag.</div>') + '</section>';
 
-    const bookings = db.scans.filter(s => s.day === day.id).slice(-30).reverse();
-    h += '<section><h2>Buchungen dieses Tages (' + db.scans.filter(s => s.day === day.id).length + ')</h2>' + (bookings.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + s.src + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
+    // nach Person
+    if (scans.length) {
+      const per = {};
+      scans.forEach(s => { const k = s.who || 'ohne Namen'; per[k] = per[k] || { n: 0, v: 0 }; per[k].n++; per[k].v += (P(s.p) || {}).price || 0; });
+      const devs = new Set(scans.map(s => s.uid)).size;
+      h += '<section class="daylist"><h2>Nach Person</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:4px">' + devs + ' Gerät' + (devs > 1 ? 'e' : '') + ' haben gebucht.</div>' +
+        Object.keys(per).sort((a, b) => per[b].n - per[a].n).map(k => '<div class="rw"><span></span><span>' + esc(k) + '</span><small>' + per[k].n + ' Getränke' + (per[k].v ? ' · ' + money(per[k].v) : '') + '</small></div>').join('') + '</section>';
+    }
+
+    const recent = scans.slice(-30).reverse();
+    h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(s.who || s.src) + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
   }
 
-  // Getränke
-  h += '<section><h2>Getränke (' + db.products.length + ')</h2>' + db.products.map(p =>
-    '<details class="pc"><summary><b>' + esc(p.name) + '</b><small>' + (p.price ? money(p.price) : 'ohne Preis') + (p.packs.length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
+  h += '<section><h2>Getränke (' + S.products.length + ')</h2>' + S.products.map(p =>
+    '<details class="pc" data-k="' + p.id + '"><summary><b>' + esc(p.name) + '</b><small>' + (p.price ? money(p.price) : 'ohne Preis') + ((p.packs || []).length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
     '<div class="grid2"><label class="f full">Name<input data-p="name" data-id="' + p.id + '" value="' + esc(p.name) + '"></label>' +
-    '<label class="f full">Barcodes (Flasche und Kasten, mit Komma)<input data-p="codes" data-id="' + p.id + '" value="' + esc(p.codes.join(', ')) + '" inputmode="numeric"></label>' +
+    '<label class="f full">Barcodes (Flasche und Kasten, mit Komma)<input data-p="codes" data-id="' + p.id + '" value="' + esc((p.codes || []).join(', ')) + '" inputmode="numeric"></label>' +
     '<label class="f">Preis pro Flasche in €<input data-p="price" data-id="' + p.id + '" value="' + (p.price ? String(p.price).replace('.', ',') : '') + '" inputmode="decimal"></label>' +
     '<label class="f">Gebinde<input data-p="packs" data-id="' + p.id + '" value="' + esc(packsText(p.packs)) + '" placeholder="Kasten 20; Sixpack 6"></label>' +
     '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="' + p.id + '">Barcode scannen</button><button class="b sm dng" data-act="delProd" data-id="' + p.id + '">Löschen</button></div></div></details>').join('') +
@@ -616,114 +792,180 @@ function renderAdmin() {
       : '<div class="row"><button class="b" data-act="toggleNewProd">Getränk ohne Scan anlegen</button></div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';
 
-  // Verlauf aller Tage
-  if (db.days.length > 1) {
-    h += '<section class="daylist"><h2>Alle Tage</h2>' + sortedDays().map(d => {
-      const rs = dayRows(d), u = rs.reduce((a, r) => a + r.u, 0), miss = rs.reduce((a, r) => a + (r.diff != null && r.diff < 0 ? -r.diff : 0), 0);
-      return '<div class="rw"><span>' + fmtDate(d.date) + '</span><span>' + esc(d.place || '–') + '</span><small>' + u + ' gebucht' + (miss ? ', ' + miss + ' fehlen' : '') + '</small>' + (d.id === db.active ? '<span class="tag act">aktiv</span>' : d.closed ? '<span class="tag cls">fertig</span>' : '') + '<button class="b sm" data-act="pickDay" data-id="' + d.id + '">Öffnen</button></div>';
-    }).join('') + '</section>';
+  if (S.days.length > 1) {
+    h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
+      const o = overview && overview[d.id];
+      return '<div class="rw"><span>' + fmtDate(d.date) + '</span><span>' + esc(d.place || '–') + '</span><small>' + (o == null ? '' : o + ' gebucht') + '</small>' + (d.id === S.active ? '<span class="tag act">aktiv</span>' : d.closed ? '<span class="tag cls">fertig</span>' : '') + '<button class="b sm" data-act="pickDay" data-id="' + d.id + '">Öffnen</button></div>';
+    }).join('') + (overview ? '' : '<div class="row"><button class="b sm" data-act="overview">Anzahl Buchungen laden</button></div>') + '</section>';
   }
 
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
-    '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup laden</button>' +
-    '<button class="b sm" data-act="pin">PIN ändern</button><button class="b sm" data-act="logout">Abmelden</button>' +
-    (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') + '</div>' +
-    '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Die Daten liegen nur auf diesem Gerät. Speichere regelmäßig ein Backup.</div></section>';
-  el.innerHTML = h;
+    '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup importieren</button>' +
+    '<button class="b sm" data-act="logout">Abmelden</button>' + (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') + '</div>' +
+    '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + '. „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
+  keepState(el, h);
 }
 
+/* ---------- CSV / Backup ---------- */
 function download(name, text, type) {
   const a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type }));
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
-const csvEsc = v => '"' + String(v).replace(/"/g, '""') + '"';
+const csvEsc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
 const dec = n => String(Math.round(n * 100) / 100).replace('.', ',');
-function csvFor(days) {
+function csvFor(days, scansByDay) {
   const rows = [['Datum', 'Ziel', 'Getränk', 'Mitgenommen', 'Gebucht', 'Soll-Rest', 'Gezählt', 'Differenz', 'Preis', 'Wert gebucht', 'Wert Differenz']];
-  days.forEach(d => dayRows(d).forEach(r => rows.push([d.date, csvEsc(d.place), csvEsc(r.p.name), r.l, r.u, r.s, r.c == null ? '' : r.c, r.diff == null ? '' : r.diff, dec(r.p.price || 0), dec(r.u * (r.p.price || 0)), r.diff == null ? '' : dec(r.diff * (r.p.price || 0))])));
+  days.forEach(d => dayRows(d, scansByDay[d.id] || []).forEach(r => rows.push([d.date, csvEsc(d.place), csvEsc(r.p.name), r.l, r.u, r.s, r.c == null ? '' : r.c, r.diff == null ? '' : r.diff, dec(r.p.price || 0), dec(r.u * (r.p.price || 0)), r.diff == null ? '' : dec(r.diff * (r.p.price || 0))])));
   return '﻿' + rows.map(r => r.join(';')).join('\n');
 }
+async function allScans() {
+  const snap = await F.getDocs(col('scans'));
+  return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+}
+const groupByDay = list => { const m = {}; list.forEach(s => { (m[s.day] = m[s.day] || []).push(s); }); return m; };
+async function commitInChunks(ops) {
+  for (let i = 0; i < ops.length; i += 400) {
+    const b = F.writeBatch(db);
+    ops.slice(i, i + 400).forEach(o => o.del ? b.delete(o.ref) : b.set(o.ref, o.data));
+    await b.commit();
+  }
+}
 
+/* ---------- Admin-Ereignisse ---------- */
 const adminBody = $('adminBody');
 adminBody.addEventListener('input', e => { const n = e.target.dataset.n; if (n) newDraft[n] = e.target.value; });
-adminBody.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pinIn') adminBody.querySelector('[data-act=login]').click(); });
+adminBody.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.id === 'admPw' || e.target.id === 'admMail')) adminBody.querySelector('[data-act=login]').click(); });
 adminBody.addEventListener('change', e => {
-  const t = e.target, day = D(selDay);
-  if (t.dataset.actSel === 'day') { selDay = t.value; showNewDay = false; renderAdmin(); return; }
-  if (t.dataset.day && day) { if (t.dataset.day === 'date' && t.value) day.date = t.value; if (t.dataset.day === 'place') day.place = t.value.trim(); save(); renderAdmin(); return; }
-  if (t.dataset.cnt && day) { const v = t.value.trim(); if (v === '' || isNaN(parseInt(v))) delete day.count[t.dataset.cnt]; else day.count[t.dataset.cnt] = Math.max(0, parseInt(v)); save(); renderAdmin(); return; }
-  if (t.dataset.load && day) { day.load[t.dataset.load] = Math.max(0, parseInt(t.value) || 0); save(); renderAdmin(); return; }
+  const t = e.target, day = selDayObj();
+  if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
+  if (t.dataset.day && day) { const v = t.value.trim(); if (t.dataset.day === 'date' && !v) return; fire(F.updateDoc(dref('days', day.id), { [t.dataset.day]: v }), 'Tag speichern'); return; }
+  if (t.dataset.cnt && day) { const v = t.value.trim(); setCount(day.id, t.dataset.cnt, v === '' || isNaN(parseInt(v)) ? null : parseInt(v)); return; }
+  if (t.dataset.load && day) { setLoad(day.id, t.dataset.load, parseInt(t.value) || 0); return; }
   if (t.dataset.p) {
     const p = P(t.dataset.id); if (!p) return;
-    if (t.dataset.p === 'name') p.name = t.value.trim() || p.name;
-    if (t.dataset.p === 'codes') p.codes = parseCodes(t.value, p);
-    if (t.dataset.p === 'price') p.price = Math.max(0, num(t.value) || 0);
-    if (t.dataset.p === 'packs') p.packs = parsePacks(t.value);
-    save(); renderAdmin(); return;
+    const f = t.dataset.p, upd = {};
+    if (f === 'name') { if (!t.value.trim()) return; upd.name = t.value.trim(); }
+    if (f === 'codes') {
+      const list = [...new Set(t.value.split(/[,;\s]+/).map(norm).filter(Boolean))], ok = [];
+      list.forEach(c => { const o = byCode(c); if (o && o !== p) toast('Barcode ' + c + ' gehört schon zu „' + o.name + '“'); else ok.push(c); });
+      upd.codes = ok;
+    }
+    if (f === 'price') upd.price = Math.max(0, num(t.value) || 0);
+    if (f === 'packs') upd.packs = parsePacks(t.value);
+    fire(F.updateDoc(dref('products', p.id), upd), 'Getränk speichern');
   }
 });
-adminBody.addEventListener('click', e => {
+adminBody.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'SELECT') return;
-  const a = b.dataset.act, id = b.dataset.id, day = D(selDay);
-  if (a === 'login') { if ($('pinIn').value === db.pin) { adminOK = true; renderAdmin(); } else { toast('PIN falsch'); $('pinIn').value = ''; } }
-  else if (a === 'logout') { adminOK = false; renderAdmin(); }
+  const a = b.dataset.act, id = b.dataset.id, day = selDayObj();
+  if (a === 'login') {
+    const mail = $('admMail').value.trim(), pw = $('admPw').value;
+    if (!mail || !pw) { toast('E-Mail und Passwort eingeben'); return; }
+    b.disabled = true;
+    try { await F.signInWithEmailAndPassword(auth, mail, pw); }
+    catch (err) { b.disabled = false; toast(/invalid|wrong|not-found|credential/.test(err.code || '') ? 'E-Mail oder Passwort falsch' : 'Anmeldung fehlgeschlagen: ' + err.code); }
+  }
+  else if (a === 'logout') { stopAdminListeners(); await F.signOut(auth); }
   else if (a === 'toggleNewDay') { showNewDay = !showNewDay; renderAdmin(); }
   else if (a === 'createDay') {
     const date = $('ndDate').value || todayISO(), place = $('ndPlace').value.trim();
-    const nd = { id: uid(), date, place, note: '', closed: false, load: {}, count: {}, log: [] };
-    const carry = $('ndCarry') && $('ndCarry').checked, pv = prevDay(todayISO());
-    if (carry && pv) dayRows(pv).forEach(r => { const rest = r.c == null ? Math.max(0, r.s) : r.c; if (rest > 0) { nd.load[r.p.id] = rest; nd.log.push({ id: uid(), t: Date.now(), p: r.p.id, k: 'load', d: rest, prev: null }); } });
-    db.days.push(nd); db.active = nd.id; selDay = nd.id; showNewDay = false; save(); renderAdmin(); toast('Tag angelegt und aktiviert');
+    const carry = $('ndCarry') && $('ndCarry').checked, pv = S.days.find(d => d.date <= todayISO());
+    const nd = { date, place, closed: false, load: {}, count: {}, created: Date.now() };
+    if (carry && pv) {
+      b.disabled = true;
+      let pvScans = [];
+      try { pvScans = (await F.getDocs(F.query(col('scans'), F.where('day', '==', pv.id)))).docs.map(d => d.data()); } catch (err) { toast('Vortag konnte nicht geladen werden'); }
+      dayRows(pv, pvScans).forEach(r => { const rest = r.c == null ? Math.max(0, r.s) : r.c; if (rest > 0) nd.load[r.p.id] = rest; });
+    }
+    const nid = newId('days');
+    fire(F.setDoc(dref('days', nid), nd), 'Tag anlegen');
+    fire(F.setDoc(dref('meta', 'state'), { active: nid }, { merge: true }), 'Tag aktivieren');
+    S.selDay = nid; showNewDay = false; toast('Tag angelegt und aktiviert');
   }
-  else if (a === 'pickDay') { selDay = id; renderAdmin(); window.scrollTo(0, 0); }
-  else if (a === 'activate' && day) { db.active = day.id; save(); renderAdmin(); toast('Scannen bucht jetzt auf diesen Tag'); }
+  else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
+  else if (a === 'activate' && day) { fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag aktivieren'); toast('Scannen bucht jetzt auf diesen Tag'); }
   else if (a === 'close' && day) {
-    const open = dayRows(day).filter(r => r.c == null).length;
+    const open = dayRows(day, S.dayScans).filter(r => r.c == null).length;
     if (open && !confirm(open + ' Getränke sind noch nicht gezählt. Trotzdem abschließen?')) return;
-    day.closed = true; save(); renderAdmin(); toast('Tag abgeschlossen');
+    fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen'); toast('Tag abgeschlossen');
   }
-  else if (a === 'reopen' && day) { day.closed = false; save(); renderAdmin(); }
+  else if (a === 'reopen' && day) fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen');
   else if (a === 'sheetLoad' && day) openSheet({ mode: 'load', dayId: day.id });
   else if (a === 'sheetCount' && day) openSheet({ mode: 'count', dayId: day.id });
-  else if (a === 'zeroOpen' && day) { dayRows(day).forEach(r => { if (r.c == null) day.count[r.p.id] = 0; }); save(); renderAdmin(); }
-  else if (a === 'csvDay' && day) download('getraenke-' + day.date + (day.place ? '-' + day.place.replace(/[^\wäöüÄÖÜß-]+/g, '_') : '') + '.csv', csvFor([day]), 'text/csv;charset=utf-8');
-  else if (a === 'csvAll') download('getraenke-alle-tage-' + todayISO() + '.csv', csvFor(sortedDays().reverse()), 'text/csv;charset=utf-8');
-  else if (a === 'storno') { db.scans = db.scans.filter(s => s.id !== id); save(); renderAdmin(); toast('Buchung storniert'); }
+  else if (a === 'zeroOpen' && day) {
+    const upd = {}; dayRows(day, S.dayScans).forEach(r => { if (r.c == null) upd['count.' + r.p.id] = 0; });
+    if (Object.keys(upd).length) fire(F.updateDoc(dref('days', day.id), upd), 'Zählung speichern');
+  }
+  else if (a === 'csvDay' && day) download('getraenke-' + day.date + (day.place ? '-' + day.place.replace(/[^\wäöüÄÖÜß-]+/g, '_') : '') + '.csv', csvFor([day], { [day.id]: S.dayScans }), 'text/csv;charset=utf-8');
+  else if (a === 'csvAll') {
+    try { const all = await allScans(); download('getraenke-alle-tage-' + todayISO() + '.csv', csvFor(S.days.slice().reverse(), groupByDay(all)), 'text/csv;charset=utf-8'); }
+    catch (err) { toast('Export fehlgeschlagen – Internet nötig'); }
+  }
+  else if (a === 'overview') {
+    try {
+      overview = {};
+      await Promise.all(S.days.map(async d => { const r = await F.getCountFromServer(F.query(col('scans'), F.where('day', '==', d.id))); overview[d.id] = r.data().count; }));
+      renderAdmin();
+    } catch (err) { overview = null; toast('Übersicht braucht Internet'); }
+  }
+  else if (a === 'storno') { fire(F.deleteDoc(dref('scans', id)), 'Stornieren'); toast('Buchung storniert'); }
   else if (a === 'delDay' && day) {
-    if (!confirm('„' + dayLabel(day) + '“ mit allen Buchungen löschen?')) return;
-    db.scans = db.scans.filter(s => s.day !== day.id); db.days = db.days.filter(d => d !== day); if (db.active === day.id) db.active = null; selDay = null; save(); renderAdmin();
+    if (!confirm('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
+    try {
+      const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
+      await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat([{ ref: dref('days', day.id), del: true }]));
+      if (S.active === day.id) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Tag deaktivieren');
+      toast('Tag gelöscht');
+    } catch (err) { toast('Löschen fehlgeschlagen – Internet nötig'); }
   }
   else if (a === 'assign') openSheet({ mode: 'assign', assignTo: id });
   else if (a === 'toggleNewProd') { showNewProd = !showNewProd; renderAdmin(); }
   else if (a === 'addProd') {
     const name = newDraft.name.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
-    const p = { id: uid(), name, codes: [], price: Math.max(0, num(newDraft.price) || 0), packs: parsePacks(newDraft.packs) };
-    p.codes = parseCodes(newDraft.codes, p); db.products.push(p); save();
-    newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }; showNewProd = false; renderAdmin(); toast('Getränk angelegt');
+    const list = [...new Set(newDraft.codes.split(/[,;\s]+/).map(norm).filter(Boolean))].filter(c => { const o = byCode(c); if (o) toast('Barcode ' + c + ' gehört schon zu „' + o.name + '“'); return !o; });
+    fire(F.setDoc(dref('products', newId('products')), { name, codes: list, price: Math.max(0, num(newDraft.price) || 0), packs: parsePacks(newDraft.packs) }), 'Getränk anlegen');
+    newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }; showNewProd = false; toast('Getränk angelegt');
   }
   else if (a === 'delProd') {
     const p = P(id); if (!p) return;
-    const n = db.scans.filter(s => s.p === id).length;
-    if (!confirm('„' + p.name + '“ löschen?' + (n ? ' ' + n + ' Buchungen hängen daran und werden mit gelöscht.' : ''))) return;
-    db.products = db.products.filter(x => x !== p); db.scans = db.scans.filter(s => s.p !== id);
-    db.days.forEach(d => { delete d.load[id]; delete d.count[id]; d.log = d.log.filter(l => l.p !== id); }); save(); renderAdmin();
+    if (!confirm('„' + p.name + '“ löschen? Bisherige Buchungen bleiben erhalten und erscheinen als „gelöschtes Getränk“.')) return;
+    fire(F.deleteDoc(dref('products', id)), 'Getränk löschen');
   }
-  else if (a === 'backup') download('strichliste-backup-' + todayISO() + '.json', JSON.stringify(db), 'application/json');
+  else if (a === 'backup') {
+    try {
+      const scans = await allScans();
+      const days = (await F.getDocs(col('days'))).docs.map(d => Object.assign({ id: d.id }, d.data()));
+      download('strichliste-backup-' + todayISO() + '.json', JSON.stringify({ v: 3, exported: new Date().toISOString(), active: S.active, products: S.products, days, scans }), 'application/json');
+    } catch (err) { toast('Backup braucht Internet'); }
+  }
   else if (a === 'restore') $('fileIn').click();
-  else if (a === 'pin') { const p = prompt('Neue PIN (mindestens 4 Ziffern):'); if (p && /^\d{4,}$/.test(p)) { db.pin = p; save(); renderAdmin(); toast('PIN geändert'); } else if (p) toast('Bitte mindestens 4 Ziffern'); }
 });
 $('fileIn').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  let d;
+  try { d = JSON.parse(await f.text()); if (!Array.isArray(d.products) || !Array.isArray(d.days) || !Array.isArray(d.scans)) throw 0; }
+  catch (err) { toast('Die Datei ist kein gültiges Backup'); return; }
+  if (!confirm('Backup mit ' + d.products.length + ' Getränken, ' + d.days.length + ' Tagen und ' + d.scans.length + ' Buchungen importieren? Gleiche Einträge werden überschrieben, andere bleiben erhalten.')) return;
+  const clean = (o, keys) => { const r = {}; keys.forEach(k => { if (o[k] !== undefined) r[k] = o[k]; }); return r; };
+  const ops = [];
+  d.products.forEach(p => ops.push({ ref: dref('products', String(p.id)), data: Object.assign({ codes: [], price: 0, packs: [] }, clean(p, ['name', 'codes', 'price', 'packs'])) }));
+  d.days.forEach(x => ops.push({ ref: dref('days', String(x.id)), data: Object.assign({ load: {}, count: {}, closed: false, place: '' }, clean(x, ['date', 'place', 'closed', 'load', 'count', 'created'])) }));
+  d.scans.forEach(s => ops.push({ ref: dref('scans', String(s.id)), data: Object.assign({ uid: s.uid || S.user.uid, src: s.src || 'import' }, clean(s, ['day', 'p', 't', 'who'])) }));
   try {
-    const d = JSON.parse(await f.text()); if (!Array.isArray(d.products) || !Array.isArray(d.days) || !Array.isArray(d.scans)) throw 0;
-    if (!confirm('Backup laden? Die Daten auf diesem Gerät werden ersetzt.')) return;
-    db = Object.assign({ pin: '1234', active: null }, d); selDay = null; save(); renderAdmin(); toast('Backup geladen');
-  } catch (err) { toast('Die Datei ist kein gültiges Backup'); }
+    toast('Importiere …'); await commitInChunks(ops);
+    if (d.active && !S.active) await F.setDoc(dref('meta', 'state'), { active: String(d.active) }, { merge: true });
+    toast('Import fertig: ' + ops.length + ' Einträge');
+  } catch (err) { console.error(err); toast('Import fehlgeschlagen: ' + (err.code || err.message)); }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && cam.on) { const wasSheet = cam.box === boxSheet; camStop(); setMainButtons(); if (wasSheet) boxSheet.ph.innerHTML = '<b>Kamera pausiert</b><span>Schließen und erneut öffnen.</span>'; } });
 
-renderScan();
+/* ---------- Start ---------- */
+function renderAll() { renderNet(); renderScan(); renderAdmin(); }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && cam.on) { const wasSheet = cam.box === boxSheet; camStop(); setMainButtons(); if (wasSheet) boxSheet.ph.innerHTML = '<b>Kamera pausiert</b><span>„Fertig“ tippen und erneut öffnen.</span>'; }
+});
+renderAll();
 if (location.hash === '#admin') setView('admin');
+if (configured) initFirebase().catch(err => { console.error(err); S.dbError = S.online ? 'Firebase konnte nicht geladen werden: ' + err.message : 'Offline und die App ist noch nicht auf diesem Gerät gespeichert. Einmal mit Internet öffnen.'; renderAll(); });
 </script>
 </body>
 </html>
