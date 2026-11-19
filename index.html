@@ -351,7 +351,7 @@ body.noauth main{display:none!important}
       <button class="b sm" id="sheetClose">Fertig</button>
     </div>
     <div class="mode" id="sheetMode" hidden>
-      <button data-m="load" class="on">Mitgenommen</button><button data-m="count">Rest gezählt</button>
+      <button data-m="load" class="on">Mitgenommen</button><button data-m="count">Übrig</button>
     </div>
     <div class="vp">
       <div class="cam" id="camSheet"></div>
@@ -410,7 +410,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '15';
+const APP_VERSION = '16';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1961,7 +1961,7 @@ function renderSheet() {
   } else if (sh.pid && P(sh.pid) && day) {
     const p = P(sh.pid), v = (day[sh.mode === 'count' ? 'count' : 'load'] || {})[p.id];
     const sign = sh.minus ? '−' : '+';
-    h += '<div class="prod"><div class="prod-h"><b>' + esc(p.name) + '</b><span><strong>' + (v == null ? '–' : v) + '</strong> ' + (sh.mode === 'count' ? 'gezählt' : 'mitgenommen') + '</span></div>' +
+    h += '<div class="prod"><div class="prod-h"><b>' + esc(p.name) + '</b><span><strong>' + (v == null ? '–' : v) + '</strong> ' + (sh.mode === 'count' ? 'übrig' : 'mitgenommen') + '</span></div>' +
       '<div class="packs' + (sh.minus ? ' minus' : '') + '">' +
       '<button class="b" data-qty="1" data-l="Flasche">' + sign + ' 1 Flasche<small>einzeln</small></button>' +
       (p.packs || []).map(k => '<button class="b" data-qty="' + k.n + '" data-l="' + esc(k.l) + '">' + sign + ' 1 ' + esc(k.l) + '<small>' + k.n + ' Flaschen</small></button>').join('') +
@@ -1979,7 +1979,7 @@ function renderSheet() {
   if (day) {
     const rows = dayRows(day, S.dayScansFor === day.id ? S.dayScans : []);
     const parts = sh.mode === 'count' ? rows.filter(r => r.c != null).map(r => esc(r.p.name) + ' ' + r.c) : rows.filter(r => r.l).map(r => esc(r.p.name) + ' ' + r.l);
-    if (parts.length) h += '<div style="font-size:.86rem;color:var(--mu)">' + (sh.mode === 'count' ? 'Gezählt bisher: ' : 'Mitgenommen bisher: ') + parts.join(', ') + '</div>';
+    if (parts.length) h += '<div style="font-size:.86rem;color:var(--mu)">' + (sh.mode === 'count' ? 'Übrig bisher: ' : 'Mitgenommen bisher: ') + parts.join(', ') + '</div>';
   }
   keepState(body, h);
 }
@@ -2060,11 +2060,11 @@ function summary(rows) {
       (knapp.length ? '<b>Geht zu Ende:</b> ' + knapp.map(r => esc(r.p.name) + ' (noch ' + r.s + ')').join(', ') + '.' : '') +
       ' <button class="b sm" data-act="sheetLoad" style="margin-left:4px">Nachladen</button></div>';
   }
-  if (!open && !bad.length) h += '<div class="note ok"><b>Alles abgescannt.</b> Der gezählte Rest stimmt bei allen ' + rows.length + ' Getränken.</div>';
+  if (!open && !bad.length) h += '<div class="note ok"><b>Alles abgescannt.</b> Was übrig ist, stimmt bei allen ' + rows.length + ' Getränken.</div>';
   else {
     let t = '';
     if (bad.length) t += '<b>' + bad.length + ' Abweichung' + (bad.length > 1 ? 'en' : '') + ':</b> ' + (missing ? missing + ' Flaschen nicht gescannt' + (cost ? ' (' + money(cost) + ')' : '') : '') + (missing && extra ? ', ' : '') + (extra ? extra + ' Flaschen mehr zurück als erwartet' : '') + '. ';
-    if (open) t += open + ' von ' + rows.length + ' Getränken noch nicht gezählt.';
+    if (open) t += open + ' von ' + rows.length + ' Getränken fehlt noch „Übrig“.';
     h += '<div class="note ' + (missing ? 'bad' : '') + '">' + t + '</div>';
   }
   return h;
@@ -2113,12 +2113,12 @@ function renderAdmin() {
     h += eggPreview(day, scans);
     h += '<section><h2>Mitnehmen und zurückzählen</h2><div class="row" style="margin-top:0">' +
       '<button class="b pri grow" data-act="sheetLoad">Einladen per Scan</button><button class="b grow" data-act="sheetCount">Rest zählen per Scan</button></div></section>';
-    h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Gezählt</th><th>Diff.</th></tr></thead><tbody>' +
+    h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
       rows.map(r => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
-        '<td><input class="n" inputmode="numeric" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Gezählter Rest ' + esc(r.p.name) + '"></td>' +
+        '<td><input class="n" inputmode="numeric" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Übrig ' + esc(r.p.name) + '"></td>' +
         '<td class="' + (r.diff == null ? '' : r.diff === 0 ? 'good' : r.diff < 0 ? 'bad' : 'warn') + '">' + (r.diff == null ? '–' : r.diff === 0 ? 'passt' : r.diff < 0 ? 'fehlt ' + (-r.diff) : r.diff + ' zu viel') + '</td></tr>').join('') +
       '</tbody><tfoot><tr><td>Summe</td><td>' + rows.reduce((a, r) => a + r.l, 0) + '</td><td>' + rows.reduce((a, r) => a + r.u, 0) + '</td><td>' + rows.reduce((a, r) => a + r.s, 0) + '</td><td>' + rows.reduce((a, r) => a + (r.c || 0), 0) + '</td><td></td></tr></tfoot></table></div>' +
-      '<div class="row"><button class="b sm" data-act="zeroOpen">Nicht Gezähltes = 0 (alles leer)</button><button class="b sm" data-act="csvDay">Tag als CSV</button><button class="b sm" data-act="csvPers">Nach Person als CSV</button></div>'
+      '<div class="row"><button class="b sm" data-act="zeroOpen">Leere Felder bei „Übrig“ = 0</button><button class="b sm" data-act="csvDay">Tag als CSV</button><button class="b sm" data-act="csvPers">Nach Person als CSV</button></div>'
       : '<div class="empty">Noch keine Getränke für diesen Tag.</div>') + '</section>';
 
     // nach Person
@@ -2369,7 +2369,7 @@ async function buildReport(from, to) {
   const plist = Object.values(people).sort((a, b) => a.name.localeCompare(b.name, 'de'));
 
   // Abgleich je Tag
-  const abg = [[H('Datum'), H('Ziel'), H('Getränk'), H('Sorte'), H('Mitgenommen'), H('Gebucht'), H('Soll-Rest'), H('Gezählt'), H('Differenz'), H('Preis'), H('Wert gebucht'), H('Wert Differenz')]];
+  const abg = [[H('Datum'), H('Ziel'), H('Getränk'), H('Sorte'), H('Mitgenommen'), H('Gebucht'), H('Soll-Rest'), H('Übrig'), H('Differenz'), H('Preis'), H('Wert gebucht'), H('Wert Differenz')]];
   let missTot = 0, missVal = 0;
   days.forEach(d => dayRows(d, byDay[d.id]).forEach(r => {
     const i = abg.length + 1;
@@ -2455,7 +2455,7 @@ function download(name, text, type) {
 const csvEsc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
 const dec = n => String(Math.round(n * 100) / 100).replace('.', ',');
 function csvFor(days, scansByDay) {
-  const rows = [['Datum', 'Ziel', 'Getränk', 'Mitgenommen', 'Gebucht', 'Soll-Rest', 'Gezählt', 'Differenz', 'Preis', 'Wert gebucht', 'Wert Differenz']];
+  const rows = [['Datum', 'Ziel', 'Getränk', 'Mitgenommen', 'Gebucht', 'Soll-Rest', 'Übrig', 'Differenz', 'Preis', 'Wert gebucht', 'Wert Differenz']];
   days.forEach(d => dayRows(d, scansByDay[d.id] || []).forEach(r => rows.push([d.date, csvEsc(d.place), csvEsc(r.p.name), r.l, r.u, r.s, r.c == null ? '' : r.c, r.diff == null ? '' : r.diff, dec(r.p.price || 0), dec(r.u * (r.p.price || 0)), r.diff == null ? '' : dec(r.diff * (r.p.price || 0))])));
   return '﻿' + rows.map(r => r.join(';')).join('\n');
 }
@@ -2488,7 +2488,7 @@ adminBody.addEventListener('change', e => {
   if (t.id === 'logScans') { logWithScans = t.checked; S.logScans = null; renderAdmin(); return; }
   if (t.dataset.er) { const [rid, f] = t.dataset.er.split('|'); const r = allRules().find(x => x.id === rid); editRule(rid, f, t.type === 'checkbox' ? t.checked : t.value); logEv('egg', 'ändert Easter Egg „' + ((r && r.texts && r.texts[0] && r.texts[0].t) || rid) + '“ (' + f + ')'); return; }
   if (t.dataset.day && day) { const v = t.value.trim(); if (t.dataset.day === 'date' && !v) return; fire(F.updateDoc(dref('days', day.id), { [t.dataset.day]: v }), 'Tag speichern'); logEv('tag', dayLabel(day) + ': ' + (t.dataset.day === 'date' ? 'Datum' : 'Ziel') + ' → ' + v, day.id); return; }
-  if (t.dataset.cnt && day) { const v = t.value.trim(), nv = v === '' || isNaN(parseInt(v)) ? null : parseInt(v); setCount(day.id, t.dataset.cnt, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.cnt) + ' gezählt → ' + (nv == null ? 'leer' : nv), day.id); return; }
+  if (t.dataset.cnt && day) { const v = t.value.trim(), nv = v === '' || isNaN(parseInt(v)) ? null : parseInt(v); setCount(day.id, t.dataset.cnt, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.cnt) + ' übrig → ' + (nv == null ? 'leer' : nv), day.id); return; }
   if (t.dataset.load && day) { const nv = parseInt(t.value) || 0; setLoad(day.id, t.dataset.load, nv); logEv('einladen', 'Abgleich: ' + pname(t.dataset.load) + ' mitgenommen → ' + nv, day.id); return; }
   if (t.dataset.role) {
     const uid = t.dataset.role, role = t.value;
@@ -2545,7 +2545,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'activate' && day) { fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag aktivieren'); toast('Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'aktiviert ' + dayLabel(day) + ' zum Scannen', day.id); }
   else if (a === 'close' && day) {
     const open = dayRows(day, S.dayScans).filter(r => r.c == null).length;
-    if (open && !confirm(open + ' Getränke sind noch nicht gezählt. Trotzdem abschließen?')) return;
+    if (open && !confirm(open + ' Getränken fehlt noch „Übrig“. Trotzdem abschließen?')) return;
     fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen'); toast('Tag abgeschlossen'); logEv('tag', 'schließt ' + dayLabel(day) + ' ab', day.id);
   }
   else if (a === 'reopen' && day) { fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); logEv('tag', 'öffnet ' + dayLabel(day) + ' wieder', day.id); }
@@ -2553,7 +2553,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'sheetCount' && day) openSheet({ mode: 'count', dayId: day.id });
   else if (a === 'zeroOpen' && day) {
     const upd = {}; dayRows(day, S.dayScans).forEach(r => { if (r.c == null) upd['count.' + r.p.id] = 0; });
-    if (Object.keys(upd).length) { fire(F.updateDoc(dref('days', day.id), upd), 'Zählung speichern'); logEv('einladen', 'setzt nicht Gezähltes auf 0 (' + Object.keys(upd).length + ' Getränke)', day.id); }
+    if (Object.keys(upd).length) { fire(F.updateDoc(dref('days', day.id), upd), 'Zählung speichern'); logEv('einladen', 'setzt leere „Übrig“-Felder auf 0 (' + Object.keys(upd).length + ' Getränke)', day.id); }
   }
   else if (a === 'csvDay' && day) download('getraenke-' + day.date + (day.place ? '-' + day.place.replace(/[^\wäöüÄÖÜß-]+/g, '_') : '') + '.csv', csvFor([day], { [day.id]: S.dayScans }), 'text/csv;charset=utf-8');
   else if (a === 'csvPers' && day) {

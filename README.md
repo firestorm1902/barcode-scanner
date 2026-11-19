@@ -190,7 +190,7 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
    - **Einladen per Scan:** Flasche oder Kasten scannen und „+1 Kasten“ bzw. „+1 Flasche“ antippen.
 2. **Unterwegs (alle):** Getränk nehmen, Barcode scannen.
 3. **Danach (Admin):**
-   - **Rest zählen per Scan** oder die Zahlen direkt in die Tabelle tippen.
+   - **Rest zählen per Scan** oder in der Spalte **Übrig** direkt eintippen, wie viele Flaschen übrig sind.
    - Die Spalte **Diff.** zeigt, was nicht gescannt wurde.
    - Mit **Nach Person als CSV** gibt es die Abrechnung pro Mitglied.
    - **Tag abschließen**.
@@ -240,13 +240,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 15**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 15 auf 16):
-- in `index.html`: `const APP_VERSION = '15';`
-- in `sw.js`: `const VERSION = 'strichliste-v15';`
+Aktuell ist **Version 16**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 16 auf 17):
+- in `index.html`: `const APP_VERSION = '16';`
+- in `sw.js`: `const VERSION = 'strichliste-v16';`
 
-Bei Version 15 haben sich auch die Regeln geändert: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Seit Version 15 gelten neue Regeln. Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 15“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 16“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
