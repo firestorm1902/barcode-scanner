@@ -176,6 +176,7 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.eggpref button{flex:1;padding:10px 6px}
 /* Einladen / Übrig per Scan: ganzer Bildschirm */
 .sheet{z-index:82;align-items:stretch;background:rgba(11,18,24,.7)}
 .sheet-in{height:100%;height:100dvh;max-height:none;border-radius:0;gap:16px;padding:calc(10px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
@@ -424,7 +425,7 @@ body.noauth main{display:none!important}
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
-      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
       <div class="note" id="youthNote" hidden style="margin-top:10px"><b>Jugendschutz:</b> Bier, Radler, Wein/Sekt und Schnaps sind für dich gesperrt.</div>
       <div class="note" id="drvNote" hidden style="margin-top:10px"><b>Du fährst heute.</b> Beim Scannen von Alkohol fragt die App nach. Gute Heimfahrt!</div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--white)">
@@ -522,7 +523,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '21';
+const APP_VERSION = '22';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1041,6 +1042,27 @@ async function logout() {
   await F.signOut(auth); hidePasswords(); setView('scan');
 }
 $('logoutBtn').addEventListener('click', logout);
+// Jede Person kann Easter Eggs für sich ausschalten (gilt für das Konto, auf allen Handys); Ton nur für dieses Handy
+const eggsOff = () => !!(S.meDoc && S.meDoc.eggoff);
+const soundOff = () => { try { return localStorage.getItem('strichliste_mute') === '1'; } catch (e) { return false; } };
+const eggsWanted = () => canSee('eggs') && !eggsOff();
+$('eggPrefBtn').addEventListener('click', () => {
+  if (!S.user) return;
+  const on = !eggsOff(), mute = soundOff();
+  openModal('<h2>Easter Eggs</h2><p>Kleine Überraschungen beim Buchen, z. B. beim ersten Getränk des Tages, mit Popup, Animation und Ton. Du entscheidest, ob du sie sehen willst.</p>' +
+    '<div class="mode eggpref" style="display:flex;margin:10px 0"><button data-ep="on" class="' + (on && !mute ? 'on' : '') + '">An</button><button data-ep="mute" class="' + (on && mute ? 'on' : '') + '">An, ohne Ton</button><button data-ep="off" class="' + (!on ? 'on' : '') + '">Aus</button></div>' +
+    '<p style="font-size:.84rem;color:var(--mu)">„Aus“ gilt für dein Konto auf allen Handys: keine Popups, kein Verlauf, keine Sammelalbum-Meldungen. Gezählt wird trotzdem – du kannst sie jederzeit wieder einschalten. „Ohne Ton“ gilt nur für dieses Handy.</p>');
+});
+$('modalBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-ep]'); if (!b || !S.user) return;
+  const v = b.dataset.ep, off = v === 'off';
+  try { localStorage.setItem('strichliste_mute', v === 'mute' ? '1' : '0'); } catch (err) {}
+  if (off !== eggsOff()) {
+    fire(F.updateDoc(dref('users', S.user.uid), { eggoff: off ? true : F.deleteField() }), 'Einstellung speichern');
+    S.meDoc = Object.assign({}, S.meDoc, { eggoff: off }); logEv('person', 'Easter Eggs für sich ' + (off ? 'ausgeschaltet' : 'eingeschaltet'));
+  }
+  closeModal(); toast(off ? 'Easter Eggs aus' : v === 'mute' ? 'Easter Eggs an, ohne Ton' : 'Easter Eggs an'); renderScan(); renderHist();
+});
 $('drvBtn').addEventListener('click', () => {
   if (!S.user || !S.activeDay) return;
   const id = S.user.uid + '_' + S.activeDay.id;
@@ -1247,7 +1269,7 @@ function describeRule(r) {
 /* ---------- Anzeige ---------- */
 const eggQueue = []; let eggShowing = false, eggTimer = null, curEgg = null;
 function showEgg(e, force) {
-  if (!force && (!eggsOn() || !canSee('eggs'))) return;
+  if (!force && (!eggsOn() || !eggsWanted())) return;
   if (eggQueue.length < 8) eggQueue.push(Object.assign({ force: !!force }, e));
   if (!eggShowing) nextEgg();
 }
@@ -1323,6 +1345,7 @@ const MELODY = {
   ballons: [587.33, 739.99, 880, 1174.66], sterne: [1046.5, 1318.5, 1568, 2093], album: [783.99, 987.77, 1174.66, 1567.98, 1975.53]
 };
 function jingle(anim) {
+  if (soundOff() && !(curEgg && curEgg.force)) return;
   try {
     const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A();
     const c = beep.c, t0 = c.currentTime + .05;
@@ -1490,7 +1513,7 @@ const badgeIcon = r => String(r.who === 'group' ? 'A' : r.who === 'team' ? 'G' :
 function albumAdd(rids) {
   if (!S.user || !rids.length) return;
   // neu gesammelt? eigenes Popup (optisch anders) nach dem Easter Egg
-  if (canSee('album') && eggsOn()) {
+  if (canSee('album') && eggsOn() && eggsWanted()) {
     const minor = isMinor(), rules = activeRules().filter(r => !(minor && ruleAlc(r))), have = new Set(Object.keys(S.album || {}));
     rids.filter(Boolean).forEach(id => {
       const r = rules.find(x => x.id === id);
@@ -2220,7 +2243,7 @@ let histTab = 'all';
 $('histTabs').addEventListener('click', e => { const b = e.target.closest('[data-h]'); if (!b) return; histTab = b.dataset.h; renderHist(); });
 function renderHist() {
   const sec = $('histSec');
-  if (!S.activeDay || !S.me || $('listSec').hidden || !canSee('eggs')) { sec.hidden = true; return; }
+  if (!S.activeDay || !S.me || $('listSec').hidden || !eggsWanted()) { sec.hidden = true; return; }
   sec.hidden = false;
   const g = (S.groupEggs || []).filter(x => !(isMinor() && x.alc)), m = S.myEggs || [];
   $('histTabs').querySelectorAll('button').forEach(b => {
@@ -2324,6 +2347,7 @@ function renderScan() {
   $('meGrp').textContent = gname(myGroup());
   $('youthNote').hidden = !isMinor();
   $('drvNote').hidden = !S.driver;
+  { const b = $('eggPrefBtn'), on = !eggsOff(); b.hidden = !canSee('eggs'); b.textContent = 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
   $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor();
   if (!show) {
     if (cam.box === boxMain) camStop();

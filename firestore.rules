@@ -110,9 +110,9 @@ service cloud.firestore {
         // Admin: eine wartende Anmeldung ablehnen
         || (isAdmin() && resource.data.get('pending', false) == true
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pending', 'deleted', 'blocked']))
-        // Mitglied: eigene E-Mail nachtragen, Datenschutz bestätigen, Löschung beantragen
+        // Mitglied: eigene E-Mail nachtragen, Datenschutz bestätigen, Löschung beantragen, Easter Eggs für sich aus/an
         || (signedIn() && request.auth.uid == uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email', 'dsgvo', 'delreq'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email', 'dsgvo', 'delreq', 'eggoff'])
             && (!('email' in request.resource.data.diff(resource.data).affectedKeys())
                 || request.resource.data.email == request.auth.token.email.lower()));
 

@@ -85,6 +85,7 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 - Oben neben „Strichliste“ steht der Netzstatus. „offline · 3 warten“ heißt: 3 Buchungen sind gespeichert und werden gesendet, sobald Netz da ist. In dieser Zeit nicht abmelden; die App warnt davor.
 
 - **Ich fahre heute:** In der Scan-Ansicht auf das Auto tippen. Dann fragt die App bei jedem alkoholischen Getränk nach („Du fährst heute – trotzdem buchen?“). Admins sehen in der Tagesübersicht, wer heute fährt. Gilt nur für den einen Tag.
+- **Easter Eggs für sich einstellen:** Wer Easter Eggs sehen darf, hat neben „Ich fahre heute“ den Knopf „Easter Eggs: an“. Dort wählt man *An*, *An, ohne Ton* (nur dieses Handy) oder *Aus* (für das Konto auf allen Handys: keine Popups, kein Verlauf, keine Sammelalbum-Meldungen; gezählt wird trotzdem).
 - **Nachtmodus:** Oben rechts zwischen *Auto*, *Hell* und *Nacht* umschalten. *Auto* wird dunkel, wenn das Handy dunkel eingestellt ist oder zwischen 19 und 7 Uhr.
 
 ## Mehr: Bestenliste, Album, Mein Konto, Rückblick
@@ -286,13 +287,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 21**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 21 auf 22):
-- in `index.html`: `const APP_VERSION = '21';`
-- in `sw.js`: `const VERSION = 'strichliste-v21';`
+Aktuell ist **Version 22**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 22 auf 23):
+- in `index.html`: `const APP_VERSION = '22';`
+- in `sw.js`: `const VERSION = 'strichliste-v22';`
 
-Seit Version 20 gelten neue Regeln (Datenschutz, Gruppe bei Registrierung, Zählerschutz). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 22 bringt neue Regeln (Easter Eggs pro Person aus/an): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 21“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 22“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
