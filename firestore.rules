@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Sicherheitsregeln für die Strichliste.
+// In der Firebase-Konsole unter Firestore Database → Regeln komplett einfügen und „Veröffentlichen“.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ▼▼▼ Hier die Nutzer-IDs der Admin-Konten eintragen (Authentication → Users → „Nutzer-UID“) ▼▼▼
+    function adminUids() {
+      return ['HIER_ADMIN_UID_EINTRAGEN'];
+    }
+    // ▲▲▲
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin()  { return signedIn() && request.auth.uid in adminUids(); }
+
+    // Getränke, Tage und „aktiver Tag“: alle angemeldeten Geräte lesen, nur Admins ändern
+    match /products/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /days/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /meta/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
+
+    // Nur zum Prüfen, ob ein Konto Admin ist
+    match /admincheck/{id} { allow read: if isAdmin(); }
+
+    // Name pro Handy: einmal festlegen, danach nur noch durch Admins änderbar
+    match /users/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 't'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 3
+        && request.resource.data.name.size() <= 40;
+      allow update, delete: if isAdmin();
+    }
+
+    // Buchungen
+    match /scans/{id} {
+      // Jedes Gerät sieht nur seine eigenen Buchungen, Admins alle
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+
+      // Jedes Gerät darf für sich selbst buchen – aber nur, wenn es einen Namen hat
+      allow create: if isAdmin() || (
+        signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && request.resource.data.keys().hasOnly(['uid', 'day', 'p', 'src', 't', 'at', 'who'])
+        && request.resource.data.day is string
+        && request.resource.data.p is string
+        && request.resource.data.t is number
+        && request.resource.data.who is string
+        && request.resource.data.who.size() <= 40
+      );
+
+      // Eigene Buchung zurücknehmen; Admins dürfen alles
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin();
+    }
+  }
+}

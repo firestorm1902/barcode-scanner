@@ -147,6 +147,12 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
 
   <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
     <div id="dayInfo"><div class="empty">Lade …</div></div>
+    <section id="nameSec" hidden>
+      <h2>Wer bist du?</h2>
+      <p style="font-size:.9rem;color:var(--mu);margin-bottom:10px">Deine Getränke werden unter diesem Namen gebucht. Der Name ist danach fest mit diesem Handy verbunden und kann nicht mehr geändert werden.</p>
+      <div class="grid2"><label class="f full">Vor- und Nachname<input id="nameIn" autocomplete="name" maxlength="40" placeholder="z. B. Lena Müller"></label>
+      <div class="full"><button class="b pri" id="nameBtn">Namen festlegen</button></div></div>
+    </section>
     <section style="border-top:0;padding-top:0" id="scanSec" hidden>
       <div class="vp">
         <div class="cam" id="camMain"></div>
@@ -157,7 +163,7 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
-      <label class="me" style="margin-top:10px">Dein Name <input id="whoIn" placeholder="optional, für die Abrechnung" autocomplete="name" /></label>
+      <div class="me" style="margin-top:10px">Gebucht als <b id="meName" style="color:var(--ink)"></b></div>
     </section>
     <div class="note" id="msg" hidden></div>
     <div id="last" hidden></div>
@@ -242,7 +248,7 @@ const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
 
 /* Neu zeichnen, ohne laufende Eingaben, Fokus und aufgeklappte Bereiche zu verlieren
    (wichtig, weil andere Handys ständig Buchungen schicken) */
-const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel'];
+const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u'];
 function fieldKey(el) {
   if (el.id) return '#' + el.id;
   for (const a of ATTRS) if (el.hasAttribute(a)) return a + '=' + el.getAttribute(a) + '|' + (el.dataset.id || '');
@@ -270,6 +276,7 @@ function keepState(container, html) {
 const S = {
   user: null, isAdmin: false, adminChecked: false,
   products: [], active: null, activeDay: null, activeLoaded: false,
+  me: null, meLoaded: false, users: {},
   myScans: [], pending: 0,
   days: [], selDay: null, dayScans: [], dayScansFor: null,
   online: navigator.onLine, dbError: null
@@ -324,7 +331,7 @@ async function initFirebase() {
     S.user = u; S.isAdmin = false; S.adminChecked = false;
     if (!u) { F.signInAnonymously(auth).catch(err => { S.dbError = 'Anmeldung fehlgeschlagen (' + err.code + '). Beim ersten Start wird Internet benötigt.'; renderAll(); }); return; }
     startUserListeners();
-    if (!u.isAnonymous) startAdminListeners(); else stopAdminListeners();
+    if (!u.isAnonymous) { startAdminListeners(); checkAdmin(); } else stopAdminListeners();
     renderAll();
   });
 }
@@ -332,7 +339,7 @@ const col = name => F.collection(db, name);
 const dref = (name, id) => F.doc(db, name, id);
 const newId = name => F.doc(col(name)).id;
 
-let unsub = { products: null, meta: null, activeDay: null, mine: null, days: null, dayScans: null };
+let unsub = { products: null, meta: null, activeDay: null, mine: null, me: null, days: null, dayScans: null, users: null };
 const stop = k => { if (unsub[k]) { unsub[k](); unsub[k] = null; } };
 function fail(where) {
   return err => {
@@ -346,7 +353,11 @@ function fail(where) {
 }
 
 function startUserListeners() {
-  stop('products'); stop('meta');
+  stop('products'); stop('meta'); stop('activeDay'); stop('mine'); stop('me'); S.active = undefined;
+  S.me = null; S.meLoaded = false;
+  unsub.me = F.onSnapshot(dref('users', S.user.uid), snap => {
+    S.me = snap.exists() ? snap.data().name : null; S.meLoaded = true; renderScan();
+  }, fail('me'));
   unsub.products = F.onSnapshot(col('products'), snap => {
     S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
     renderAll();
@@ -373,7 +384,10 @@ function listenActiveDay() {
   }, fail('mine'));
 }
 function startAdminListeners() {
-  stop('days');
+  stop('days'); stop('users');
+  unsub.users = F.onSnapshot(col('users'), snap => {
+    S.users = {}; snap.docs.forEach(d => { S.users[d.id] = d.data(); }); renderAdmin();
+  }, err => { if (err && err.code !== 'permission-denied') console.error(err); });
   const q = F.query(col('days'), F.orderBy('date', 'desc'), F.limit(150));
   unsub.days = F.onSnapshot(q, snap => {
     S.days = snap.docs.map(d => Object.assign({ id: d.id, load: {}, count: {} }, d.data()));
@@ -381,7 +395,13 @@ function startAdminListeners() {
     listenDayScans(); renderAdmin(); if (!$('sheet').hidden) renderSheet();
   }, fail('days'));
 }
-function stopAdminListeners() { stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+// Probe: dieses Dokument dürfen laut Regeln nur Admins lesen
+async function checkAdmin() {
+  try { await F.getDoc(dref('admincheck', 'probe')); S.isAdmin = true; }
+  catch (err) { S.isAdmin = !(err && err.code === 'permission-denied'); }
+  S.adminChecked = true; renderAdmin();
+}
+function stopAdminListeners() { stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
   stop('dayScans'); S.dayScans = []; S.dayScansFor = S.selDay;
@@ -493,9 +513,15 @@ const boxSheet = { cam: $('camSheet'), frame: $('frameSheet'), ph: $('phSheet') 
 /* =========================================================
    Scan-Ansicht (alle Handys)
    ========================================================= */
-let who = ''; try { who = localStorage.getItem('strichliste_who') || ''; } catch (e) {}
-$('whoIn').value = who;
-$('whoIn').addEventListener('change', e => { who = e.target.value.trim().slice(0, 40); try { localStorage.setItem('strichliste_who', who); } catch (err) {} });
+try { $('nameIn').value = localStorage.getItem('strichliste_who') || ''; } catch (e) {}
+$('nameBtn').addEventListener('click', () => {
+  const name = $('nameIn').value.trim().replace(/\s+/g, ' ');
+  if (name.length < 3 || !/\s/.test(name)) { toast('Bitte Vor- und Nachnamen eingeben'); return; }
+  if (!confirm('Getränke auf „' + name + '“ buchen? Der Name kann danach nicht mehr geändert werden.')) return;
+  fire(F.setDoc(dref('users', S.user.uid), { name: name.slice(0, 40), t: Date.now() }), 'Name speichern');
+});
+$('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('nameBtn').click(); });
+const nameOf = s => (S.users[s.uid] && S.users[s.uid].name) || s.who || 'ohne Namen';
 
 function setMsg(t) { $('msg').hidden = !t; $('msg').innerHTML = t || ''; }
 function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBtn').hidden = on; $('stopBtn').hidden = !on; }
@@ -503,8 +529,8 @@ function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBt
 function book(pid, src) {
   const day = S.activeDay; if (!day || !S.user) return;
   const id = newId('scans');
-  const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp() };
-  if (who) data.who = who;
+  if (!S.me) return;
+  const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp(), who: S.me };
   fire(F.setDoc(dref('scans', id), data), 'Buchung');
   const p = P(pid), notLoaded = !((day.load || {})[pid] > 0);
   $('last').className = 'last' + (notLoaded ? ' unk' : ''); $('last').hidden = false;
@@ -513,7 +539,7 @@ function book(pid, src) {
     '</span></div><button class="b sm" data-undo="' + id + '">Rückgängig</button>';
 }
 function onMainCode(code) {
-  if (!S.activeDay) return;
+  if (!S.activeDay || !S.me) return;
   const p = byCode(code);
   if (p) { book(p.id, 'scan'); return; }
   $('last').className = 'last unk'; $('last').hidden = false;
@@ -537,7 +563,14 @@ function renderScan() {
     return;
   }
   if (S.dbError) { info.innerHTML = '<div class="note bad">' + esc(S.dbError) + '</div>'; return; }
-  if (!S.user || !S.activeLoaded) { info.innerHTML = '<div class="empty">Verbinde …' + (S.online ? '' : ' Beim allerersten Start wird einmal Internet benötigt.') + '</div>'; return; }
+  if (!S.user || !S.activeLoaded || !S.meLoaded) { $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; info.innerHTML = '<div class="empty">Verbinde …' + (S.online ? '' : ' Beim allerersten Start wird einmal Internet benötigt.') + '</div>'; return; }
+  if (!S.me) {
+    if (cam.box === boxMain) camStop();
+    $('nameSec').hidden = false; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
+    info.innerHTML = ''; return;
+  }
+  $('nameSec').hidden = true;
+  $('meName').textContent = S.me;
   if (!show) {
     if (cam.box === boxMain) camStop();
     info.innerHTML = '<div class="note"><b>Kein Tag aktiv.</b> Der Admin muss einen Tag anlegen und für das Scannen aktivieren.</div>';
@@ -761,20 +794,20 @@ function renderAdmin() {
         '<td><input class="n" inputmode="numeric" data-cnt="' + r.p.id + '" value="' + (r.c == null ? '' : r.c) + '" aria-label="Gezählter Rest ' + esc(r.p.name) + '"></td>' +
         '<td class="' + (r.diff == null ? '' : r.diff === 0 ? 'good' : r.diff < 0 ? 'bad' : 'warn') + '">' + (r.diff == null ? '–' : r.diff === 0 ? 'passt' : r.diff < 0 ? 'fehlt ' + (-r.diff) : r.diff + ' zu viel') + '</td></tr>').join('') +
       '</tbody><tfoot><tr><td>Summe</td><td>' + rows.reduce((a, r) => a + r.l, 0) + '</td><td>' + rows.reduce((a, r) => a + r.u, 0) + '</td><td>' + rows.reduce((a, r) => a + r.s, 0) + '</td><td>' + rows.reduce((a, r) => a + (r.c || 0), 0) + '</td><td></td></tr></tfoot></table></div>' +
-      '<div class="row"><button class="b sm" data-act="zeroOpen">Nicht Gezähltes = 0 (alles leer)</button><button class="b sm" data-act="csvDay">Tag als CSV</button></div>'
+      '<div class="row"><button class="b sm" data-act="zeroOpen">Nicht Gezähltes = 0 (alles leer)</button><button class="b sm" data-act="csvDay">Tag als CSV</button><button class="b sm" data-act="csvPers">Nach Person als CSV</button></div>'
       : '<div class="empty">Noch keine Getränke für diesen Tag.</div>') + '</section>';
 
     // nach Person
     if (scans.length) {
       const per = {};
-      scans.forEach(s => { const k = s.who || 'ohne Namen'; per[k] = per[k] || { n: 0, v: 0 }; per[k].n++; per[k].v += (P(s.p) || {}).price || 0; });
+      scans.forEach(s => { const k = nameOf(s); per[k] = per[k] || { n: 0, v: 0 }; per[k].n++; per[k].v += (P(s.p) || {}).price || 0; });
       const devs = new Set(scans.map(s => s.uid)).size;
       h += '<section class="daylist"><h2>Nach Person</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:4px">' + devs + ' Gerät' + (devs > 1 ? 'e' : '') + ' haben gebucht.</div>' +
         Object.keys(per).sort((a, b) => per[b].n - per[a].n).map(k => '<div class="rw"><span></span><span>' + esc(k) + '</span><small>' + per[k].n + ' Getränke' + (per[k].v ? ' · ' + money(per[k].v) : '') + '</small></div>').join('') + '</section>';
     }
 
     const recent = scans.slice(-30).reverse();
-    h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(s.who || s.src) + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
+    h += '<section><h2>Buchungen dieses Tages (' + scans.length + ')</h2>' + (recent.map(s => '<div class="rw"><span>' + fmtTime(s.t) + '</span><span>' + esc((P(s.p) || {}).name || '(gelöscht)') + '</span><small>' + esc(nameOf(s)) + (s.src === 'manuell' ? ' · ohne Scan' : '') + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>').join('') || '<div class="empty">Noch nichts gebucht.</div>') + '</section>';
   }
 
   h += '<section><h2>Getränke (' + S.products.length + ')</h2>' + S.products.map(p =>
@@ -799,6 +832,14 @@ function renderAdmin() {
     }).join('') + (overview ? '' : '<div class="row"><button class="b sm" data-act="overview">Anzahl Buchungen laden</button></div>') + '</section>';
   }
 
+  const ulist = Object.keys(S.users).map(uid => ({ uid, name: S.users[uid].name || '', t: S.users[uid].t || 0 })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  if (ulist.length) {
+    const counts = {}; ulist.forEach(u => { counts[u.name.toLowerCase()] = (counts[u.name.toLowerCase()] || 0) + 1; });
+    h += '<section><h2>Personen (' + ulist.length + ')</h2>' +
+      '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Jedes Handy hat einen festen Namen. Nur hier kann er korrigiert werden.</div>' +
+      ulist.map(u => '<div class="rw"><input data-u="' + u.uid + '" value="' + esc(u.name) + '" aria-label="Name korrigieren" style="flex:1;padding:6px 8px">' +
+        '<small>' + (u.t ? 'seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + (counts[u.name.toLowerCase()] > 1 ? ' · <b style="color:var(--amb)">doppelt</b>' : '') + '</small></div>').join('') + '</section>';
+  }
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup importieren</button>' +
     '<button class="b sm" data-act="logout">Abmelden</button>' + (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') + '</div>' +
@@ -841,6 +882,11 @@ adminBody.addEventListener('change', e => {
   if (t.dataset.day && day) { const v = t.value.trim(); if (t.dataset.day === 'date' && !v) return; fire(F.updateDoc(dref('days', day.id), { [t.dataset.day]: v }), 'Tag speichern'); return; }
   if (t.dataset.cnt && day) { const v = t.value.trim(); setCount(day.id, t.dataset.cnt, v === '' || isNaN(parseInt(v)) ? null : parseInt(v)); return; }
   if (t.dataset.load && day) { setLoad(day.id, t.dataset.load, parseInt(t.value) || 0); return; }
+  if (t.dataset.u) {
+    const name = t.value.trim().replace(/\s+/g, ' ').slice(0, 40);
+    if (name.length < 2) { toast('Name zu kurz'); renderAdmin(); return; }
+    fire(F.updateDoc(dref('users', t.dataset.u), { name }), 'Name korrigieren'); toast('Name geändert'); return;
+  }
   if (t.dataset.p) {
     const p = P(t.dataset.id); if (!p) return;
     const f = t.dataset.p, upd = {};
@@ -897,6 +943,12 @@ adminBody.addEventListener('click', async e => {
     if (Object.keys(upd).length) fire(F.updateDoc(dref('days', day.id), upd), 'Zählung speichern');
   }
   else if (a === 'csvDay' && day) download('getraenke-' + day.date + (day.place ? '-' + day.place.replace(/[^\wäöüÄÖÜß-]+/g, '_') : '') + '.csv', csvFor([day], { [day.id]: S.dayScans }), 'text/csv;charset=utf-8');
+  else if (a === 'csvPers' && day) {
+    const rows = [['Datum', 'Ziel', 'Name', 'Getränk', 'Anzahl', 'Preis', 'Summe']], m = {};
+    S.dayScans.forEach(s => { const k = nameOf(s) + '\u0000' + s.p; m[k] = (m[k] || 0) + 1; });
+    Object.keys(m).sort((x, y) => x.localeCompare(y, 'de')).forEach(k => { const [n, pid] = k.split('\u0000'), p = P(pid) || { name: '(gelöscht)', price: 0 }; rows.push([day.date, csvEsc(day.place), csvEsc(n), csvEsc(p.name), m[k], dec(p.price || 0), dec(m[k] * (p.price || 0))]); });
+    download('personen-' + day.date + '.csv', '\uFEFF' + rows.map(r => r.join(';')).join('\n'), 'text/csv;charset=utf-8');
+  }
   else if (a === 'csvAll') {
     try { const all = await allScans(); download('getraenke-alle-tage-' + todayISO() + '.csv', csvFor(S.days.slice().reverse(), groupByDay(all)), 'text/csv;charset=utf-8'); }
     catch (err) { toast('Export fehlgeschlagen – Internet nötig'); }
@@ -935,7 +987,7 @@ adminBody.addEventListener('click', async e => {
     try {
       const scans = await allScans();
       const days = (await F.getDocs(col('days'))).docs.map(d => Object.assign({ id: d.id }, d.data()));
-      download('strichliste-backup-' + todayISO() + '.json', JSON.stringify({ v: 3, exported: new Date().toISOString(), active: S.active, products: S.products, days, scans }), 'application/json');
+      download('strichliste-backup-' + todayISO() + '.json', JSON.stringify({ v: 3, exported: new Date().toISOString(), active: S.active, products: S.products, days, scans, users: S.users }), 'application/json');
     } catch (err) { toast('Backup braucht Internet'); }
   }
   else if (a === 'restore') $('fileIn').click();
@@ -950,6 +1002,7 @@ $('fileIn').addEventListener('change', async e => {
   const ops = [];
   d.products.forEach(p => ops.push({ ref: dref('products', String(p.id)), data: Object.assign({ codes: [], price: 0, packs: [] }, clean(p, ['name', 'codes', 'price', 'packs'])) }));
   d.days.forEach(x => ops.push({ ref: dref('days', String(x.id)), data: Object.assign({ load: {}, count: {}, closed: false, place: '' }, clean(x, ['date', 'place', 'closed', 'load', 'count', 'created'])) }));
+  Object.keys(d.users || {}).forEach(uid => ops.push({ ref: dref('users', uid), data: clean(d.users[uid], ['name', 't']) }));
   d.scans.forEach(s => ops.push({ ref: dref('scans', String(s.id)), data: Object.assign({ uid: s.uid || S.user.uid, src: s.src || 'import' }, clean(s, ['day', 'p', 't', 'who'])) }));
   try {
     toast('Importiere …'); await commitInChunks(ops);
