@@ -592,6 +592,7 @@
     <div class="scanner-card" id="scannerCard">
       <div class="viewport-wrapper">
         <div id="reader"></div>
+        <div id="videoDiagBadge" style="display:none; position:absolute; top:10px; left:10px; z-index:12; background:rgba(15,23,42,0.88); color:#e2e8f0; border:1px solid #475569; border-radius:8px; padding:5px 9px; font-size:0.72rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; pointer-events:none;">Video: wartend...</div>
 
         <div class="scan-overlay" id="scanOverlay" style="display: none;">
           <div class="viewfinder">
@@ -789,13 +790,77 @@
       setTimeout(() => toast.classList.remove('show'), 2000);
     }
 
+    const videoDiagBadge = document.getElementById('videoDiagBadge');
+    let videoDiagTimer = null;
+    let lastVideoTime = -1;
+    let stuckFramesCount = 0;
+
+    function updateVideoDiag() {
+      const video = document.querySelector('#reader video');
+      if (!isScanning || !video) {
+        if (videoDiagBadge) videoDiagBadge.style.display = 'none';
+        return;
+      }
+      if (videoDiagBadge) videoDiagBadge.style.display = 'block';
+
+      const w = video.videoWidth || 0;
+      const h = video.videoHeight || 0;
+      const t = video.currentTime || 0;
+      const rs = video.readyState || 0;
+
+      if (w > 0 && h > 0) {
+        if (Math.abs(t - lastVideoTime) > 0.001) {
+          stuckFramesCount = 0;
+          lastVideoTime = t;
+          videoDiagBadge.textContent = 'Video: OK ' + w + 'x' + h + ' (t=' + t.toFixed(1) + 's)';
+          videoDiagBadge.style.borderColor = '#10b981';
+          videoDiagBadge.style.color = '#6ee7b7';
+        } else {
+          stuckFramesCount++;
+          videoDiagBadge.textContent = 'Video: stehend ' + w + 'x' + h + ' (rs=' + rs + ')';
+          videoDiagBadge.style.borderColor = '#f59e0b';
+          videoDiagBadge.style.color = '#fcd34d';
+          if (stuckFramesCount >= 2 && typeof video.play === 'function') {
+            video.play().catch(() => {});
+          }
+        }
+      } else {
+        videoDiagBadge.textContent = 'Video: 0x0 Frames (rs=' + rs + ')';
+        videoDiagBadge.style.borderColor = '#ef4444';
+        videoDiagBadge.style.color = '#fca5a5';
+      }
+    }
+
+    function startVideoDiagMonitor() {
+      stopVideoDiagMonitor();
+      lastVideoTime = -1;
+      stuckFramesCount = 0;
+      updateVideoDiag();
+      videoDiagTimer = setInterval(updateVideoDiag, 500);
+    }
+
+    function stopVideoDiagMonitor() {
+      if (videoDiagTimer) {
+        clearInterval(videoDiagTimer);
+        videoDiagTimer = null;
+      }
+      if (videoDiagBadge) {
+        videoDiagBadge.style.display = 'none';
+      }
+    }
+
     function enforceVideoAttributes() {
       const video = document.querySelector('#reader video');
       if (video) {
         video.setAttribute('playsinline', 'true');
         video.setAttribute('webkit-playsinline', 'true');
         video.setAttribute('muted', 'true');
+        video.setAttribute('autoplay', 'true');
+        if (typeof video.play === 'function') {
+          video.play().catch(() => {});
+        }
       }
+      startVideoDiagMonitor();
     }
 
     async function populateCameras() {
@@ -887,6 +952,7 @@
           await html5QrCode.stop();
         } catch (e) {}
       }
+      stopVideoDiagMonitor();
       isScanning = false;
       torchOn = false;
       torchBtn.classList.remove('active');
