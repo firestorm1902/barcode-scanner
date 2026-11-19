@@ -89,14 +89,27 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 
 ## Mehr: Bestenliste, Album, Mein Konto, Rückblick
 
-Unter der Liste „Deine Getränke heute“ gibt es vier Reiter:
+Unter der Liste „Deine Getränke heute“ gibt es bis zu vier Reiter. Welche jemand sieht, legt der Super-Admin unter Einstellungen fest (Standard: nur „Mein Konto“).
 
 | Reiter | Inhalt |
 |---|---|
-| **Bestenliste** | heute oder gesamt: wer am meisten Wasser und Softdrinks hatte, und die Gruppen im Vergleich (Getränke pro Kopf, Anteil alkoholfrei). Bewusst ohne Bier-Rangliste. |
-| **Sammelalbum** | alle Easter Eggs als Abzeichen, gesammelte farbig mit Datum, fehlende grau mit Hinweis. Minderjährige sehen nur die alkoholfreien. |
+| **Bestenliste** | heute oder gesamt, Personen und Gruppen. Wonach gewertet wird, legt der Super-Admin fest (Standard: alkoholfreie Getränke). |
+| **Sammelalbum** | alle Easter Eggs als Abzeichen. Antippen zeigt, wie man es bekommt, und bei gesammelten wie oft und wann zuletzt. Minderjährige sehen nur die alkoholfreien. |
 | **Mein Konto** | eigene Getränke und Kosten der Saison (11.11. bis Aschermittwoch) pro Tag und Getränk, als Excel herunterladbar. |
 | **Rückblick** | die eigene Saison wie ein Jahresrückblick: Getränke, Tage, Lieblingsgetränk, stärkster Tag, Easter Eggs, Platz der Gruppe und ein Fasnets-Titel. **Als Bild teilen** erzeugt ein Bild für WhatsApp oder Instagram. Ab Aschermittwoch erscheint oben ein Hinweis. |
+
+## Einstellungen (Super-Admin)
+
+Unter Admin → **Einstellungen**:
+- **Kontakt:** Name, WhatsApp-Nummer (oder Link) und Telefon. Erscheint überall, wo man sich melden soll: „Konto wartet auf Freischaltung durch …“, „gesperrt“, „keine Rechte“ und in der Hilfe – mit Knöpfen „WhatsApp an …“ und „Anrufen“.
+- **Wer sieht was?** Für Easter Eggs, Bestenliste, Sammelalbum und Saison-Rückblick jeweils: *niemand (nur Super-Admin)*, *Admins und Vorstand*, *alle Mitglieder* oder *ausgewählte Personen*. **Standard: ausgeblendet.** Gezählt wird trotzdem, beim Einschalten sind die Daten also da. „Mein Konto“ sehen immer alle.
+- **Bestenliste – Regeln:** wonach Personen gewertet werden (alkoholfreie Getränke, alle Getränke oder Bier), Überschrift, Anzahl der Plätze, Gruppen-Wertung an/aus und wonach die Gruppen sortiert werden (Getränke gesamt, pro Kopf, alkoholfreie, Anteil alkoholfrei), Startansicht heute/gesamt.
+
+Außerdem zeigt **Neu registriert** die letzten 25 Registrierungen mit Status (wartet, aktiv, abgelehnt, gesperrt); „Als gesehen markieren“ setzt die „neu“-Markierung zurück.
+
+## Hilfe
+
+Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Offline, Mein Konto, Fahrer-Modus und Profilbild funktionieren – ohne Easter Eggs und Extras.
 
 ## Freischaltung neuer Konten
 
@@ -150,20 +163,24 @@ Admin → Daten → **Statistiken zurücksetzen**, dann das eigene Passwort eing
 
 ## Rollen
 
-| | Mitglied | Admin | Super-Admin |
-|---|:-:|:-:|:-:|
-| Getränke für sich buchen, eigene Buchung zurücknehmen | ✓ | ✓ | ✓ |
-| Eigenes Passwort ändern | ✓ | ✓ | ✓ |
-| Tage, Getränke, Einladen, Zählen, Abgleich, Exporte | | ✓ | ✓ |
-| Buchungen stornieren und für andere nachtragen | | ✓ | ✓ |
-| Namen korrigieren | | ✓ | ✓ |
-| Anstehende Easter Eggs sehen | | ✓ | ✓ |
-| Neue Konten freischalten, unter 18 markieren, Gruppe zuordnen | | ✓ | ✓ |
-| Easter Eggs verwalten, Gruppen anlegen, Historie, Statistiken zurücksetzen | | | ✓ |
-| Tag löschen, Backup importieren | | | ✓ |
-| Admins ernennen und abberufen | | | ✓ |
-| Konten sperren, entsperren, entfernen, wiederherstellen | | | ✓ |
-| Passwort-Mail an eine Person schicken | | | ✓ |
+Rollen vergibt der Super-Admin unter Admin → Personen → Rolle.
+
+| | Mitglied | Vorstand | Getränke-Admin | Super-Admin |
+|---|:-:|:-:|:-:|:-:|
+| Getränke für sich buchen, eigene Buchung zurücknehmen, Passwort ändern | ✓ | ✓ | ✓ | ✓ |
+| Tag, Abgleich, Nach Person, Buchungen, Getränke, Personen **ansehen** | | ✓ | ✓ | ✓ |
+| Excel-Auswertung erstellen | | ✓ | ✓ | ✓ |
+| Tage, Getränke, Einladen, Zählen, Abgleich **ändern**, CSV, Backup speichern | | | ✓ | ✓ |
+| Buchungen stornieren und nachtragen, Namen korrigieren | | | ✓ | ✓ |
+| Neue Konten freischalten, unter 18 markieren, Gruppe zuordnen | | | ✓ | ✓ |
+| Einstellungen: Kontakt, wer sieht was, Bestenliste-Regeln | | | | ✓ |
+| Easter Eggs verwalten und an/aus, Zähler neu berechnen, Gruppen anlegen | | | | ✓ |
+| Neu registrierte Mitglieder, Historie, Statistiken zurücksetzen | | | | ✓ |
+| Tag löschen, Backup importieren | | | | ✓ |
+| Rollen vergeben, Konten sperren, entfernen, Passwort-Mail | | | | ✓ |
+
+- **Vorstand** sieht im Admin-Bereich (5× auf den Titel tippen) alles nur lesend, ohne Rollen der Personen. Einziger Knopf ist „Excel erstellen“.
+- **Getränke-Admin** (früher „Admin“) kümmert sich um Tage, Getränke und Abgleich. Easter Eggs an/aus und „Zähler neu berechnen“ darf er nicht mehr.
 
 Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
 - **Sperren:** wirkt sofort. Die Person sieht „Dein Konto ist gesperrt“ und kann nichts mehr buchen.
@@ -207,7 +224,7 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
 
 ## Easter Eggs
 
-Bei bestimmten Buchungen erscheint für ein paar Sekunden ein Vollbild mit Wespe, Konfetti, Ton und Vibration. Antippen schließt es. Jedes Easter Egg kommt pro Person und Tag nur einmal, auch nach „Rückgängig“.
+Bei bestimmten Buchungen erscheint ein Vollbild mit Wespe, Animation, Ton und Vibration. Es bleibt stehen, bis man **Schließen** tippt. Mit **Teilen** (Bild) oder **WhatsApp** (Text) lässt es sich verschicken. Solange es offen ist, pausiert der 10-Sekunden-Countdown der Buchungsmeldung. Easter Eggs sieht nur, wer sie laut „Wer sieht was?“ sehen darf. Jedes Easter Egg kommt pro Person und Tag nur einmal, auch nach „Rückgängig“.
 
 **Nur auf dem eigenen Handy**
 - 1., 3., 5., 7., 8., 9. und 10. Bier am Tag, danach bei jedem weiteren Bier (mit zunehmendem Augenzwinkern Richtung Heimfahrt)
@@ -250,13 +267,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 18**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 18 auf 19):
-- in `index.html`: `const APP_VERSION = '18';`
-- in `sw.js`: `const VERSION = 'strichliste-v18';`
+Aktuell ist **Version 19**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 19 auf 20):
+- in `index.html`: `const APP_VERSION = '19';`
+- in `sw.js`: `const VERSION = 'strichliste-v19';`
 
-Seit Version 15 gelten neue Regeln. Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 19 bringt neue Regeln (Vorstand, Easter Eggs an/aus nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 18“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 19“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

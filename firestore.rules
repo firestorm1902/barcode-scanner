@@ -5,8 +5,9 @@ rules_version = '2';
 //
 // Rollen:
 //   Super-Admin – steht unten in superUids(); darf alles, ernennt Admins, sperrt und entfernt Konten
-//   Admin       – wird vom Super-Admin in der App ernannt; verwaltet Tage, Getränke, Abgleich
-//   Mitglied    – bucht für sich selbst
+//   Getränke-Admin – Rolle 'admin', vom Super-Admin ernannt; verwaltet Tage, Getränke, Abgleich
+//   Vorstand       – Rolle 'vorstand'; darf Tage, Buchungen, Personen und Getränke nur LESEN (für Excel-Auswertungen)
+//   Mitglied       – bucht für sich selbst
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -38,21 +39,31 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/products/$(pid)).data.get('cat', 'sonst') in alcCats();
     }
     function isAdmin() { return isSuper() || (isActive() && profile().get('role', '') == 'admin'); }
+    function isBoard() { return isActive() && profile().get('role', '') == 'vorstand'; }
+    // darf alles lesen, was für Abgleich und Auswertung nötig ist
+    function isReader() { return isAdmin() || isBoard(); }
     // Zählerfelder: alle Getränke, Bier und je eine Sorte
     function counterKeys() { return ['all', 'beer', 'c_radler', 'c_alkfrei', 'c_wein', 'c_wasser', 'c_soft', 'c_schnaps', 'c_sonst']; }
 
     // Getränke, Tage und „aktiver Tag“: alle lesen, nur Admins ändern
     match /products/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
     match /days/{id}     { allow read: if signedIn(); allow create, update: if isAdmin(); allow delete: if isSuper(); }
-    match /meta/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
+    // aktiver Tag: Admins; Easter Eggs an/aus und Zurücksetzen (eggs, epoch): nur Super-Admins
+    match /meta/{id} {
+      allow read: if signedIn();
+      allow write: if isSuper() || (isAdmin() && (resource == null
+        ? !request.resource.data.keys().hasAny(['eggs', 'epoch'])
+        : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['eggs', 'epoch'])));
+    }
 
     // Nur zum Prüfen der eigenen Rechte
     match /admincheck/{id} { allow read: if isAdmin(); }
     match /supercheck/{id} { allow read: if isSuper(); }
+    match /boardcheck/{id} { allow read: if isBoard(); }
 
     // Personen: Name einmal selbst festlegen, danach ändern nur Admins
     match /users/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow read: if isReader() || (signedIn() && request.auth.uid == uid);
 
       // neue Konten warten auf Freischaltung (pending = true)
       allow create: if signedIn() && request.auth.uid == uid
@@ -140,14 +151,14 @@ service cloud.firestore {
     }
     // Fahrer-Modus pro Tag (Dokument-ID = Nutzer-ID + "_" + Tag)
     match /drv/{id} {
-      allow read: if isAdmin() || (signedIn() && id.matches(request.auth.uid + '_.+'));
+      allow read: if isReader() || (signedIn() && id.matches(request.auth.uid + '_.+'));
       allow create, update: if isActive() && id.matches(request.auth.uid + '_.+')
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(['uid', 'day', 't', 'name']);
       allow delete: if isAdmin() || (signedIn() && id.matches(request.auth.uid + '_.+'));
     }
 
-    // Easter-Egg-Regeln und Gruppenliste: alle lesen, nur Super-Admins ändern
+    // Easter-Egg-Regeln, Gruppen, Sichtbarkeit, Kontakt, Bestenliste: alle lesen, nur Super-Admins ändern
     match /config/{id} {
       allow read: if signedIn();
       allow write: if isSuper();
@@ -166,8 +177,8 @@ service cloud.firestore {
 
     // Buchungen
     match /scans/{id} {
-      // Mitglieder sehen nur ihre eigenen Buchungen, Admins alle
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      // Mitglieder sehen nur ihre eigenen Buchungen, Admins und Vorstand alle
+      allow read: if isReader() || (signedIn() && resource.data.uid == request.auth.uid);
 
       // Mitglieder buchen für sich selbst; Admins dürfen auch nachtragen
       allow create: if isAdmin() || (

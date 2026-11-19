@@ -176,6 +176,23 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.egg{cursor:default}
+.egg-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.egg-btns .b{background:#232323;color:#fff;border-color:#555}
+.egg-btns .b.pri{background:var(--wy);color:#141414;border-color:var(--wy);min-width:120px}
+#helpBtn{padding:4px 10px;font-size:.84rem;font-weight:700;border-radius:999px}
+.modal{position:fixed;inset:0;z-index:95;background:rgba(20,20,20,.7);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.modal[hidden]{display:none}
+.modal-in{position:relative;width:100%;max-width:560px;max-height:88vh;overflow:auto;background:var(--white);color:var(--ink);border:2px solid var(--ink);border-radius:18px;padding:20px 18px calc(18px + env(safe-area-inset-bottom));font-size:.94rem;line-height:1.45}
+@media (min-width:600px){.modal{align-items:center}}
+.modal-in h2{font-family:"Oswald","Arial Narrow",sans-serif;font-size:1.4rem;margin:0 36px 8px 0}
+.modal-in p{margin:4px 0 8px}.modal-in ul{margin:4px 0 8px;padding-left:20px}.modal-in li{margin:3px 0}
+.modal-x{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--ink);background:var(--white);color:var(--ink);font-size:1.3rem;line-height:1;cursor:pointer}
+.sub3{font-size:.98rem;font-weight:700;margin:14px 0 4px}
+.contact{margin-top:6px}.contact a{text-decoration:none}
+.rov{display:block;padding:6px 0;font-weight:600}
+.badge[data-xa]{cursor:pointer}
+.feat{margin-bottom:8px}.featlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;padding:6px 0}
 /* Buchungsmeldung mit Countdown */
 .last{position:relative;overflow:hidden}
 .last-r{display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -329,7 +346,7 @@ body.noauth main{display:none!important}
 <header class="top">
   <div class="top-in">
     <h1 id="title"><span class="t1">Wexhainis</span><span class="t2">Getränke-Strichliste</span></h1>
-    <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
+    <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="helpBtn" aria-label="Hilfe und Infos">?</button><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
   </div>
 </header>
 <div class="wrap">
@@ -438,9 +455,10 @@ body.noauth main{display:none!important}
     <small id="eggKind"></small>
     <b id="eggTitle"></b>
     <span id="eggSub"></span>
-    <em>Antippen zum Schließen</em>
+    <div class="egg-btns"><button class="b sm" id="eggShare">Teilen</button><button class="b sm" id="eggWa">WhatsApp</button><button class="b pri" id="eggClose">Schließen</button></div>
   </div>
 </div>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-in"><button class="modal-x" id="modalX" aria-label="Schließen">×</button><div id="modalBody"></div></div></div>
 <footer id="ver" style="max-width:640px;margin:28px auto 0;text-align:center;font-size:.75rem;color:var(--mu)"></footer>
 
 <script type="module">
@@ -460,7 +478,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '18';
+const APP_VERSION = '19';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -580,7 +598,7 @@ async function initFirebase() {
   }
   auth = F.getAuth(app);
   F.onAuthStateChanged(auth, async u => {
-    S.user = u; S.isAdmin = false; S.isSuper = false; S.adminChecked = false; S.authReady = true; lastRoleKey = null;
+    S.user = u; S.isAdmin = false; S.isSuper = false; S.isBoard = false; S.adminChecked = false; S.authReady = true; lastRoleKey = null;
     stopAdminListeners();
     if (!u) { stopUserListeners(); renderAll(); return; }
     startUserListeners();
@@ -598,7 +616,7 @@ function fail(where) {
   return err => {
     console.error(where, err);
     if (err && err.code === 'permission-denied') {
-      if (where === 'dayScans' || where === 'days') { S.isAdmin = false; S.adminChecked = true; renderAdmin(); return; }
+      if (where === 'dayScans' || where === 'days') { S.isAdmin = false; S.isBoard = false; S.adminChecked = true; renderAdmin(); return; }
       S.dbError = 'Keine Berechtigung beim Lesen (' + where + '). Sind die aktuellen Sicherheitsregeln veröffentlicht?';
     } else S.dbError = 'Datenbankfehler (' + where + '): ' + (err && (err.code || err.message));
     renderAll();
@@ -637,6 +655,10 @@ function startUserListeners() {
     S.groups = d && Array.isArray(d.list) ? d.list : null; renderAll();
   }, err => console.warn('groups', err));
   unsub.album = F.onSnapshot(dref('album', u.uid), snap => { S.album = snap.exists() ? (snap.data().r || {}) : {}; if (extraTab === 'album') renderExtra(); }, err => console.warn('album', err));
+  ['cfgFeat', 'cfgContact', 'cfgBest'].forEach(stop);
+  unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
+  unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
+  unsub.cfgBest = F.onSnapshot(dref('config', 'best'), snap => { S.best = snap.exists() ? snap.data() : null; if (extraTab === 'best') renderExtra(); }, err => console.warn('best', err));
   stop('cfg');
   unsub.cfg = F.onSnapshot(dref('config', 'eggs'), snap => {
     const d = snap.exists() ? snap.data() : null;
@@ -720,9 +742,9 @@ async function probe(path, key) {
 }
 async function checkAdmin() {
   const uid = S.user.uid;
-  const [adm, sup] = await Promise.all([probe('admincheck', 'strichliste_adm_' + uid), probe('supercheck', 'strichliste_sup_' + uid)]);
+  const [adm, sup, brd] = await Promise.all([probe('admincheck', 'strichliste_adm_' + uid), probe('supercheck', 'strichliste_sup_' + uid), probe('boardcheck', 'strichliste_brd_' + uid)]);
   if (!S.user || S.user.uid !== uid) return;
-  S.isSuper = sup; S.isAdmin = adm || sup; S.adminChecked = true;
+  S.isSuper = sup; S.isAdmin = adm || sup; S.isBoard = brd && !S.isAdmin; S.adminChecked = true;
 }
 let lastRoleKey = null;
 // Super-Admins schalten sich selbst frei
@@ -732,14 +754,14 @@ function autoApproveSelf() {
 async function refreshRole(u) {
   await checkAdmin();
   if (S.user !== u) return;
-  if (S.isAdmin && !unsub.days) startAdminListeners();
+  if ((S.isAdmin || S.isBoard) && !unsub.days) startAdminListeners();
   if (S.isAdmin) listenActiveScans();
   autoApproveSelf();
-  if (!S.isAdmin) stopAdminListeners();
+  if (!S.isAdmin && !S.isBoard) stopAdminListeners();
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'album', 'drv'].forEach(stop);
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'album', 'drv'].forEach(stop);
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -760,7 +782,7 @@ function listenDayScans() {
   if (!S.selDay) return;
   const q = F.query(col('scans'), F.where('day', '==', S.selDay));
   unsub.dayScans = F.onSnapshot(q, snap => {
-    S.isAdmin = true; S.adminChecked = true;
+    if (!S.isBoard) S.isAdmin = true; S.adminChecked = true;
     S.dayScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => a.t - b.t);
     renderAdmin();
   }, fail('dayScans'));
@@ -1156,7 +1178,7 @@ function describeRule(r) {
 /* ---------- Anzeige ---------- */
 const eggQueue = []; let eggShowing = false, eggTimer = null, curEgg = null;
 function showEgg(e, force) {
-  if (!eggsOn() && !force) return;
+  if (!force && (!eggsOn() || !canSee('eggs'))) return;
   if (eggQueue.length < 4) eggQueue.push(Object.assign({ force: !!force }, e));
   if (!eggShowing) nextEgg();
 }
@@ -1175,7 +1197,7 @@ function nextEgg() {
   eggFx(anim, rule);
   el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
   jingle(anim); if (navigator.vibrate) navigator.vibrate(anim === 'drehdurch' ? [60, 40, 60, 40, 60, 40, 200] : anim === 'blasen' ? [30, 50, 30, 50, 30, 50, 30] : [90, 60, 90, 60, 220]);
-  clearTimeout(eggTimer); eggTimer = setTimeout(nextEgg, 4200);
+  clearTimeout(eggTimer);
 }
 // passende Animation wählen: fest eingestellt oder automatisch nach Getränk und Art
 const ANIM_IDS = ANIMS.map(x => x[0]).filter(x => x !== 'auto' && x !== 'zufall');
@@ -1239,7 +1261,50 @@ function jingle(anim) {
     });
   } catch (e) {}
 }
-$('egg').addEventListener('click', () => { clearTimeout(eggTimer); nextEgg(); });
+// Popups müssen aktiv geschlossen werden
+$('eggClose').addEventListener('click', e => { e.stopPropagation(); nextEgg(); });
+const APP_URL = location.origin + location.pathname.replace(/index\.html$/, '');
+const eggText = e => '🐝 ' + e.title + (e.sub ? '\n' + e.sub : '') + (e.group && e.name ? '\n(ausgelöst von ' + e.name + ')' : '') + '\n\nWexhainis Getränke-Strichliste – Dreh durch!\n' + APP_URL;
+$('eggWa').addEventListener('click', e => { e.stopPropagation(); if (curEgg) window.open('https://wa.me/?text=' + encodeURIComponent(eggText(curEgg)), '_blank', 'noopener'); });
+$('eggShare').addEventListener('click', async e => {
+  e.stopPropagation(); if (!curEgg) return;
+  const ev = curEgg, text = eggText(ev);
+  try {
+    const blob = await eggImage(ev), file = new File([blob], 'Easter-Egg.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text, title: ev.title }); return; }
+    if (navigator.share) { await navigator.share({ text, title: ev.title }); return; }
+  } catch (err) { if (err && err.name === 'AbortError') return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+});
+// Bild zum Teilen (1080×1080)
+function eggImage(e) {
+  return new Promise(res => {
+    const c = document.createElement('canvas'); c.width = 1080; c.height = 1080;
+    const x = c.getContext('2d'), Y = '#f5c000', font = (w, s) => w + ' ' + s + 'px Oswald, "Arial Narrow", Arial, sans-serif';
+    x.fillStyle = '#141414'; x.fillRect(0, 0, 1080, 1080);
+    for (let i = -1080; i < 1080; i += 60) { x.fillStyle = Y; x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 30, 0); x.lineTo(i + 66, 36); x.lineTo(i + 36, 36); x.fill(); x.beginPath(); x.moveTo(i, 1044); x.lineTo(i + 30, 1044); x.lineTo(i + 66, 1080); x.lineTo(i + 36, 1080); x.fill(); }
+    x.textAlign = 'center';
+    x.fillStyle = Y; x.font = font('700', 44); x.fillText('WEXHAINIS GETRÄNKE-STRICHLISTE', 540, 120);
+    const wrapT = (t, y, size, col, weight, maxL) => {
+      x.font = font(weight, size); x.fillStyle = col;
+      const words = String(t).split(' '), lines = []; let l = '';
+      words.forEach(w => { const tt = l ? l + ' ' + w : w; if (x.measureText(tt).width > 900 && l) { lines.push(l); l = w; } else l = tt; }); if (l) lines.push(l);
+      lines.slice(0, maxL).forEach((ln, i) => x.fillText(ln, 540, y + i * size * 1.18)); return y + Math.min(lines.length, maxL) * size * 1.18;
+    };
+    const rest = () => {
+      let y = 560;
+      if (e.name) { x.fillStyle = '#d9d2bd'; x.font = font('500', 40); x.fillText(e.name, 540, 520); }
+      y = wrapT(e.title, 650, 96, Y, '700', 3);
+      wrapT(e.sub || '', y + 20, 46, '#fff', '500', 4);
+      x.fillStyle = '#d9d2bd'; x.font = font('500', 34); x.fillText('Dreh durch! 🐝', 540, 1000);
+      c.toBlob(b => res(b), 'image/png');
+    };
+    const av = e.uid && AV[e.uid];
+    x.save(); x.beginPath(); x.arc(540, 330, 130, 0, Math.PI * 2); x.closePath(); x.fillStyle = Y; x.fill();
+    if (av && av.img) { const im = new Image(); im.onload = () => { x.clip(); x.drawImage(im, 410, 200, 260, 260); x.restore(); rest(); }; im.onerror = () => { x.restore(); rest(); }; im.src = av.img; }
+    else { x.fillStyle = '#141414'; x.font = font('700', 110); x.fillText(initials(e.name || S.me || '?'), 540, 370); x.restore(); rest(); }
+  });
+}
 
 /* ---------- Auslösen nach einer Buchung ---------- */
 async function eggsAfterBook(pid, scanId) {
@@ -1680,7 +1745,7 @@ $('avDel').addEventListener('click', () => {
    EXTRAS für alle: Bestenliste, Sammelalbum, Mein Konto, Rückblick
    (Daten werden erst beim Antippen geladen, um Lesevorgänge zu sparen)
    ========================================================= */
-let extraTab = '', bestPeriod = 'day', kontoPeriod = 'season';
+let extraTab = '', bestPeriod = 'day', kontoPeriod = 'season', bestTouched = false;
 const isoOf = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 function easterSunday(y) { // Gauß/Meeus
   const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3),
@@ -1700,7 +1765,7 @@ function wrapTime(now = new Date()) { const a = ashWednesday(now.getFullYear()),
 $('extraTabs').addEventListener('click', e => {
   const b = e.target.closest('[data-x]'); if (!b) return;
   extraTab = extraTab === b.dataset.x ? '' : b.dataset.x;
-  if (extraTab === 'best') loadBoard();
+  if (extraTab === 'best') { if (!bestTouched) bestPeriod = bestCfg().period; loadBoard(); }
   if (extraTab === 'konto' || extraTab === 'wrap') loadMine();
   if (extraTab === 'wrap') loadBoard();
   renderExtra();
@@ -1708,8 +1773,9 @@ $('extraTabs').addEventListener('click', e => {
 $('extra').addEventListener('click', e => {
   const b = e.target.closest('[data-xa]'); if (!b) return;
   const a = b.dataset.xa;
-  if (a === 'bestDay') { bestPeriod = 'day'; renderExtra(); }
-  if (a === 'bestTot') { bestPeriod = 'total'; renderExtra(); }
+  if (a === 'bestDay') { bestPeriod = 'day'; bestTouched = true; renderExtra(); }
+  if (a === 'bestTot') { bestPeriod = 'total'; bestTouched = true; renderExtra(); }
+  if (a === 'badge') badgeInfo(b.dataset.id);
   if (a === 'bestRefresh') { S.board = null; loadBoard(); }
   if (a === 'kSeason') { kontoPeriod = 'season'; renderExtra(); }
   if (a === 'kAll') { kontoPeriod = 'all'; renderExtra(); }
@@ -1752,7 +1818,9 @@ function renderExtra() {
   const sec = $('extraSec');
   const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.deleted));
   sec.hidden = !ok; if (!ok) return;
-  $('wrapBanner').innerHTML = wrapTime() && extraTab !== 'wrap' ? '<div class="note ok" style="margin-bottom:10px"><b>Die Fasnet isch rum!</b> Dein Saison-Rückblick ist da. <button class="b sm pri" data-wrap="1">Ansehen</button></div>' : '';
+  $('extraTabs').querySelectorAll('button').forEach(b => { b.hidden = b.dataset.x !== 'konto' && !canSee(b.dataset.x); });
+  if (extraTab && extraTab !== 'konto' && !canSee(extraTab)) extraTab = '';
+  $('wrapBanner').innerHTML = canSee('wrap') && wrapTime() && extraTab !== 'wrap' ? '<div class="note ok" style="margin-bottom:10px"><b>Die Fasnet isch rum!</b> Dein Saison-Rückblick ist da. <button class="b sm pri" data-wrap="1">Ansehen</button></div>' : '';
   $('extraTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.x === extraTab));
   const el = $('extra');
   if (!extraTab) { el.innerHTML = ''; return; }
@@ -1764,20 +1832,22 @@ function renderExtra() {
 
 function renderBest() {
   if (!S.board) return '<div class="empty">' + (S.boardLoading ? 'Lade Bestenliste …' : 'Bestenliste konnte nicht geladen werden.') + '</div>';
-  const B = bestPeriod === 'day' ? S.board.day : S.board.total, me = S.user.uid;
+  const B = bestPeriod === 'day' ? S.board.day : S.board.total, me = S.user.uid, bc = bestCfg(), mk = bc.metric;
   let h = '<div class="row" style="margin-top:0;margin-bottom:8px"><button class="b sm' + (bestPeriod === 'day' ? ' pri' : '') + '" data-xa="bestDay">Heute</button><button class="b sm' + (bestPeriod === 'total' ? ' pri' : '') + '" data-xa="bestTot">Gesamt</button><button class="b sm" data-xa="bestRefresh">Aktualisieren</button></div>';
   // Personen nach alkoholfreien Getränken
-  const P_ = Object.keys(B.p || {}).map(uid => Object.assign({ uid }, B.p[uid])).filter(x => (x.na || 0) > 0).sort((a, b) => b.na - a.na || a.n.localeCompare(b.n, 'de'));
-  h += '<h2 style="font-size:1.05rem">Wasser & Softdrinks</h2>';
+  const P_ = Object.keys(B.p || {}).map(uid => Object.assign({ uid }, B.p[uid])).filter(x => (x[mk] || 0) > 0).sort((a, b) => (b[mk] || 0) - (a[mk] || 0) || a.n.localeCompare(b.n, 'de'));
+  h += '<h2 style="font-size:1.05rem">' + esc(bc.title) + '</h2>';
   if (!P_.length) h += '<div class="empty">Noch niemand. Das erste Wasser bringt dich auf Platz 1!</div>';
   else {
-    const top = P_.slice(0, 10), myI = P_.findIndex(x => x.uid === me);
-    const row = (x, i) => '<div class="rank' + (x.uid === me ? ' me' : '') + '"><span class="no">' + (i + 1) + '</span>' + avatarHTML(x.uid, x.n, 34) + '<span><b>' + esc(x.n) + '</b>' + (x.g && gname(x.g) ? '<br><small style="color:var(--mu)">' + esc(gname(x.g)) + '</small>' : '') + '</span><span class="val">' + x.na + '</span></div>';
-    h += top.map(row).join('') + (myI >= 10 ? '<div style="text-align:center;color:var(--mu)">…</div>' + row(P_[myI], myI) : '');
+    const top = P_.slice(0, bc.top), myI = P_.findIndex(x => x.uid === me);
+    const row = (x, i) => '<div class="rank' + (x.uid === me ? ' me' : '') + '"><span class="no">' + (i + 1) + '</span>' + avatarHTML(x.uid, x.n, 34) + '<span><b>' + esc(x.n) + '</b>' + (x.g && gname(x.g) ? '<br><small style="color:var(--mu)">' + esc(gname(x.g)) + '</small>' : '') + '</span><span class="val">' + (x[mk] || 0) + '</span></div>';
+    h += top.map(row).join('') + (myI >= bc.top ? '<div style="text-align:center;color:var(--mu)">…</div>' + row(P_[myI], myI) : '');
   }
   // Gruppen
-  const G = groupsAll().map(g => { const m = (B.g || {})[g.id] || {}; const n = Object.values(B.p || {}).filter(x => x.g === g.id).length; return { id: g.id, name: g.name, all: m.all || 0, na: m.na || 0, n }; }).filter(x => x.all > 0).sort((a, b) => b.all - a.all);
-  h += '<h2 style="font-size:1.05rem;margin-top:14px">Gruppen</h2>';
+  if (!bc.groups) return h;
+  const gv = x => bc.gsort === 'perHead' ? x.all / Math.max(1, x.n) : bc.gsort === 'na' ? x.na : bc.gsort === 'share' ? x.na / Math.max(1, x.all) : x.all;
+  const G = groupsAll().map(g => { const m = (B.g || {})[g.id] || {}; const n = Object.values(B.p || {}).filter(x => x.g === g.id).length; return { id: g.id, name: g.name, all: m.all || 0, na: m.na || 0, n }; }).filter(x => x.all > 0).sort((a, b) => gv(b) - gv(a) || b.all - a.all);
+  h += '<h2 style="font-size:1.05rem;margin-top:14px">Gruppen <small style="font-weight:400;color:var(--mu);font-size:.8rem">' + esc((BEST_GSORT.find(x => x[0] === bc.gsort) || BEST_GSORT[0])[1]) + '</small></h2>';
   if (!G.length) h += '<div class="empty">' + (myGroup() ? 'Noch keine Buchungen.' : 'Du bist noch keiner Narrenfigur zugeordnet – das macht der Admin.') + '</div>';
   else h += G.map((x, i) => '<div class="rank' + (x.id === myGroup() ? ' me' : '') + '"><span class="no">' + (i + 1) + '</span><span class="av" style="--s:34px">' + esc(initials(x.name)) + '</span><span><b>' + esc(x.name) + '</b><br><small style="color:var(--mu)">' + x.n + ' Pers. · ' + Math.round(x.all / Math.max(1, x.n) * 10) / 10 + ' pro Kopf · ' + Math.round(x.na / x.all * 100) + ' % alkoholfrei</small><div class="bar"><i style="width:' + Math.round(x.na / x.all * 100) + '%"></i></div></span><span class="val">' + x.all + '</span></div>').join('');
   return h;
@@ -1791,11 +1861,59 @@ function renderAlbum() {
   h += rules.map(r => {
     const g = got[r.id], v = r.kind === 'schnaps' ? 11 : r.n || r.n2 || 1, t = fill(pickText(r, v).t, { n: v, name: S.me, gruppe: gname(myGroup()) });
     const icon = r.who === 'group' ? 'A' : r.who === 'team' ? 'G' : r.kind === 'time' ? '⏰' : r.kind === 'date' ? '📅' : (r.kind === 'count' ? r.n : '★');
-    return g ? '<div class="badge got"><span class="medal">' + esc(String(icon)) + '</span><b>' + esc(t) + '</b><small>' + (g.n > 1 ? g.n + '× · ' : '') + esc(describeRule(r)) + '</small></div>'
-      : '<div class="badge"><span class="medal">?</span><b>???</b><small>' + esc(describeRule(r)) + '</small></div>';
+    return g ? '<div class="badge got" data-xa="badge" data-id="' + esc(r.id) + '" role="button" tabindex="0"><span class="medal">' + esc(String(icon)) + '</span><b>' + esc(t) + '</b><small>' + (g.n > 1 ? g.n + '× · ' : '') + esc(describeRule(r)) + '</small></div>'
+      : '<div class="badge" data-xa="badge" data-id="' + esc(r.id) + '" role="button" tabindex="0"><span class="medal">?</span><b>???</b><small>' + esc(describeRule(r)) + '</small></div>';
   }).join('');
-  return h + '</div><div style="font-size:.78rem;color:var(--mu);margin-top:8px">A = für alle, G = für deine Gruppe. Gezählt wird ab dieser Version.</div>';
+  return h + '</div><div style="font-size:.78rem;color:var(--mu);margin-top:8px">Antippen zeigt, wie du ein Abzeichen bekommst. A = für alle, G = für deine Gruppe.</div>';
 }
+
+// So bekommt man ein Easter Egg – verständlich formuliert
+function howTo(r) {
+  const c = r.cat || 'all', one = CAT_ONE[c], many = CAT_MANY[c], per = r.period === 'total' ? ' seit Saisonbeginn' : ' an einem Tag';
+  const art = x => (['Bier', 'Radler', 'Wasser', 'Alkoholfreies', 'sonstige Getränk', 'alkoholfreie Getränk', 'Getränk'].includes(x) ? 'dein' : 'deinen');
+  let t = '';
+  if (r.who === 'group' || r.who === 'team') {
+    const wer = r.who === 'team' ? 'deine Narrenfigur (Gruppe)' : 'alle zusammen';
+    if (r.kind === 'count') t = 'Wenn ' + wer + per + ' ' + r.n + ' ' + unit(c, r.n) + ' gebucht haben. Wer das ' + r.n + '. bucht, löst es aus – alle sehen es.';
+    else if (r.kind === 'every') t = 'Jedes Mal, wenn ' + wer + per + ' wieder ' + r.n + ' ' + unit(c, r.n) + ' voll machen. Wer es voll macht, löst es aus.';
+    else if (r.kind === 'from') t = 'Ab ' + r.n + ' ' + unit(c, r.n) + per + ' bei jedem weiteren – für ' + wer + '.';
+    else if (r.kind === 'schnaps') t = 'Wenn die Zahl der ' + many + per + ' für ' + wer + ' eine Schnapszahl ist (11, 22, 33 …). Wer sie trifft, löst es aus.';
+  } else if (r.kind === 'count') t = 'Buche ' + per.trim() + ' ' + art(one) + ' ' + r.n + '. ' + one + '.';
+  else if (r.kind === 'every') t = 'Bei jedem ' + r.n + '. ' + one + per + '.';
+  else if (r.kind === 'from') t = 'Ab dem ' + r.n + '. ' + one + per + ' bei jedem weiteren.';
+  else if (r.kind === 'schnaps') t = 'Wenn deine Zahl ' + (c === 'all' ? 'Getränke' : many) + per + ' eine Schnapszahl ist (11, 22, 33 …).';
+  else if (r.kind === 'after') t = 'Buche ein ' + one + ', nachdem du am selben Tag schon mindestens ' + r.n2 + ' ' + unit(r.cat2 || 'bier', r.n2) + ' hattest.';
+  else if (r.kind === 'time') t = 'Buche um genau ' + (r.time || '?') + ' Uhr ein Getränk.';
+  else if (r.kind === 'date') t = 'Buche am ' + (r.date || '?') + '. ein Getränk.';
+  return t.replace(/\s+/g, ' ').replace(' an einem Tag ', ' an einem Tag ').trim();
+}
+function badgeInfo(id) {
+  const r = allRules().find(x => x.id === id); if (!r) return;
+  const g = (S.album || {})[id], v = r.kind === 'schnaps' ? 11 : r.n || r.n2 || 1, tx = pickText(r, v);
+  openModal('<h2 style="margin-bottom:6px">' + (g ? esc(fill(tx.t, { n: v, name: S.me, gruppe: gname(myGroup()) })) : 'Noch nicht gesammelt') + '</h2>' +
+    '<div class="note' + (g ? ' ok' : '') + '" style="margin-bottom:10px">' + (g ? 'Gesammelt' + (g.n > 1 ? ' – schon ' + g.n + '×' : '') + (g.t ? ', zuletzt am ' + new Date(g.t).toLocaleDateString('de-DE') + ' um ' + fmtTime(g.t) + ' Uhr' : '') + '.' : 'Dieses Abzeichen fehlt dir noch.') + '</div>' +
+    '<b>So bekommst du es</b><p style="margin:4px 0 8px">' + esc(howTo(r)) + '</p>' +
+    (r.who === 'group' ? '<small style="color:var(--mu)">Gemeinsames Easter Egg: zählt für alle, die es auslösen.</small>' : r.who === 'team' ? '<small style="color:var(--mu)">Gilt für deine Narrenfigur – du brauchst eine Gruppe.</small>' : ''));
+}
+// Einfaches Fenster (Hilfe, Abzeichen)
+function openModal(html) { $('modalBody').innerHTML = html; $('modal').hidden = false; document.body.style.overflow = 'hidden'; $('modalX').focus({ preventScroll: true }); }
+function closeModal() { $('modal').hidden = true; document.body.style.overflow = ''; }
+$('modalX').addEventListener('click', closeModal);
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+$('extra').addEventListener('keydown', e => { const b = e.target.closest && e.target.closest('[data-xa=badge]'); if (b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); badgeInfo(b.dataset.id); } });
+// Hilfe für alle (ohne Easter Eggs)
+$('helpBtn').addEventListener('click', () => {
+  const c = S.contact || {};
+  openModal('<h2>So funktioniert die Strichliste</h2>' +
+    '<p>Die <b>Wexhainis Getränke-Strichliste</b> ersetzt die Strichliste auf Papier. Wenn wir mit dem Verein unterwegs sind, buchst du jedes Getränk, das du dir nimmst, mit deinem Handy. So weiß der Verein am Ende, wer was getrunken hat, und ob alles, was mitgenommen wurde, auch gebucht ist.</p>' +
+    '<h3 class="sub3">1. Einmal anmelden</h3><p>Mit <b>Registrieren</b> legst du ein Konto mit deinem Vor- und Nachnamen, deiner E-Mail und einem Passwort an. Dein Name lässt sich danach nicht mehr ändern. Bevor du buchen kannst, muss ' + esc(contactName()) + ' dein Konto <b>freischalten</b>.</p>' +
+    '<h3 class="sub3">2. Getränk buchen</h3><ul><li><b>Kamera starten</b> und den Barcode der Flasche in den gelben Rahmen halten – fertig.</li><li>Kein Barcode lesbar? In der Liste „Deine Getränke heute“ beim Getränk auf <b>+1</b> tippen.</li><li>Vertippt? Die Meldung „… gebucht“ bleibt 10 Sekunden stehen – dort auf <b>Rückgängig</b> tippen.</li></ul>' +
+    '<h3 class="sub3">3. Was du sonst siehst</h3><ul><li><b>Deine Getränke heute</b> mit Strichen und dem Betrag.</li><li><b>Mein Konto</b>: alle deine Getränke und Kosten der Saison, auch als Excel.</li><li><b>Ich fahre heute</b>: Die App fragt dann bei alkoholischen Getränken nach.</li><li><b>Profilbild</b>: auf den runden Kreis tippen.</li><li><b>Hell / Nacht</b> oben rechts: Farbschema umschalten.</li></ul>' +
+    '<h3 class="sub3">Ohne Netz?</h3><p>Kein Problem. Buchungen werden auf dem Handy gespeichert und gesendet, sobald wieder Netz da ist („offline · 3 warten“ oben). Dabei nicht abmelden.</p>' +
+    '<h3 class="sub3">Tipps</h3><ul><li>Zum Startbildschirm hinzufügen – iPhone: Safari → Teilen → „Zum Home-Bildschirm“, Android: Chrome → Menü → „Zum Startbildschirm hinzufügen“.</li><li>Passwort vergessen? Beim Anmelden „Passwort vergessen?“ tippen.</li><li>Neues Handy? Einfach mit derselben E-Mail anmelden – alles ist wieder da.</li></ul>' +
+    '<h3 class="sub3">Fragen?</h3><p>Wende dich an <b>' + esc(contactName(1)) + '</b>.</p>' + contactHTML());
+});
 
 function kontoData(period) {
   const L = mineIn(period), price = id => (P(id) || {}).price || 0;
@@ -1900,7 +2018,7 @@ let histTab = 'all';
 $('histTabs').addEventListener('click', e => { const b = e.target.closest('[data-h]'); if (!b) return; histTab = b.dataset.h; renderHist(); });
 function renderHist() {
   const sec = $('histSec');
-  if (!S.activeDay || !S.me || $('listSec').hidden) { sec.hidden = true; return; }
+  if (!S.activeDay || !S.me || $('listSec').hidden || !canSee('eggs')) { sec.hidden = true; return; }
   sec.hidden = false;
   const g = (S.groupEggs || []).filter(x => !(isMinor() && x.alc)), m = S.myEggs || [];
   $('histTabs').querySelectorAll('button').forEach(b => {
@@ -1919,13 +2037,18 @@ function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBt
 // Meldung unter dem Scanner: verschwindet nach 10 Sekunden (Countdown sichtbar)
 let lastTimer = null;
 function showLast(cls, html) {
-  const el = $('last'), SEC = 10, end = Date.now() + SEC * 1000;
+  const el = $('last'), SEC = 10;
+  let end = Date.now() + SEC * 1000, prev = Date.now();
   el.className = cls; el.hidden = false;
   el.innerHTML = html + '<i class="last-bar" style="animation-duration:' + SEC + 's"></i>';
   const tick = () => {
-    const left = Math.ceil((end - Date.now()) / 1000);
+    const now = Date.now(), paused = eggShowing || !$('modal').hidden;
+    if (paused) end += now - prev; // solange ein Popup offen ist, läuft die Zeit nicht ab
+    prev = now;
+    const bar = el.querySelector('.last-bar'); if (bar) bar.style.animationPlayState = paused ? 'paused' : 'running';
+    const left = Math.ceil((end - now) / 1000);
     if (left <= 0) { clearInterval(lastTimer); lastTimer = null; el.hidden = true; return; }
-    const c = el.querySelector('.last-cd'); if (c) c.textContent = left + ' s';
+    const c = el.querySelector('.last-cd'); if (c) c.textContent = paused ? 'pausiert' : left + ' s';
   };
   clearInterval(lastTimer); lastTimer = setInterval(tick, 250); tick();
 }
@@ -1980,13 +2103,13 @@ function renderScan() {
   if (S.meDoc && (S.meDoc.deleted || S.meDoc.blocked)) {
     if (cam.box === boxMain) camStop();
     $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
-    info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : 'Dein Konto ist gesperrt.') + '</b> Bitte wende dich an den Vorstand.</div><div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
+    info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : 'Dein Konto ist gesperrt.') + '</b> Bitte wende dich an ' + esc(contactName(1)) + '.</div>' + contactHTML() + '<div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
     return;
   }
   if (isPending()) {
     if (cam.box === boxMain) camStop();
     $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
-    info.innerHTML = '<div class="note"><b>Fast geschafft, ' + esc(S.meDoc.name || '') + '!</b> Dein Konto wartet auf Freischaltung durch den Vorstand. Sobald es freigeschaltet ist, geht es hier automatisch weiter.</div><div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
+    info.innerHTML = '<div class="note"><b>Fast geschafft, ' + esc(S.meDoc.name || '') + '!</b> Dein Konto wartet auf Freischaltung durch ' + (S.contact && S.contact.name ? esc(S.contact.name) : 'den Vorstand') + '. Sobald es freigeschaltet ist, geht es hier automatisch weiter.</div>' + contactHTML() + '<div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
     return;
   }
   if (!S.me) {
@@ -2215,15 +2338,17 @@ function renderAdmin() {
   if (!configured) { el.innerHTML = '<div class="setup"><b>Firebase ist noch nicht eingerichtet.</b><span>Trage die Zugangsdaten in <code>index.html</code> ein (siehe <code>README.md</code>).</span></div>'; return; }
   if (!S.user) { el.innerHTML = ''; return; }
   if (!S.adminChecked) { el.innerHTML = '<div class="empty">Prüfe Rechte …</div>'; return; }
-  if (S.adminChecked && !S.isAdmin) {
-    el.innerHTML = '<section><h2>Keine Admin-Rechte</h2><p style="font-size:.9rem;margin-bottom:10px">Du bist als <b>' + esc(S.user.email) + '</b> angemeldet. Der Admin-Bereich ist nur für den Vorstand.</p>' +
+  if (S.adminChecked && !S.isAdmin && !S.isBoard) {
+    el.innerHTML = '<section><h2>Keine Admin-Rechte</h2><p style="font-size:.9rem;margin-bottom:10px">Du bist als <b>' + esc(S.user.email) + '</b> angemeldet. Der Admin-Bereich ist nur für Admins und den Vorstand. Rechte vergibt ' + contactName() + '.</p>' + contactHTML() +
       '<details class="setup"><summary style="cursor:pointer">Für die Einrichtung: Nutzer-ID</summary><span style="font-size:.86rem">Admins ernennt der Super-Admin unter „Personen“. Soll dieses Konto Super-Admin sein, diese ID in <code>firestore.rules</code> bei <code>superUids</code> eintragen und die Regeln veröffentlichen.</span><div class="uid">' + esc(S.user.uid) + '</div></details></section>';
     return;
   }
   const day = selDayObj(), scans = S.dayScansFor === S.selDay ? S.dayScans : [];
-  let h = '';
+  const RO = !S.isAdmin; // Vorstand: nur lesen
+  let h = RO ? '<div class="note">Vorstand-Sicht: nur lesen. Excel-Auswertungen kannst du erstellen.</div>' : '';
+  if (S.isSuper) h += newRegsSection();
   const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== S.user.uid);
-  if (pend.length) h += '<section><h2>Neue Anmeldungen (' + pend.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erst nach dem Freischalten kann die Person buchen.</div>' +
+  if (pend.length && !RO) h += '<section><h2>Neue Anmeldungen (' + pend.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erst nach dem Freischalten kann die Person buchen.</div>' +
     pend.map(k => { const u = S.users[k]; return '<div class="rw" style="align-items:center"><span style="display:flex;gap:8px;align-items:center">' + avatarHTML(k, u.name, 32) + '</span><span>' + esc(u.name) + '<br><small>' + esc(u.email || '') + (u.t ? ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</small></span><button class="b sm pri" data-act="approve" data-id="' + k + '">Freischalten</button><button class="b sm dng" data-act="reject" data-id="' + k + '">Ablehnen</button></div>'; }).join('') + '</section>';
 
   h += '<section><h2>Tag</h2>';
@@ -2231,7 +2356,7 @@ function renderAdmin() {
     h += '<div class="row" style="margin-top:0"><select data-sel="day" style="flex:1">' + S.days.map(d => '<option value="' + d.id + '"' + (d.id === S.selDay ? ' selected' : '') + '>' + esc(dayLabel(d)) + (d.id === S.active ? ' (aktiv)' : '') + (d.closed ? ' (abgeschlossen)' : '') + '</option>').join('') + '</select>' +
       '<button class="b" data-act="toggleNewDay">Neuer Tag</button></div>';
   }
-  if (showNewDay || !S.days.length) {
+  if ((showNewDay || !S.days.length) && !RO) {
     const pv = S.days.find(d => d.date <= todayISO());
     h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" id="ndDate" value="' + todayISO() + '"></label>' +
       '<label class="f">Ziel / Ort<input id="ndPlace" placeholder="z. B. Turnier Rottenburg"></label>' +
@@ -2249,8 +2374,8 @@ function renderAdmin() {
     const rows = dayRows(day, scans);
     h += summary(rows);
     if ((S.dayDrivers || []).length) h += '<div class="note">Fahrer heute: <b>' + S.dayDrivers.map(x => esc(uname(x.uid) !== '(Person)' ? uname(x.uid) : x.name || '')).join(', ') + '</b></div>';
-    h += eggPreview(day, scans);
-    h += '<section><h2>Mitnehmen und zurückzählen</h2><div class="row" style="margin-top:0">' +
+    if (!RO && canSee('eggs')) h += eggPreview(day, scans);
+    if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2><div class="row" style="margin-top:0">' +
       '<button class="b pri grow" data-act="sheetLoad">Einladen per Scan</button><button class="b grow" data-act="sheetCount">Rest zählen per Scan</button></div></section>';
     h += '<section><h2>Abgleich</h2>' + (rows.length ? '<div class="tw"><table><thead><tr><th>Getränk</th><th>Mit</th><th>Gebucht</th><th>Soll</th><th>Übrig</th><th>Diff.</th></tr></thead><tbody>' +
       rows.map(r => '<tr><td>' + esc(r.p.name) + '</td><td><input class="n" inputmode="numeric" data-load="' + r.p.id + '" value="' + r.l + '" aria-label="Mitgenommen ' + esc(r.p.name) + '"></td><td>' + r.u + '</td><td class="' + (lowLevel(r) ? 'bad' : '') + '">' + r.s + (lowLevel(r) ? ' <span class="lowtag">' + (lowLevel(r) === 'leer' ? 'leer' : 'knapp') + '</span>' : '') + '</td>' +
@@ -2270,7 +2395,7 @@ function renderAdmin() {
     }
 
     const people = Object.keys(S.users).filter(uid => !S.users[uid].deleted).map(uid => ({ uid, name: S.users[uid].name || '' })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-    if (people.length && S.products.length) {
+    if (people.length && S.products.length && !RO) {
       h += '<section><h2>Buchung nachtragen</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Für jemanden, der vergessen hat zu scannen.</div><div class="grid2">' +
         '<label class="f full">Person<select id="nbWho"><option value="">Wählen …</option>' + people.map(x => '<option value="' + x.uid + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
         '<label class="f">Getränk<select id="nbP"><option value="">Wählen …</option>' + S.products.map(x => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
@@ -2311,7 +2436,7 @@ function renderAdmin() {
       : '<div class="row"><button class="b" data-act="toggleNewProd">Getränk ohne Scan anlegen</button></div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';
 
-  if (S.days.length > 1) {
+  if (S.days.length > 1 && !RO) {
     h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
       const o = overview && overview[d.id];
       return '<div class="rw"><span>' + fmtDate(d.date) + '</span><span>' + esc(d.place || '–') + '</span><small>' + (o == null ? '' : o + ' gebucht') + '</small>' + (d.id === S.active ? '<span class="tag act">aktiv</span>' : d.closed ? '<span class="tag cls">fertig</span>' : '') + '<button class="b sm" data-act="pickDay" data-id="' + d.id + '">Öffnen</button></div>';
@@ -2319,15 +2444,15 @@ function renderAdmin() {
   }
 
   const all = Object.keys(S.users).map(uid => Object.assign({ uid, name: '', email: '', t: 0 }, S.users[uid])).sort((a, b) => a.name.localeCompare(b.name, 'de'));
-  const ulist = all.filter(u => !u.deleted), gone = all.filter(u => u.deleted);
+  const ulist = all.filter(u => !u.deleted && !(RO && (u.pending || u.blocked))), gone = all.filter(u => u.deleted);
   if (all.length) {
     const counts = {}; ulist.forEach(u => { const k = u.name.toLowerCase(); counts[k] = (counts[k] || 0) + 1; });
     const consoleUrl = 'https://console.firebase.google.com/project/' + encodeURIComponent(firebaseConfig.projectId) + '/authentication/users';
     h += '<section><h2>Personen (' + ulist.length + ')</h2>' +
-      '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">' + (S.isSuper ? 'Antippen zum Bearbeiten. Als Super-Admin kannst du Admins ernennen, Konten sperren, entfernen und Passwort-Mails schicken.' : 'Jedes Konto hat einen festen Namen. Nur hier kann er korrigiert werden.') + '</div>' +
+      '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">' + (RO ? 'Alle freigeschalteten Mitglieder.' : S.isSuper ? 'Antippen zum Bearbeiten. Als Super-Admin vergibst du Rollen (Getränke-Admin, Vorstand), sperrst und entfernst Konten und schickst Passwort-Mails.' : 'Jedes Konto hat einen festen Namen. Nur hier kann er korrigiert werden.') + '</div>' +
       ulist.map(u => {
         const me = u.uid === S.user.uid;
-        const badges = (me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Admin</span>' : '') +
+        const badges = (RO ? '' : me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Getränke-Admin</span>' : u.role === 'vorstand' ? '<span class="tag act">Vorstand</span>' : '') +
           (u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '') + (u.minor ? '<span class="tag" style="color:var(--pet)">U18</span>' : '') + (u.grp && gname(u.grp) ? '<span class="tag cls">' + esc(gname(u.grp)) + '</span>' : '') +
           (u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : '') +
           (counts[u.name.toLowerCase()] > 1 ? '<span class="tag" style="color:var(--amb)">doppelt</span>' : '') + (me ? '<span class="tag cls">du</span>' : '');
@@ -2336,7 +2461,7 @@ function renderAdmin() {
           '<label class="chk" style="align-self:end"><input type="checkbox" data-minor="' + u.uid + '"' + (u.minor ? ' checked' : '') + '> minderjährig (U18)</label>' +
           '<div class="full" style="font-size:.84rem;color:var(--mu)">' + (u.email ? esc(u.email) : 'E-Mail noch unbekannt (wird beim nächsten Öffnen der App ergänzt)') + (u.t ? ' · seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + '</div>';
         if (S.isSuper && !me) {
-          inner += '<label class="f">Rolle<select data-role="' + u.uid + '"><option value=""' + (u.role !== 'admin' ? ' selected' : '') + '>Mitglied</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option></select></label><div></div>' +
+          inner += '<label class="f">Rolle<select data-role="' + u.uid + '"><option value=""' + (!u.role ? ' selected' : '') + '>Mitglied</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Getränke-Admin</option><option value="vorstand"' + (u.role === 'vorstand' ? ' selected' : '') + '>Vorstand (nur lesen)</option></select></label><div></div>' +
             '<div class="full row" style="margin-top:0">' +
             (u.blocked ? '<button class="b sm" data-act="unblock" data-id="' + u.uid + '">Entsperren</button>' : '<button class="b sm" data-act="block" data-id="' + u.uid + '">Sperren</button>') +
             (u.email ? '<button class="b sm" data-act="resetPw" data-id="' + u.uid + '">Passwort-Mail senden</button>' : '') +
@@ -2350,7 +2475,7 @@ function renderAdmin() {
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Entfernen sperrt das Konto in der App. Das Login selbst (E-Mail und Passwort) löschst du in der <a href="' + consoleUrl + '" target="_blank" rel="noopener">Firebase-Konsole → Authentication → Nutzer</a> über das Menü „⋮“ der Person.</div>' : '') +
       '</section>';
   }
-  if (S.isSuper) h += groupsEditor() + rulesEditor() + historySection();
+  if (S.isSuper) h += settingsSection() + groupsEditor() + rulesEditor() + historySection();
   if (S.days.length) {
     const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
     if (!xlFrom) xlFrom = first; if (!xlTo) xlTo = lastD > todayISO() ? lastD : todayISO();
@@ -2359,9 +2484,9 @@ function renderAdmin() {
       '<div class="full row" style="margin-top:0"><button class="b sm" data-act="xlAll">Gesamter Zeitraum</button><button class="b sm" data-act="xlMonth">Dieser Monat</button><button class="b sm" data-act="xlDay">Gewählter Tag</button></div>' +
       '<div class="full"><button class="b pri" data-act="xlGo">Excel erstellen</button></div></div></section>';
   }
-  h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
+  if (!RO) h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     ('Notification' in window && Notification.permission !== 'granted' ? '<button class="b sm" data-act="notifyPerm">Warnungen aufs Handy erlauben</button>' : '') +
-    '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' +
+    (S.isSuper ? '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' : '') +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button>' + (S.isSuper ? '<button class="b sm" data-act="restore">Backup importieren</button>' : '') +
     (day && S.isSuper ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
     (S.isSuper ? '<button class="b sm dng" data-act="resetToggle">Statistiken zurücksetzen</button>' : '') + '</div>' +
@@ -2373,8 +2498,113 @@ function renderAdmin() {
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
   const navX = el.querySelector('.admnav-in') ? el.querySelector('.admnav-in').scrollLeft : 0;
   keepState(el, h);
+  if (RO) readOnly(el);
   adminNav(el, navX);
 }
+const ROLE_LABEL = { '': 'Mitglied', admin: 'Getränke-Admin', vorstand: 'Vorstand' };
+// Vorstand: alles nur lesen – Eingaben werden zu Text, Knöpfe außer Excel verschwinden
+const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo'];
+function readOnly(el) {
+  el.querySelectorAll('button').forEach(b => { if (!RO_ACTS.includes(b.dataset.act)) b.remove(); });
+  el.querySelectorAll('input,select,textarea').forEach(x => {
+    if (x.matches('[data-sel=day],#xlFrom,#xlTo')) return;
+    if (x.type === 'checkbox') { x.disabled = true; return; }
+    const sp = document.createElement('span'); sp.className = 'rov';
+    sp.textContent = x.tagName === 'SELECT' ? ((x.selectedOptions[0] || {}).textContent || '–') : (x.value || '–');
+    x.replaceWith(sp);
+  });
+}
+// Super-Admin: neu registrierte Mitglieder
+function newRegsSection() {
+  let seen = 0; try { seen = +localStorage.getItem('strichliste_regseen') || 0; } catch (e) {}
+  const L = Object.keys(S.users).map(uid => Object.assign({ uid }, S.users[uid])).filter(u => u.t && uid_ok(u)).sort((a, b) => b.t - a.t).slice(0, 25);
+  function uid_ok(u) { return u.uid !== (S.user && S.user.uid); }
+  if (!L.length) return '';
+  const st = u => u.deleted ? (u.pending ? '<span class="tag" style="color:var(--pen)">abgelehnt</span>' : '<span class="tag cls">entfernt</span>') : u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '<span class="tag act">aktiv</span>';
+  const nNew = L.filter(u => u.t > seen).length;
+  return '<section><h2>Neu registriert (' + nNew + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Die letzten 25 Registrierungen, neueste zuerst. Seit deinem letzten „Gesehen“ neu: <b>' + nNew + '</b>.</div>' +
+    L.map(u => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 30) + '</span><span>' + (u.t > seen ? '<b>' + esc(u.name || '') + '</b> <span class="tag" style="color:var(--amb)">neu</span>' : esc(u.name || '')) + '<br><small>' + esc(u.email || '') + ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small></span>' + st(u) + '</div>').join('') +
+    (nNew ? '<div class="row"><button class="b sm" data-set="regSeen">Als gesehen markieren</button></div>' : '') + '</section>';
+}
+// Kontakt des Super-Admins (erscheint überall, wo „Vorstand“ gemeint ist)
+const contactName = acc => (S.contact && S.contact.name) || (acc ? 'den Vorstand' : 'der Vorstand');
+function waLink(v) {
+  v = String(v || '').trim(); if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  let d = v.replace(/[^\d+]/g, ''); if (d.startsWith('+')) d = d.slice(1); else if (d.startsWith('00')) d = d.slice(2); else if (d.startsWith('0')) d = '49' + d.slice(1);
+  return d ? 'https://wa.me/' + d : '';
+}
+function contactHTML() {
+  const c = S.contact || {}, wa = waLink(c.wa), tel = String(c.tel || '').trim();
+  if (!wa && !tel) return '';
+  return '<div class="row contact">' + (wa ? '<a class="b sm" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp an ' + esc(contactName()) + '</a>' : '') + (tel ? '<a class="b sm" href="tel:' + esc(tel.replace(/[^\d+]/g, '')) + '">Anrufen: ' + esc(tel) + '</a>' : '') + '</div>';
+}
+// Sichtbarkeit der Extras: none = nur Super-Admin, admins = Admins und Vorstand, all = alle, list = ausgewählte Personen
+const FEATURES = [['eggs', 'Easter Eggs (Popups und Verlauf)'], ['best', 'Bestenliste'], ['album', 'Sammelalbum'], ['wrap', 'Saison-Rückblick']];
+const FEAT_MODES = [['none', 'niemand (nur du)'], ['admins', 'Admins und Vorstand'], ['all', 'alle Mitglieder'], ['list', 'ausgewählte Personen']];
+function canSee(f) {
+  if (S.isSuper) return true;
+  const c = (S.features || {})[f] || {}, m = c.mode || 'none';
+  if (m === 'all') return true;
+  if (m === 'admins') return !!(S.isAdmin || S.isBoard);
+  if (m === 'list') return !!(S.user && (c.uids || []).includes(S.user.uid));
+  return false;
+}
+// Bestenliste: Regeln (Super-Admin)
+const BEST_DEFAULT = { metric: 'na', title: 'Wasser & Softdrinks', top: 10, groups: true, gsort: 'all', period: 'day' };
+const bestCfg = () => Object.assign({}, BEST_DEFAULT, S.best || {});
+const BEST_METRIC = [['na', 'alkoholfreie Getränke (Wasser, Softdrinks, Alkoholfreies)'], ['all', 'alle Getränke'], ['beer', 'Bier']];
+const BEST_GSORT = [['all', 'meiste Getränke gesamt'], ['perHead', 'meiste Getränke pro Kopf'], ['na', 'meiste alkoholfreie'], ['share', 'höchster Anteil alkoholfrei']];
+function settingsSection() {
+  const c = S.contact || {}, b = bestCfg(), people = Object.keys(S.users).filter(k => !S.users[k].deleted && !S.users[k].pending).map(k => ({ uid: k, name: S.users[k].name || '' })).sort((x, y) => x.name.localeCompare(y.name, 'de'));
+  const opt = (L, cur) => L.map(x => '<option value="' + x[0] + '"' + (String(cur) === String(x[0]) ? ' selected' : '') + '>' + x[1] + '</option>').join('');
+  let h = '<section><h2>Einstellungen (Super-Admin)</h2>';
+  h += '<h3 class="sub3">Kontakt</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erscheint bei „Konto wartet auf Freischaltung“, „gesperrt“, „keine Rechte“ und in der Hilfe.</div>' +
+    '<div class="grid2"><label class="f full">Name<input id="ctName" value="' + esc(c.name || S.me || '') + '"></label>' +
+    '<label class="f">WhatsApp (Nummer oder Link)<input id="ctWa" value="' + esc(c.wa || '') + '" placeholder="0171 1234567 oder https://wa.me/…" inputmode="tel"></label>' +
+    '<label class="f">Telefon<input id="ctTel" value="' + esc(c.tel || '') + '" placeholder="0171 1234567" inputmode="tel"></label>' +
+    '<div class="full"><button class="b pri sm" data-set="contactSave">Kontakt speichern</button></div></div>';
+  h += '<h3 class="sub3">Wer sieht was?</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Standard: ausgeblendet. Gezählt wird trotzdem – beim Einschalten sind die Daten da. „Mein Konto“ sehen immer alle.</div>' +
+    FEATURES.map(([f, label]) => {
+      const fc = (S.features || {})[f] || {}, m = fc.mode || 'none', uids = fc.uids || [];
+      return '<div class="feat"><label class="f">' + label + '<select data-feat="' + f + '">' + opt(FEAT_MODES, m) + '</select></label>' +
+        (m === 'list' ? '<details class="pc" data-k="feat' + f + '"><summary><b>Personen auswählen</b><small>' + uids.length + ' ausgewählt</small></summary><div class="featlist">' +
+          people.map(x => '<label class="chk"><input type="checkbox" data-featu="' + f + '|' + x.uid + '"' + (uids.includes(x.uid) ? ' checked' : '') + '> ' + esc(x.name) + '</label>').join('') + '</div></details>' : '') + '</div>';
+    }).join('');
+  h += '<h3 class="sub3">Bestenliste – Regeln</h3><div class="grid2">' +
+    '<label class="f full">Personen-Wertung nach<select data-bst="metric">' + opt(BEST_METRIC, b.metric) + '</select></label>' +
+    '<label class="f">Überschrift<input data-bst="title" value="' + esc(b.title) + '"></label>' +
+    '<label class="f">Plätze anzeigen<input data-bst="top" inputmode="numeric" value="' + b.top + '"></label>' +
+    '<label class="f">Gruppen-Wertung<select data-bst="groups">' + opt([['1', 'anzeigen'], ['0', 'ausblenden']], b.groups ? '1' : '0') + '</select></label>' +
+    '<label class="f">Gruppen sortiert nach<select data-bst="gsort">' + opt(BEST_GSORT, b.gsort) + '</select></label>' +
+    '<label class="f">Startansicht<select data-bst="period">' + opt([['day', 'heute'], ['total', 'gesamt']], b.period) + '</select></label></div>';
+  return h + '</section>';
+}
+$('adminBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-set]'); if (!b || !S.isSuper) return;
+  if (b.dataset.set === 'contactSave') {
+    const c = { name: $('ctName').value.trim().slice(0, 40), wa: $('ctWa').value.trim().slice(0, 120), tel: $('ctTel').value.trim().slice(0, 30), t: Date.now() };
+    S.contact = c; fire(F.setDoc(dref('config', 'contact'), c), 'Kontakt speichern'); logEv('system', 'ändert den Kontakt: ' + c.name); toast('Kontakt gespeichert'); renderAll();
+  }
+  if (b.dataset.set === 'regSeen') { try { localStorage.setItem('strichliste_regseen', String(Date.now())); } catch (e) {} renderAdmin(); }
+});
+$('adminBody').addEventListener('change', e => {
+  const t = e.target; if (!S.isSuper) return;
+  if (t.dataset.feat || t.dataset.featu) {
+    const F_ = JSON.parse(JSON.stringify(S.features || {}));
+    if (t.dataset.feat) { const f = t.dataset.feat; F_[f] = Object.assign({ uids: [] }, F_[f], { mode: t.value }); logEv('system', 'Sichtbarkeit ' + f + ' → ' + t.value); }
+    else { const [f, uid] = t.dataset.featu.split('|'), L = new Set((F_[f] || {}).uids || []); t.checked ? L.add(uid) : L.delete(uid); F_[f] = Object.assign({ mode: 'list' }, F_[f], { uids: [...L] }); }
+    S.features = F_; fire(F.setDoc(dref('config', 'features'), Object.assign({ t: Date.now() }, F_)), 'Sichtbarkeit speichern'); renderAll(); renderExtra();
+  }
+  if (t.dataset.bst) {
+    const b = bestCfg(), k = t.dataset.bst;
+    if (k === 'top') { const v = parseInt(t.value); if (!(v >= 1 && v <= 100)) { toast('Plätze: 1 bis 100'); renderAdmin(); return; } b.top = v; }
+    else if (k === 'groups') b.groups = t.value === '1';
+    else b[k] = k === 'title' ? t.value.trim().slice(0, 40) || BEST_DEFAULT.title : t.value;
+    S.best = b; fire(F.setDoc(dref('config', 'best'), Object.assign({ t: Date.now() }, b)), 'Bestenliste speichern'); logEv('system', 'Bestenliste: ' + k + ' → ' + t.value);
+  }
+});
+
 // Bereiche im Admin: Überschrift antippen klappt ein/aus, Navigation springt hin
 const ADM_KEY = 'strichliste_adm_open';
 const ADM_DEFAULT_CLOSED = ['Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
@@ -2382,7 +2612,7 @@ let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || 
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
 function admSet(k, v) { admState[k] = v; try { localStorage.setItem(ADM_KEY, JSON.stringify(admState)); } catch (e) {} }
-const ADM_SHORT = { 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
+const ADM_SHORT = { 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
 function adminNav(el, navX) {
   const secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
   if (secs.length < 3) return;
@@ -2692,8 +2922,9 @@ adminBody.addEventListener('change', e => {
   if (t.dataset.role) {
     const uid = t.dataset.role, role = t.value;
     fire(F.updateDoc(dref('users', uid), { role: role ? role : F.deleteField() }), 'Rolle ändern');
-    logEv('person', uname(uid) + ': Rolle → ' + (role ? 'Admin' : 'Mitglied'));
-    toast(role ? (S.users[uid] || {}).name + ' ist jetzt Admin' : (S.users[uid] || {}).name + ' ist jetzt Mitglied'); return;
+    const rl = ROLE_LABEL[role || ''];
+    logEv('person', uname(uid) + ': Rolle → ' + rl);
+    toast((S.users[uid] || {}).name + ' ist jetzt ' + rl); return;
   }
   if (t.dataset.u) {
     const name = t.value.trim().replace(/\s+/g, ' ').slice(0, 40);
@@ -2765,8 +2996,8 @@ adminBody.addEventListener('click', async e => {
     try { const r = await Notification.requestPermission(); toast(r === 'granted' ? 'Warnungen werden auch angezeigt, wenn die App im Hintergrund ist' : 'Nicht erlaubt – Warnungen erscheinen nur in der App'); } catch (e) { toast('Dieses Handy unterstützt das nicht'); }
     renderAdmin();
   }
-  else if (a === 'eggsToggle') { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); logEv('egg', 'schaltet Easter Eggs ' + (on ? 'an' : 'aus')); }
-  else if (a === 'recount') {
+  else if (a === 'eggsToggle' && S.isSuper) { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); logEv('egg', 'schaltet Easter Eggs ' + (on ? 'an' : 'aus')); }
+  else if (a === 'recount' && S.isSuper) {
     if (!confirm('Zähler für Easter Eggs (Gruppe und Personen) aus allen Buchungen neu berechnen? Nötig nach Stornos, Nachträgen oder einem Import.')) return;
     try { b.disabled = true; const n = await recomputeCounters(); toast('Zähler neu berechnet: ' + n + ' Buchungen'); logEv('system', 'berechnet die Zähler neu (' + n + ' Buchungen)'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
     b.disabled = false;
