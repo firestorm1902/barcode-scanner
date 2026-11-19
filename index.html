@@ -347,7 +347,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '13';
+const APP_VERSION = '14';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1602,6 +1602,7 @@ $('sheetBody').addEventListener('click', e => {
 /* =========================================================
    Admin
    ========================================================= */
+let xlFrom = '', xlTo = '';
 let showNewDay = false, showNewProd = false, overview = null, nbSel = '', showReset = false, logDate = todayISO(), logWithScans = false;
 let newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' };
 
@@ -1779,6 +1780,14 @@ function renderAdmin() {
       '</section>';
   }
   if (S.isSuper) h += rulesEditor() + historySection();
+  if (S.days.length) {
+    const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
+    if (!xlFrom) xlFrom = first; if (!xlTo) xlTo = lastD > todayISO() ? lastD : todayISO();
+    h += '<section><h2>Excel-Auswertung</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Alle Tage im Zeitraum: Übersicht, pro Person mit Getränken und Kosten, Person pro Tag, Abgleich, alle Buchungen und Getränke.</div>' +
+      '<div class="grid2"><label class="f">von<input type="date" id="xlFrom" value="' + xlFrom + '"></label><label class="f">bis<input type="date" id="xlTo" value="' + xlTo + '"></label>' +
+      '<div class="full row" style="margin-top:0"><button class="b sm" data-act="xlAll">Gesamter Zeitraum</button><button class="b sm" data-act="xlMonth">Dieser Monat</button><button class="b sm" data-act="xlDay">Gewählter Tag</button></div>' +
+      '<div class="full"><button class="b pri" data-act="xlGo">Excel erstellen</button></div></div></section>';
+  }
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     ('Notification' in window && Notification.permission !== 'granted' ? '<button class="b sm" data-act="notifyPerm">Warnungen aufs Handy erlauben</button>' : '') +
     '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' +
@@ -1829,6 +1838,184 @@ function historySection() {
   return h + '</section>';
 }
 
+/* =========================================================
+   EXCEL-EXPORT
+   Kleiner eigener XLSX-Schreiber (ohne Bibliothek, funktioniert offline).
+   Zelle: Zahl | Text | null | { v, s, f }  (s = Stil, f = Formel)
+   Stile: 0 normal, 1 Kopf, 2 Euro, 3 fett, 4 fett Euro, 5 Datum, 6 Uhrzeit, 7 fett Zahl
+   ========================================================= */
+const XL = {
+  crc: (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })(),
+  crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = XL.crc[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; },
+  // ZIP ohne Kompression („stored“) – reicht für Excel völlig
+  zip(files) {
+    const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+    const u16 = n => [n & 255, (n >>> 8) & 255], u32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+    files.forEach(f => {
+      const name = enc.encode(f.name), data = typeof f.data === 'string' ? enc.encode(f.data) : f.data, crc = XL.crc32(data);
+      const head = [0x50, 0x4b, 0x03, 0x04, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)];
+      parts.push(new Uint8Array(head), name, data);
+      central.push(new Uint8Array([0x50, 0x4b, 0x01, 0x02, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), name);
+      off += head.length + name.length + data.length;
+    });
+    const cdSize = central.reduce((a, x) => a + x.length, 0);
+    const end = new Uint8Array([0x50, 0x4b, 0x05, 0x06, ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(off), ...u16(0)]);
+    return new Blob(parts.concat(central, [end]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  },
+  esc: s => String(s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+  col(i) { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; },
+  date(iso) { const [y, m, d] = iso.split('-').map(Number); return (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 864e5; },
+  time(t) { const d = new Date(t); return (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400; },
+  sheet(sh) {
+    const rows = sh.rows, ncol = Math.max(1, ...rows.map(r => r.length));
+    let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+    x += '<sheetViews><sheetView workbookViewId="0"' + (sh.tab ? ' tabSelected="1"' : '') + '>' + (sh.freeze ? '<pane ySplit="' + sh.freeze + '" topLeftCell="A' + (sh.freeze + 1) + '" activePane="bottomLeft" state="frozen"/>' : '') + '</sheetView></sheetViews>';
+    if (sh.widths) x += '<cols>' + sh.widths.map((w, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>').join('') + '</cols>';
+    x += '<sheetData>';
+    rows.forEach((r, ri) => {
+      x += '<row r="' + (ri + 1) + '">';
+      r.forEach((c, ci) => {
+        if (c == null || c === '') return;
+        const o = typeof c === 'object' ? c : { v: c }, ref = XL.col(ci) + (ri + 1), s = o.s ? ' s="' + o.s + '"' : '';
+        if (o.f) x += '<c r="' + ref + '"' + s + '><f>' + XL.esc(o.f) + '</f>' + (o.v != null ? '<v>' + o.v + '</v>' : '') + '</c>';
+        else if (typeof o.v === 'number' && isFinite(o.v)) x += '<c r="' + ref + '"' + s + '><v>' + o.v + '</v></c>';
+        else x += '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + XL.esc(o.v) + '</t></is></c>';
+      });
+      x += '</row>';
+    });
+    x += '</sheetData>';
+    if (sh.filter && rows.length > 1) x += '<autoFilter ref="A' + sh.filter + ':' + XL.col(ncol - 1) + Math.max(sh.filter + 1, sh.filterEnd || rows.length) + '"/>';
+    x += '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+    return x;
+  },
+  build(sheets) {
+    const S = sheets.map((s, i) => Object.assign({ name: s.name.replace(/[\[\]:*?/\\]/g, ' ').slice(0, 31) }, s, { tab: i === 0 }));
+    const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0.00\\ &quot;€&quot;"/><numFmt numFmtId="165" formatCode="hh:mm"/></numFmts>' +
+      '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+      '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF5C000"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FF141414"/></bottom><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="8">' +
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+      '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>' +
+      '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' +
+      '<xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+      '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '</cellXfs><cellStyles count="1"><cellStyle name="Standard" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    const files = [
+      { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+        S.map((s, i) => '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('') + '</Types>' },
+      { name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+      { name: 'xl/workbook.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>' +
+        S.map((s, i) => '<sheet name="' + XL.esc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>').join('') + '</sheets>' +
+        (S.some(s => s.filter) ? '<definedNames>' + S.map((s, i) => s.filter && s.rows.length > 1 ? '<definedName name="_xlnm._FilterDatabase" localSheetId="' + i + '" hidden="1">\'' + XL.esc(s.name).replace(/'/g, "''") + '\'!$A$' + s.filter + ':$' + XL.col(Math.max(1, ...s.rows.map(r => r.length)) - 1) + '$' + Math.max(s.filter + 1, s.filterEnd || s.rows.length) + '</definedName>' : '').join('') + '</definedNames>' : '') +
+        '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>' },
+      { name: 'xl/_rels/workbook.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        S.map((s, i) => '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>').join('') +
+        '<Relationship Id="rId' + (S.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+      { name: 'xl/styles.xml', data: styles }
+    ].concat(S.map((s, i) => ({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', data: XL.sheet(s) })));
+    return XL.zip(files);
+  }
+};
+
+/* ---------- Auswertung zusammenstellen ---------- */
+async function buildReport(from, to) {
+  const days = S.days.filter(d => d.date >= from && d.date <= to).sort((a, b) => a.date.localeCompare(b.date) || (a.created || 0) - (b.created || 0));
+  if (!days.length) throw new Error('Im gewählten Zeitraum gibt es keine Tage.');
+  const lists = await Promise.all(days.map(d => F.getDocs(F.query(col('scans'), F.where('day', '==', d.id))).then(s => s.docs.map(x => x.data()))));
+  const byDay = {}; days.forEach((d, i) => { byDay[d.id] = lists[i].sort((a, b) => a.t - b.t); });
+  const all = [].concat(...lists);
+  const H = t => ({ v: t, s: 1 }), E = v => ({ v: Math.round(v * 100) / 100, s: 2 }), D = iso => ({ v: XL.date(iso), s: 5 });
+  const price = id => (P(id) || {}).price || 0;
+  const usedP = [...new Set(all.map(s => s.p))].sort((a, b) => pname(a).localeCompare(pname(b), 'de'));
+  const people = {}; all.forEach(s => { const k = s.uid || ('?' + nameOf(s)); people[k] = people[k] || { uid: s.uid, name: nameOf(s), email: (S.users[s.uid] || {}).email || '', n: {}, total: 0, cost: 0 }; const x = people[k]; x.n[s.p] = (x.n[s.p] || 0) + 1; x.total++; x.cost += price(s.p); });
+  const plist = Object.values(people).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+
+  // Abgleich je Tag
+  const abg = [[H('Datum'), H('Ziel'), H('Getränk'), H('Sorte'), H('Mitgenommen'), H('Gebucht'), H('Soll-Rest'), H('Gezählt'), H('Differenz'), H('Preis'), H('Wert gebucht'), H('Wert Differenz')]];
+  let missTot = 0, missVal = 0;
+  days.forEach(d => dayRows(d, byDay[d.id]).forEach(r => {
+    const i = abg.length + 1;
+    if (r.diff != null && r.diff < 0) { missTot -= r.diff; missVal -= r.diff * (r.p.price || 0); }
+    abg.push([D(d.date), d.place || '', r.p.name, CAT_ONE[catOf(r.p)] || '', r.l, r.u, { v: r.s, f: 'E' + i + '-F' + i }, r.c == null ? null : r.c, r.diff == null ? null : { v: r.diff, f: 'H' + i + '-G' + i }, E(r.p.price || 0), { v: Math.round(r.u * (r.p.price || 0) * 100) / 100, s: 2, f: 'F' + i + '*J' + i }, r.diff == null ? null : { v: Math.round(r.diff * (r.p.price || 0) * 100) / 100, s: 2, f: 'I' + i + '*J' + i }]);
+  }));
+
+  // Pro Person (Matrix)
+  const pp = [[H('Name'), H('E-Mail'), ...usedP.map(id => H(pname(id))), H('Getränke gesamt'), H('Kosten')]];
+  const nP = usedP.length, cTot = XL.col(2 + nP), cCost = XL.col(3 + nP);
+  plist.forEach(x => {
+    const i = pp.length + 1;
+    pp.push([x.name, x.email, ...usedP.map(id => x.n[id] || null), { v: x.total, f: 'SUM(C' + i + ':' + XL.col(1 + nP) + i + ')' },
+      { v: Math.round(x.cost * 100) / 100, s: 2, f: usedP.length ? usedP.map((id, j) => XL.col(2 + j) + i + '*' + price(id)).join('+') : '0' }]);
+  });
+  const last = pp.length;
+  pp.push([{ v: 'Summe', s: 3 }, null, ...usedP.map((id, j) => ({ v: plist.reduce((a, x) => a + (x.n[id] || 0), 0), s: 7, f: 'SUM(' + XL.col(2 + j) + '2:' + XL.col(2 + j) + last + ')' })),
+    { v: all.length, s: 7, f: 'SUM(' + cTot + '2:' + cTot + last + ')' }, { v: Math.round(plist.reduce((a, x) => a + x.cost, 0) * 100) / 100, s: 4, f: 'SUM(' + cCost + '2:' + cCost + last + ')' }]);
+  pp.push([]);
+  pp.push([{ v: 'Preise je Flasche', s: 3 }, null, ...usedP.map(id => E(price(id)))]);
+
+  // Person pro Tag
+  const ppt = [[H('Datum'), H('Ziel'), H('Name'), H('Getränk'), H('Sorte'), H('Anzahl'), H('Preis'), H('Summe')]];
+  days.forEach(d => {
+    const m = {}; byDay[d.id].forEach(s => { const k = nameOf(s) + '\u0000' + s.p; m[k] = (m[k] || 0) + 1; });
+    Object.keys(m).sort((a, b) => a.localeCompare(b, 'de')).forEach(k => {
+      const [n, pid] = k.split('\u0000'), i = ppt.length + 1;
+      ppt.push([D(d.date), d.place || '', n, pname(pid), CAT_ONE[catOf(P(pid))] || '', m[k], E(price(pid)), { v: Math.round(m[k] * price(pid) * 100) / 100, s: 2, f: 'F' + i + '*G' + i }]);
+    });
+  });
+
+  // Einzelne Buchungen
+  const SRC = { scan: 'Scan', manuell: 'ohne Scan', nachgetragen: 'nachgetragen', import: 'Import' };
+  const bk = [[H('Datum'), H('Uhrzeit'), H('Ziel'), H('Name'), H('Getränk'), H('Sorte'), H('Preis'), H('Art')]];
+  days.forEach(d => byDay[d.id].forEach(s => bk.push([D(d.date), { v: XL.time(s.t), s: 6 }, d.place || '', nameOf(s), pname(s.p), CAT_ONE[catOf(P(s.p))] || '', E(price(s.p)), SRC[s.src] || s.src || ''])));
+
+  // Getränke
+  const gt = [[H('Getränk'), H('Sorte'), H('Preis'), H('Warnen ab'), H('Gebinde'), H('Barcodes')]];
+  S.products.forEach(p => gt.push([p.name, CAT_ONE[catOf(p)] || '', E(p.price || 0), p.low || null, packsText(p.packs), (p.codes || []).join(', ')]));
+
+  // Übersicht
+  const sum = plist.reduce((a, x) => a + x.cost, 0), beer = all.filter(s => catOf(P(s.p)) === 'bier').length;
+  const ov = [
+    [{ v: 'Wexhainis Getränke-Strichliste – Auswertung', s: 3 }],
+    [],
+    ['Zeitraum', D(from), D(to)],
+    ['Erstellt am', D(todayISO()), new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })],
+    ['Erstellt von', S.me || (S.user && S.user.email) || ''],
+    [],
+    ['Tage', days.length],
+    ['Personen mit Buchungen', plist.length],
+    ['Getränke gebucht', all.length],
+    ['davon Bier', beer],
+    ['Wert der gebuchten Getränke', E(sum)],
+    ['Nicht gescannte Flaschen (laut Zählung)', missTot],
+    ['Wert der Fehlmenge', E(missVal)],
+    [],
+    [{ v: 'Tage im Zeitraum', s: 3 }],
+    [H('Datum'), H('Ziel'), H('Getränke gebucht'), H('Wert'), H('Personen'), H('Abgeschlossen')]
+  ];
+  days.forEach(d => { const l = byDay[d.id]; ov.push([D(d.date), d.place || '', l.length, E(l.reduce((a, s) => a + price(s.p), 0)), new Set(l.map(s => s.uid)).size, d.closed ? 'ja' : 'nein']); });
+  ov.push([]);
+  ov.push([{ v: 'Hinweis: Kosten mit den aktuellen Preisen der Getränke berechnet.', s: 0 }]);
+
+  return XL.build([
+    { name: 'Übersicht', rows: ov, widths: [40, 22, 18, 14, 12, 14] },
+    { name: 'Pro Person', rows: pp, widths: [24, 28, ...usedP.map(() => 12), 16, 14], freeze: 1, filter: 1, filterEnd: last },
+    { name: 'Person pro Tag', rows: ppt, widths: [12, 22, 24, 24, 16, 9, 10, 11], freeze: 1, filter: 1 },
+    { name: 'Abgleich pro Tag', rows: abg, widths: [12, 22, 24, 16, 13, 10, 10, 10, 10, 10, 13, 14], freeze: 1, filter: 1 },
+    { name: 'Buchungen', rows: bk, widths: [12, 9, 22, 24, 24, 16, 10, 14], freeze: 1, filter: 1 },
+    { name: 'Getränke', rows: gt, widths: [26, 18, 10, 11, 26, 40], freeze: 1, filter: 1 }
+  ]);
+}
+
+function downloadBlob(name, blob) {
+  const a = document.createElement('a'), url = URL.createObjectURL(blob);
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
 function download(name, text, type) {
   const a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type }));
   a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -1861,6 +2048,7 @@ adminBody.addEventListener('change', e => {
   const t = e.target, day = selDayObj();
   if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
   if (t.id === 'nbWho') { nbSel = t.value; renderAdmin(); return; }
+  if (t.id === 'xlFrom' || t.id === 'xlTo') { if (t.value) { if (t.id === 'xlFrom') xlFrom = t.value; else xlTo = t.value; } return; }
   if (t.id === 'logDate') { logDate = t.value || todayISO(); S.logScans = null; renderAdmin(); return; }
   if (t.id === 'logScans') { logWithScans = t.checked; S.logScans = null; renderAdmin(); return; }
   if (t.dataset.er) { const [rid, f] = t.dataset.er.split('|'); const r = allRules().find(x => x.id === rid); editRule(rid, f, t.type === 'checkbox' ? t.checked : t.value); logEv('egg', 'ändert Easter Egg „' + ((r && r.texts && r.texts[0] && r.texts[0].t) || rid) + '“ (' + f + ')'); return; }
@@ -2052,6 +2240,25 @@ adminBody.addEventListener('click', async e => {
     } catch (err) { toast('Backup braucht Internet'); }
   }
   else if (a === 'restore') $('fileIn').click();
+  else if (a === 'xlAll' || a === 'xlMonth' || a === 'xlDay') {
+    if (a === 'xlAll') { xlFrom = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date); xlTo = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date); if (xlTo < todayISO()) xlTo = todayISO(); }
+    if (a === 'xlMonth') { const t = todayISO(); xlFrom = t.slice(0, 8) + '01'; const [y, m] = t.split('-').map(Number); xlTo = t.slice(0, 8) + String(new Date(y, m, 0).getDate()).padStart(2, '0'); }
+    if (a === 'xlDay' && day) { xlFrom = xlTo = day.date; }
+    const f = $('xlFrom'), t2 = $('xlTo'); if (f) f.value = xlFrom; if (t2) t2.value = xlTo;
+  }
+  else if (a === 'xlGo') {
+    let from = ($('xlFrom') || {}).value || xlFrom, to = ($('xlTo') || {}).value || xlTo;
+    if (!from || !to) { toast('Bitte Zeitraum wählen'); return; }
+    if (from > to) [from, to] = [to, from];
+    if (!navigator.onLine) { toast('Für die Auswertung wird Internet benötigt'); return; }
+    b.disabled = true; b.textContent = 'Erstelle …';
+    try {
+      const blob = await buildReport(from, to);
+      downloadBlob('Wexhainis-Strichliste_' + from + (from === to ? '' : '_bis_' + to) + '.xlsx', blob);
+      toast('Excel erstellt'); logEv('system', 'erstellt Excel-Auswertung ' + fmtDate(from) + (from === to ? '' : ' bis ' + fmtDate(to)));
+    } catch (err) { console.error(err); toast(err.message || 'Excel konnte nicht erstellt werden'); }
+    b.disabled = false; b.textContent = 'Excel erstellen';
+  }
   else if (a === 'erTest') {
     const r = allRules().find(x => x.id === id); if (!r) return;
     const v = r.kind === 'schnaps' ? 11 : r.kind === 'after' ? r.n2 : r.n || 1, tx = pickText(r, v);
