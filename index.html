@@ -29,6 +29,16 @@
     return ok();
   })();
 })();
+/* Nachtmodus: auto = dunkel bei dunklem Handy-Design oder zwischen 19 und 7 Uhr */
+window.applyTheme = function () {
+  let m = 'auto'; try { m = localStorage.getItem('strichliste_theme') || 'auto'; } catch (e) {}
+  const h = new Date().getHours();
+  const dark = m === 'dark' || (m === 'auto' && ((window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) || h >= 19 || h < 7));
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.documentElement.dataset.mode = m;
+  const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = '#141414';
+};
+applyTheme();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
@@ -166,6 +176,52 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+#themeBtn{padding:4px 9px;font-size:.74rem;border-radius:999px}
+/* ---- Nachtmodus ---- */
+:root[data-theme=dark]{--bg:#121211;--ink:#f1ede2;--mu:#aaa392;--line:#3a372f;--white:#1e1d1a;--wy2:#3a3215;--pet:#6cc58a;--pen:#ff7366;--amb:#e3a64a;color-scheme:dark}
+[data-theme=dark] .top,[data-theme=dark] .egg-in,[data-theme=dark] .wcard,[data-theme=dark] .lowbar{background-color:#0a0a0a}
+[data-theme=dark] .top::after,[data-theme=dark] .wcard::before{background:repeating-linear-gradient(-45deg,#0a0a0a 0 9px,var(--wy) 9px 18px)}
+[data-theme=dark] .egg-in{background-image:linear-gradient(#0a0a0a,#0a0a0a),repeating-linear-gradient(-45deg,#0a0a0a 0 10px,var(--wy) 10px 20px)}
+[data-theme=dark] .lowbar::before{background:repeating-linear-gradient(-45deg,var(--pen) 0 8px,#0a0a0a 8px 16px)}
+[data-theme=dark] .b.pri,[data-theme=dark] .tag.act,[data-theme=dark] .av,[data-theme=dark] .badge.got .medal,[data-theme=dark] .egg-in small,[data-theme=dark] .lowbar #lowOpen{color:#141414}
+[data-theme=dark] .b.pri{border-color:var(--wy)}
+[data-theme=dark] .mode button.on{background:var(--wy);color:#141414}
+[data-theme=dark] .avbtn i{background:#0a0a0a}
+[data-theme=dark] .note.ok,[data-theme=dark] .last{background:#1b2a20}
+[data-theme=dark] .note.bad{background:#3a1d1b}
+[data-theme=dark] .setup code,[data-theme=dark] .uid{background:#2b2820}
+[data-theme=dark] .toast{background:#f1ede2;color:#141414}
+[data-theme=dark] .vp,[data-theme=dark] .ph{background:#000}
+[data-theme=dark] .tag.cls{color:var(--mu)}
+[data-theme=dark] .rank.me{background:#3a3215}
+[data-theme=dark] .wstats div[style*="var(--white)"] b{color:var(--ink)!important}
+.xtabs{display:flex;flex-wrap:wrap;margin-bottom:10px}
+.xtabs button{flex:1 1 auto}
+.rank{display:grid;grid-template-columns:28px 34px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.rank .no{font-family:"Oswald","Arial Narrow",sans-serif;font-size:1.1rem;color:var(--mu);text-align:center}
+.rank.me{background:var(--wy2);border-radius:8px}
+.rank b{font-weight:600}
+.rank .val{font-family:"Oswald","Arial Narrow",sans-serif;font-size:1.15rem}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--pet)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.badge{border:2px dashed var(--line);border-radius:14px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:118px}
+.badge .medal{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 1.25rem/1 "Oswald","Arial Narrow",sans-serif;background:var(--line);color:var(--mu)}
+.badge b{font-size:.8rem;line-height:1.2}
+.badge small{font-size:.68rem;color:var(--mu);line-height:1.2}
+.badge.got{border:2px solid var(--ink);background:var(--white)}
+.badge.got .medal{background:var(--wy);color:var(--ink);border:3px solid var(--ink)}
+.wcard{background:var(--ink);color:#fff;border-radius:18px;padding:18px;position:relative;overflow:hidden}
+.wcard::before{content:"";position:absolute;left:0;right:0;top:0;height:10px;background:repeating-linear-gradient(-45deg,var(--ink) 0 9px,var(--wy) 9px 18px)}
+.wcard h3{font-family:"Oswald","Arial Narrow",sans-serif;color:var(--wy);font-size:1.6rem;margin:10px 0 2px}
+.wcard .sub{color:#d9d2bd;font-size:.9rem}
+.wstats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.wstats div{background:#232323;border-radius:12px;padding:10px}
+.wstats b{display:block;font:700 1.7rem/1.1 "Oswald","Arial Narrow",sans-serif;color:var(--wy)}
+.wstats span{font-size:.8rem;color:#d9d2bd}
+.wtitle{border:2px solid var(--wy);border-radius:12px;padding:10px;text-align:center}
+.wtitle small{display:block;color:#d9d2bd;font-size:.75rem}
+.wtitle b{font:700 1.35rem/1.2 "Oswald","Arial Narrow",sans-serif;color:var(--wy)}
 .lowbar{position:fixed;left:0;right:0;bottom:0;z-index:80;padding:12px 12px calc(12px + env(safe-area-inset-bottom));background:var(--ink);box-shadow:0 -6px 18px rgba(0,0,0,.35)}
 .lowbar::before{content:"";position:absolute;left:0;right:0;top:-7px;height:7px;background:repeating-linear-gradient(-45deg,var(--pen) 0 8px,var(--ink) 8px 16px)}
 .lowbar-in{max-width:640px;margin:0 auto;display:flex;gap:12px;align-items:center;justify-content:space-between;color:#fff}
@@ -223,7 +279,7 @@ body.noauth main{display:none!important}
 <header class="top">
   <div class="top-in">
     <h1 id="title"><span class="t1">Wexhainis</span><span class="t2">Getränke-Strichliste</span></h1>
-    <div class="top-side"><span class="net" id="net">…</span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
+    <div class="top-side"><span style="display:flex;gap:6px;align-items:center"><button class="b sm back" id="themeBtn" aria-label="Hell- oder Nachtmodus">Auto</button><span class="net" id="net">…</span></span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
   </div>
 </header>
 <div class="wrap">
@@ -260,7 +316,9 @@ body.noauth main{display:none!important}
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
-      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><br><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px"><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div class="note" id="youthNote" hidden style="margin-top:10px"><b>Jugendschutz:</b> Bier, Radler, Wein/Sekt und Schnaps sind für dich gesperrt.</div>
+      <div class="note" id="drvNote" hidden style="margin-top:10px"><b>Du fährst heute.</b> Beim Scannen von Alkohol fragt die App nach. Gute Heimfahrt!</div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--white)">
         <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
         <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
@@ -271,6 +329,11 @@ body.noauth main{display:none!important}
     <div class="note" id="msg" hidden></div>
     <div id="last" hidden></div>
     <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div></section>
+    <section id="extraSec" hidden>
+      <div id="wrapBanner"></div>
+      <div class="mode xtabs" id="extraTabs"><button data-x="best">Bestenliste</button><button data-x="album">Sammelalbum</button><button data-x="konto">Mein Konto</button><button data-x="wrap">Rückblick</button></div>
+      <div id="extra"></div>
+    </section>
     <section id="histSec" hidden>
       <h2>Easter Eggs heute</h2>
       <div class="mode" id="histTabs" style="display:inline-flex;margin-bottom:8px"><button data-h="all" class="on">Für alle</button><button data-h="mine">Deine</button></div>
@@ -347,7 +410,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '14';
+const APP_VERSION = '15';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -387,7 +450,7 @@ const packsText = packs => (packs || []).map(k => k.l + ' ' + k.n).join('; ');
 
 /* Neu zeichnen, ohne laufende Eingaben, Fokus und aufgeklappte Bereiche zu verlieren
    (wichtig, weil andere Handys ständig Buchungen schicken) */
-const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role', 'data-er'];
+const ATTRS = ['data-p', 'data-load', 'data-cnt', 'data-day', 'data-n', 'data-sel', 'data-u', 'data-role', 'data-er', 'data-grp', 'data-minor', 'data-gr'];
 function fieldKey(el) {
   if (el.id) return '#' + el.id;
   for (const a of ATTRS) if (el.hasAttribute(a)) return a + '=' + el.getAttribute(a) + '|' + (el.dataset.id || '');
@@ -479,7 +542,7 @@ const col = name => F.collection(db, name);
 const dref = (name, id) => F.doc(db, name, id);
 const newId = name => F.doc(col(name)).id;
 
-let unsub = { cfg: null, log: null, avatars: null, activeScans: null, ueggs: null, ustatsAll: null, gtotal: null, products: null, meta: null, activeDay: null, mine: null, me: null, ustats: null, live: null, days: null, dayScans: null, users: null };
+let unsub = { cfgGroups: null, album: null, drv: null, dayDrv: null, cfg: null, log: null, avatars: null, activeScans: null, ueggs: null, ustatsAll: null, gtotal: null, products: null, meta: null, activeDay: null, mine: null, me: null, ustats: null, live: null, days: null, dayScans: null, users: null };
 const stop = k => { if (unsub[k]) { unsub[k](); unsub[k] = null; } };
 function fail(where) {
   return err => {
@@ -505,14 +568,25 @@ function startUserListeners() {
     const key = d ? (d.role || '') + '|' + !!d.blocked + '|' + !!d.deleted : 'none';
     if (lastRoleKey !== null && key !== lastRoleKey && S.user === u) refreshRole(u);
     lastRoleKey = key;
+    autoApproveSelf();
     renderScan();
   }, fail('me'));
   unsub.products = F.onSnapshot(col('products'), snap => {
     S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    if (S.isAdmin && !snap.metadata.fromCache) S.products.forEach(p => {
+      const want = !p.cat ? guessCat(p.name) : (p.cat === 'radler' && guessCat(p.name) === 'alkfrei' ? 'alkfrei' : null);
+      if (want) fire(F.updateDoc(dref('products', p.id), { cat: want }), 'Sorte speichern');
+    });
     renderAll(); checkLowStock();
   }, fail('products'));
   stop('ustats'); stop('live'); S.ustats = null;
   unsub.ustats = F.onSnapshot(dref('ustats', u.uid), snap => { S.ustats = snap.exists() ? snap.data() : { all: 0, beer: 0 }; }, err => console.warn('ustats', err));
+  stop('cfgGroups'); stop('album');
+  unsub.cfgGroups = F.onSnapshot(dref('config', 'groups'), snap => {
+    const d = snap.exists() ? snap.data() : null;
+    S.groups = d && Array.isArray(d.list) ? d.list : null; renderAll();
+  }, err => console.warn('groups', err));
+  unsub.album = F.onSnapshot(dref('album', u.uid), snap => { S.album = snap.exists() ? (snap.data().r || {}) : {}; if (extraTab === 'album') renderExtra(); }, err => console.warn('album', err));
   stop('cfg');
   unsub.cfg = F.onSnapshot(dref('config', 'eggs'), snap => {
     const d = snap.exists() ? snap.data() : null;
@@ -526,7 +600,7 @@ function startUserListeners() {
   }, fail('meta'));
 }
 function listenActiveDay() {
-  stop('activeDay'); stop('mine'); stop('live'); stop('ueggs');
+  stop('activeDay'); stop('mine'); stop('live'); stop('ueggs'); stop('drv'); S.driver = false;
   S.activeDay = null; S.activeLoaded = false; S.myScans = []; S.pending = 0; S.groupEggs = []; S.myEggs = [];
   if (!S.active) { S.activeLoaded = true; renderAll(); return; }
   const uid = S.user.uid, dayId = S.active;
@@ -544,6 +618,7 @@ function listenActiveDay() {
     renderHist();
   }, err => console.warn('live', err));
   // eigene Easter Eggs des Tages
+  unsub.drv = F.onSnapshot(dref('drv', uid + '_' + dayId), snap => { S.driver = snap.exists(); renderScan(); }, err => console.warn('drv', err));
   unsub.ueggs = F.onSnapshot(dref('ueggs', uid + '_' + dayId), snap => {
     S.myEggs = snap.exists() ? (snap.data().items || []).slice().sort((a, b) => a.t - b.t) : [];
     renderHist();
@@ -570,8 +645,13 @@ function startAdminListeners() {
     Object.keys(AV).forEach(uid => { if (!seen.has(uid) && AV[uid]) setAvatarCache(uid, null); });
     avatarsChanged();
   }, err => console.warn('avatars', err));
+  let knownPending = null;
   unsub.users = F.onSnapshot(col('users'), snap => {
-    S.users = {}; snap.docs.forEach(d => { S.users[d.id] = d.data(); }); renderAdmin();
+    S.users = {}; snap.docs.forEach(d => { S.users[d.id] = d.data(); });
+    const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== (S.user && S.user.uid));
+    if (knownPending && pend.some(k => !knownPending.includes(k))) { toast('Neue Anmeldung wartet auf Freischaltung'); if (navigator.vibrate) navigator.vibrate(120); }
+    knownPending = pend;
+    renderAdmin();
   }, err => { if (err && err.code !== 'permission-denied') console.error(err); });
   const q = F.query(col('days'), F.orderBy('date', 'desc'), F.limit(150));
   unsub.days = F.onSnapshot(q, snap => {
@@ -595,16 +675,21 @@ async function checkAdmin() {
   S.isSuper = sup; S.isAdmin = adm || sup; S.adminChecked = true;
 }
 let lastRoleKey = null;
+// Super-Admins schalten sich selbst frei
+function autoApproveSelf() {
+  if (S.isSuper && S.meDoc && S.meDoc.pending === true && S.user) fire(F.updateDoc(dref('users', S.user.uid), { pending: false }), 'Freischalten');
+}
 async function refreshRole(u) {
   await checkAdmin();
   if (S.user !== u) return;
   if (S.isAdmin && !unsub.days) startAdminListeners();
   if (S.isAdmin) listenActiveScans();
+  autoApproveSelf();
   if (!S.isAdmin) stopAdminListeners();
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg'].forEach(stop);
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'album', 'drv'].forEach(stop);
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -617,10 +702,11 @@ function listenActiveScans() {
     S.activeScans = snap.docs.map(d => d.data()); checkLowStock();
   }, err => console.warn('activeScans', err));
 }
-function stopAdminListeners() { stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function stopAdminListeners() { stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
-  stop('dayScans'); S.dayScans = []; S.dayScansFor = S.selDay;
+  stop('dayScans'); stop('dayDrv'); S.dayScans = []; S.dayDrivers = []; S.dayScansFor = S.selDay;
+  if (S.selDay) unsub.dayDrv = F.onSnapshot(F.query(col('drv'), F.where('day', '==', S.selDay)), snap => { S.dayDrivers = snap.docs.map(d => d.data()); renderAdmin(); }, err => console.warn('dayDrv', err));
   if (!S.selDay) return;
   const q = F.query(col('scans'), F.where('day', '==', S.selDay));
   unsub.dayScans = F.onSnapshot(q, snap => {
@@ -644,7 +730,10 @@ const pname = id => (P(id) || {}).name || '(Getränk)';
 const uname = id => (S.users[id] || {}).name || '(Person)';
 // Easter-Egg-Zähler mitziehen, wenn Admins buchen oder stornieren
 function adjustCounters(uid, dayId, pid, d) {
-  const cat = catOf(P(pid));
+  const cat = catOf(P(pid)), u = uid === (S.user && S.user.uid) ? (S.meDoc || {}) : (S.users[uid] || {});
+  const nm = u.name || '', grp = u.grp || '';
+  fire(F.setDoc(dref('gboard', dayId), boardInc(uid, nm, grp, cat, d), { merge: true }), 'Zähler');
+  fire(F.setDoc(dref('gboard', 'total'), boardInc(uid, nm, grp, cat, d), { merge: true }), 'Zähler');
   fire(F.setDoc(dref('ustats', uid), incFor(cat, d), { merge: true }), 'Zähler');
   fire(F.setDoc(dref('gstats', dayId), incFor(cat, d), { merge: true }), 'Zähler');
   fire(F.setDoc(dref('gstats', 'total'), incFor(cat, d), { merge: true }), 'Zähler');
@@ -785,7 +874,7 @@ $('aBtn').addEventListener('click', async () => {
     btn.disabled = true; S.registering = name; renderScan();
     try {
       const cred = await F.createUserWithEmailAndPassword(auth, mail, pw);
-      await F.setDoc(dref('users', cred.user.uid), { name: name.slice(0, 40), email: mail.toLowerCase(), t: Date.now() });
+      await F.setDoc(dref('users', cred.user.uid), { name: name.slice(0, 40), email: mail.toLowerCase(), t: Date.now(), pending: true });
       S.me = name.slice(0, 40); logEv('person', 'registriert sich (' + mail.toLowerCase() + ')');
       $('aPw').value = $('aPw2').value = '';
     } catch (err) { toast(authMsg(err.code)); }
@@ -811,6 +900,13 @@ async function logout() {
   await F.signOut(auth); hidePasswords(); setView('scan');
 }
 $('logoutBtn').addEventListener('click', logout);
+$('drvBtn').addEventListener('click', () => {
+  if (!S.user || !S.activeDay) return;
+  const id = S.user.uid + '_' + S.activeDay.id;
+  if (S.driver) { fire(F.deleteDoc(dref('drv', id)), 'Fahrer'); toast('Fahrer-Modus aus'); }
+  else { fire(F.setDoc(dref('drv', id), { uid: S.user.uid, day: S.activeDay.id, t: Date.now(), name: S.me }), 'Fahrer'); toast('Fahrer-Modus an – gute Heimfahrt!'); }
+  S.driver = !S.driver; renderScan();
+});
 $('dayInfo').addEventListener('click', e => { if (e.target.closest('[data-logout]')) logout(); });
 
 /* ---------- eigenes Passwort ändern ---------- */
@@ -836,7 +932,7 @@ $('nameBtn').addEventListener('click', () => {
   const name = $('nameIn').value.trim().replace(/\s+/g, ' ');
   if (name.length < 3 || !/\s/.test(name)) { toast('Bitte Vor- und Nachnamen eingeben'); return; }
   if (!confirm('Getränke auf „' + name + '“ buchen? Der Name kann danach nicht mehr geändert werden.')) return;
-  fire(F.setDoc(dref('users', S.user.uid), { name: name.slice(0, 40), email: (S.user.email || '').toLowerCase(), t: Date.now() }), 'Name speichern');
+  fire(F.setDoc(dref('users', S.user.uid), { name: name.slice(0, 40), email: (S.user.email || '').toLowerCase(), t: Date.now(), pending: true }), 'Name speichern');
   S.me = name.slice(0, 40); logEv('person', 'legt den Namen „' + name.slice(0, 40) + '“ fest');
 });
 $('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('nameBtn').click(); });
@@ -871,18 +967,34 @@ const DEFAULT_RULES = [
   { id: 'd_g20',   who: 'group', kind: 'count', cat: 'bier', period: 'day', n: 20, texts: [T('20 Bier für d’Gruppe!', '{name} hat des 20. Bier vom Tag gscannt.')] },
   { id: 'd_g30',   who: 'group', kind: 'count', cat: 'bier', period: 'day', n: 30, texts: [T('30 Bier für d’Gruppe!', '{name} hat des 30. Bier vom Tag gscannt – Runde!')] },
   { id: 'd_gsday', who: 'group', kind: 'schnaps', cat: 'all', period: 'day',   texts: [T('Schnapszahl für alle!', '{n} Getränke heut – ausglöst von {name}.')] },
-  { id: 'd_gsall', who: 'group', kind: 'schnaps', cat: 'all', period: 'total', texts: [T('Schnapszahl für alle!', '{n} Getränke seit Beginn – ausglöst von {name}.')] }
+  { id: 'd_gsall', who: 'group', kind: 'schnaps', cat: 'all', period: 'total', texts: [T('Schnapszahl für alle!', '{n} Getränke seit Beginn – ausglöst von {name}.')] },
+  { id: 'd_t30',   who: 'team', kind: 'count', cat: 'all', period: 'day', n: 30, texts: [T('Runde für d’{gruppe}!', '{name} hat für d’{gruppe} des 30. Getränk heut gscannt.')] },
+  { id: 'd_tna',   who: 'team', kind: 'count', cat: 'na',  period: 'day', n: 10, texts: [T('D’{gruppe} bleibt vernünftig!', '10 alkoholfreie Getränke heut – ausglöst von {name}.')] }
 ];
 const COUNT_KINDS = ['count', 'every', 'from', 'schnaps'];
 const KINDS = [['count', 'genau bei Anzahl'], ['every', 'bei jeder n-ten'], ['from', 'ab Anzahl jedes Mal'], ['schnaps', 'bei Schnapszahl (11, 22 …)'], ['after', 'erstes … nach mind. n …'], ['time', 'Scan zu einer Uhrzeit'], ['date', 'Scan an einem Datum']];
 const allRules = () => S.eggRules || DEFAULT_RULES;
+// Jugendschutz / Fahrer / Gruppe des eigenen Kontos
+const isMinor = () => !!(S.meDoc && S.meDoc.minor);
+const isPending = () => !!(S.meDoc && S.meDoc.pending === true) && !S.isAdmin;
+const myGroup = () => (S.meDoc && S.meDoc.grp) || '';
+// Easter Eggs mit Alkoholbezug (für Minderjährige ausgeblendet)
+const ruleAlc = r => (COUNT_KINDS.includes(r.kind) && isAlc(r.cat)) || (r.kind === 'after' && (isAlc(r.cat) || isAlc(r.cat2)));
+const DEFAULT_GROUPS = [{ id: 'wefzg', name: 'Wilde Wefzg' }, { id: 'wache', name: 'Wespenwache' }, { id: 'glauer', name: 'Gloggenglauer' }, { id: 'goischd', name: 'Hofgoischd' }, { id: 'hexe', name: 'Taubentalhexe' }];
+const groupsAll = () => S.groups || DEFAULT_GROUPS;
+const gname = id => (groupsAll().find(g => g.id === id) || {}).name || '';
 const activeRules = () => allRules().filter(r => r.on !== false);
 
 /* ---------- Getränkesorte ---------- */
-const CATS = [['bier', 'Bier'], ['radler', 'Radler / Alkoholfrei'], ['wasser', 'Wasser'], ['soft', 'Softdrink / Schorle'], ['schnaps', 'Schnaps'], ['sonst', 'Sonstiges']];
+const CATS = [['bier', 'Bier'], ['radler', 'Radler / Mischbier'], ['alkfrei', 'Alkoholfrei (Bier, Sekt …)'], ['wein', 'Wein / Sekt'], ['wasser', 'Wasser'], ['soft', 'Softdrink / Schorle'], ['schnaps', 'Schnaps / Likör'], ['sonst', 'Sonstiges']];
+// alkoholische Sorten: für Minderjährige gesperrt
+const ALC = ['bier', 'radler', 'wein', 'schnaps'], NONALC = ['wasser', 'soft', 'alkfrei'];
+const isAlc = cat => ALC.includes(cat);
 function guessCat(name) {
   const n = String(name || '').toLowerCase();
-  if (/radler|alkoholfrei|alkfrei|0[,.]0|null komma|ohne alkohol/.test(n)) return 'radler';
+  if (/alkoholfrei|alkfrei|0[,.]0 ?%|null komma|ohne alkohol|\b0[,.]0\b/.test(n)) return 'alkfrei';
+  if (/radler|russ\b|diesel|mischbier|alster/.test(n)) return 'radler';
+  if (/wein|sekt|prosecco|secco|spritz|hugo|aperol|glühwein|gluehwein|cava|champagner/.test(n)) return 'wein';
   if (/wasser|sprudel|mineral/.test(n)) return 'wasser';
   if (/schnaps|korn|likör|likoer|jäger|jaeger|wodka|vodka|obstler|kirsch|williams|shot|kurzer|ouzo|tequila|rum\b|gin\b/.test(n)) return 'schnaps';
   if (/pils|bier|helles|export|weizen|weißbier|weissbier|lager|märzen|maerzen|bock|dunkles|keller|zwickel|hefe|landbier/.test(n)) return 'bier';
@@ -893,19 +1005,27 @@ const catOf = p => (p && p.cat) || guessCat(p && p.name);
 const catSelect = (attrs, cur, name) => '<select ' + attrs + '><option value="">automatisch (' + esc(CATS.find(c => c[0] === guessCat(name))[1]) + ')</option>' +
   CATS.map(c => '<option value="' + c[0] + '"' + (cur === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select>';
 // Wörter für Beschreibungen
-const CAT_ONE = { all: 'Getränk', bier: 'Bier', radler: 'Radler/Alkoholfreies', wasser: 'Wasser', soft: 'Softdrink', schnaps: 'Schnaps', sonst: 'sonstige Getränk' };
-const CAT_MANY = { all: 'Getränke', bier: 'Bier', radler: 'Radler/Alkoholfreie', wasser: 'Wasser', soft: 'Softdrinks', schnaps: 'Schnäpse', sonst: 'sonstige Getränke' };
+const CAT_ONE = { all: 'Getränk', bier: 'Bier', radler: 'Radler', alkfrei: 'Alkoholfreies', wein: 'Wein/Sekt', wasser: 'Wasser', soft: 'Softdrink', schnaps: 'Schnaps', sonst: 'sonstige Getränk', na: 'alkoholfreie Getränk' };
+const CAT_MANY = { all: 'Getränke', bier: 'Bier', radler: 'Radler', alkfrei: 'Alkoholfreie', wein: 'Wein/Sekt', wasser: 'Wasser', soft: 'Softdrinks', schnaps: 'Schnäpse', sonst: 'sonstige Getränke', na: 'alkoholfreie Getränke' };
 const unit = (cat, k) => k === 1 ? CAT_ONE[cat] : CAT_MANY[cat];
 
 /* ---------- Zähler: all = alle Getränke, beer = Bier, c_<sorte> = andere Sorten ---------- */
 const ckey = cat => cat === 'all' ? 'all' : cat === 'bier' ? 'beer' : 'c_' + cat;
 const cval = (m, cat) => (m && m[ckey(cat)]) || 0;
 const incFor = (cat, d) => ({ all: F.increment(d), [ckey(cat)]: F.increment(d) });
+// Ranglisten-Zähler: gboard/{Tag|total} = { g: { gruppe: {all, beer, na} }, p: { uid: {n, g, all, beer, na} } }
+const tval = (m, cat) => !m ? 0 : cat === 'all' ? (m.all || 0) : cat === 'bier' ? (m.beer || 0) : cat === 'na' ? (m.na || 0) : 0;
+function boardInc(uid, name, grp, cat, d) {
+  const x = { all: F.increment(d), beer: F.increment(cat === 'bier' ? d : 0), na: F.increment(NONALC.includes(cat) ? d : 0) };
+  const o = { p: { [uid]: Object.assign({ n: name || '', g: grp || '' }, x) } };
+  if (grp) o.g = { [grp]: Object.assign({}, x) };
+  return o;
+}
 
 /* ---------- Hilfen ---------- */
 const isSchnaps = n => n >= 11 && /^(\d)\1+$/.test(String(n));
 function nextSchnaps(n) { for (let k = Math.max(11, n + 1); k < 1e7; k++) if (isSchnaps(k)) return k; return null; }
-const fill = (t, v) => String(t).replace(/\{n\}/g, v.n == null ? '' : v.n).replace(/\{name\}/g, v.name || 'Jemand');
+const fill = (t, v) => String(t).replace(/\{n\}/g, v.n == null ? '' : v.n).replace(/\{name\}/g, v.name || 'Jemand').replace(/\{gruppe\}/g, v.gruppe || 'Gruppe');
 // „Epoche“: nach „Statistiken zurücksetzen“ dürfen alle Easter Eggs neu auslösen
 const epoch = () => (S.metaState && S.metaState.epoch) || 0;
 function eggOnce(key) {
@@ -949,7 +1069,7 @@ function describeRule(r) {
   else if (r.kind === 'after') d = 'erstes ' + CAT_ONE[c] + ' nach mind. ' + r.n2 + ' ' + unit(r.cat2 || 'bier', r.n2);
   else if (r.kind === 'time') d = 'Scan um ' + (r.time || '?') + ' Uhr';
   else if (r.kind === 'date') d = 'Scan am ' + (r.date || '?');
-  return w + ': ' + d;
+  return (r.who === 'team' ? 'Pro Gruppe' : w) + ': ' + d;
 }
 
 /* ---------- Anzeige ---------- */
@@ -1008,7 +1128,8 @@ async function eggsAfterBook(pid, scanId) {
   const now = new Date(), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
   const ddmm = String(now.getDate()).padStart(2, '0') + '.' + String(now.getMonth() + 1).padStart(2, '0');
   const out = [];
-  rules.filter(r => r.who !== 'group').forEach(r => {
+  const minor = isMinor();
+  rules.filter(r => r.who !== 'group' && r.who !== 'team' && !(minor && ruleAlc(r))).forEach(r => {
     let v = null, key = null;
     if (COUNT_KINDS.includes(r.kind)) {
       const rc = r.cat || 'all';
@@ -1027,8 +1148,8 @@ async function eggsAfterBook(pid, scanId) {
       if (ddmm !== r.date) return; key = now.getFullYear() + '_' + uid + '_' + r.id;
     } else return;
     if (!eggOnce(key)) return;
-    const tx = pickText(r, v || 0), vals = { n: v, name: S.me };
-    out.push({ title: fill(tx.t, vals), sub: fill(tx.s, vals), uid, name: S.me });
+    const tx = pickText(r, v || 0), vals = { n: v, name: S.me, gruppe: gname(myGroup()) };
+    out.push({ title: fill(tx.t, vals), sub: fill(tx.s, vals), uid, name: S.me, rid: r.id });
   });
 
   // eigene Gesamtzahl
@@ -1038,41 +1159,74 @@ async function eggsAfterBook(pid, scanId) {
   out.forEach(e => showEgg(e));
   if (out.length) {
     const t0 = Date.now();
-    fire(F.setDoc(dref('ueggs', uid + '_' + dayId), { uid, day: dayId, items: F.arrayUnion(...out.map((e, i) => ({ t: t0 + i, title: e.title, sub: e.sub }))) }, { merge: true }), 'Easter Egg merken');
+    fire(F.setDoc(dref('ueggs', uid + '_' + dayId), { uid, day: dayId, items: F.arrayUnion(...out.map((e, i) => ({ t: t0 + i, title: e.title, sub: e.sub, rid: e.rid }))) }, { merge: true }), 'Easter Egg merken');
+    albumAdd(out.map(e => e.rid));
   }
 
   // Gruppe: genaue Zählung nur online per Transaktion
-  const gDay = dref('gstats', dayId), gAll = dref('gstats', 'total');
-  const k = ckey(cat);
-  const fallback = () => { fire(F.setDoc(gDay, incFor(cat, 1), { merge: true }), 'Zähler'); fire(F.setDoc(gAll, incFor(cat, 1), { merge: true }), 'Zähler'); };
+  const gDay = dref('gstats', dayId), gAll = dref('gstats', 'total'), bDay = dref('gboard', dayId), bAll = dref('gboard', 'total');
+  const k = ckey(cat), grp = myGroup();
+  const fallback = () => {
+    fire(F.setDoc(gDay, incFor(cat, 1), { merge: true }), 'Zähler'); fire(F.setDoc(gAll, incFor(cat, 1), { merge: true }), 'Zähler');
+    fire(F.setDoc(bDay, boardInc(uid, S.me, grp, cat, 1), { merge: true }), 'Zähler'); fire(F.setDoc(bAll, boardInc(uid, S.me, grp, cat, 1), { merge: true }), 'Zähler');
+  };
   if (!navigator.onLine) { fallback(); return; }
   let res;
   try {
     res = await F.runTransaction(db, async tx => {
-      const a = await tx.get(gDay), b = await tx.get(gAll);
+      const a = await tx.get(gDay), b = await tx.get(gAll), c = await tx.get(bDay), d = await tx.get(bAll);
       const dm = Object.assign({}, a.exists() ? a.data() : {}), tm = Object.assign({}, b.exists() ? b.data() : {});
       dm.all = (dm.all || 0) + 1; tm.all = (tm.all || 0) + 1;
       if (k !== 'all') { dm[k] = (dm[k] || 0) + 1; tm[k] = (tm[k] || 0) + 1; }
       tx.set(gDay, { all: dm.all, [k]: dm[k] }, { merge: true });
       tx.set(gAll, { all: tm.all, [k]: tm[k] }, { merge: true });
-      return { dm, tm };
+      // Rangliste: Person und Gruppe
+      const bump = (doc) => {
+        const m = doc.exists() ? doc.data() : {}, pm = Object.assign({}, (m.p || {})[uid]), gm = grp ? Object.assign({}, (m.g || {})[grp]) : null;
+        pm.n = S.me; pm.g = grp; pm.all = (pm.all || 0) + 1; pm.beer = (pm.beer || 0) + (cat === 'bier' ? 1 : 0); pm.na = (pm.na || 0) + (NONALC.includes(cat) ? 1 : 0);
+        if (gm) { gm.all = (gm.all || 0) + 1; gm.beer = (gm.beer || 0) + (cat === 'bier' ? 1 : 0); gm.na = (gm.na || 0) + (NONALC.includes(cat) ? 1 : 0); }
+        const o = { p: { [uid]: pm } }; if (gm) o.g = { [grp]: gm };
+        return { o, gm };
+      };
+      const bd = bump(c), bt = bump(d);
+      tx.set(bDay, bd.o, { merge: true }); tx.set(bAll, bt.o, { merge: true });
+      return { dm, tm, gdm: bd.gm, gtm: bt.gm };
     });
   } catch (err) { fallback(); return; }
   if (!eggsOn()) return;
+  const sendGroupEgg = (r, v, id, gruppe) => {
+    if (!eggOnce('sent_' + uid + '_' + id)) return; // nach Rückgängig nicht noch einmal
+    eggOnce('seen_' + uid + '_' + id);
+    const tx = pickText(r, v), vals = { n: v, name: S.me, gruppe };
+    const e = { title: fill(tx.t, vals), sub: fill(tx.s, vals), group: true, uid, name: S.me };
+    if (!(minor && ruleAlc(r))) showEgg(e);
+    albumAdd([r.id]);
+    const doc = { id: epoch() + '_' + id, day: dayId, title: e.title, sub: e.sub, uid, name: S.me, t: Date.now(), alc: ruleAlc(r), rid: r.id };
+    fire(F.setDoc(dref('live', (epoch() + '_' + id).replace(/[^\w-]/g, '_')), doc), 'Easter Egg senden');
+  };
   rules.filter(r => r.who === 'group' && COUNT_KINDS.includes(r.kind)).forEach(r => {
     const rc = r.cat || 'all';
     if (rc !== 'all' && rc !== cat) return;
     const v = cval(r.period === 'total' ? res.tm : res.dm, rc);
     if (!ruleHits(r, v)) return;
     if (r.kind === 'schnaps' && r.period === 'total' && v === cval(res.dm, rc) && rules.some(x => x.who === 'group' && x.kind === 'schnaps' && x.period !== 'total' && (x.cat || 'all') === rc)) return;
-    const id = dayId + '_' + r.id + '_' + v;
-    if (!eggOnce('sent_' + uid + '_' + id)) return; // nach Rückgängig nicht noch einmal
-    eggOnce('seen_' + uid + '_' + id);
-    const tx = pickText(r, v), vals = { n: v, name: S.me };
-    const e = { title: fill(tx.t, vals), sub: fill(tx.s, vals), group: true, uid, name: S.me };
-    showEgg(e);
-    fire(F.setDoc(dref('live', (epoch() + '_' + id).replace(/[^\w-]/g, '_')), { id: epoch() + '_' + id, day: dayId, title: e.title, sub: e.sub, uid, name: S.me, t: Date.now() }), 'Easter Egg senden');
+    sendGroupEgg(r, v, dayId + '_' + r.id + '_' + v, '');
   });
+  // Gruppen (Narrenfiguren)
+  if (grp) rules.filter(r => r.who === 'team' && COUNT_KINDS.includes(r.kind)).forEach(r => {
+    const rc = r.cat || 'all';
+    if (rc === 'bier' && cat !== 'bier') return;
+    if (rc === 'na' && !NONALC.includes(cat)) return;
+    const v = tval(r.period === 'total' ? res.gtm : res.gdm, rc);
+    if (!ruleHits(r, v)) return;
+    sendGroupEgg(r, v, dayId + '_' + r.id + '_' + grp + '_' + v, gname(grp));
+  });
+}
+// Sammelalbum: welche Easter Eggs man schon hatte
+function albumAdd(rids) {
+  if (!S.user || !rids.length) return;
+  const r = {}; rids.filter(Boolean).forEach(id => { r[id] = { n: F.increment(1), t: Date.now() }; });
+  fire(F.setDoc(dref('album', S.user.uid), { r }, { merge: true }), 'Sammelalbum');
 }
 function eggsAfterUndo(pid) {
   const day = S.activeDay; if (!day || !S.user) return;
@@ -1083,6 +1237,7 @@ function onLiveEgg(d) {
   if (!d || !d.id || !S.user || d.uid === S.user.uid) return;
   if (Date.now() - (d.t || 0) > 120000) return; // älter als 2 Minuten: nicht mehr zeigen
   if (!eggOnce('seen_' + S.user.uid + '_' + d.id)) return;
+  if (d.alc && isMinor()) return; // Jugendschutz
   showEgg({ title: d.title, sub: d.sub, group: true, uid: d.uid, name: d.name });
 }
 
@@ -1158,19 +1313,21 @@ function rulesEditor() {
   const rules = allRules();
   const catOpts = (cur, withAll) => (withAll ? '<option value="all"' + (cur === 'all' ? ' selected' : '') + '>Alle Getränke</option>' : '') + CATS.map(c => '<option value="' + c[0] + '"' + (cur === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('');
   let h = '<section><h2>Easter Eggs verwalten (' + rules.length + ')</h2>' +
-    '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Nur für Super-Admins. Änderungen gelten sofort auf allen Handys. In Texten: <code>{n}</code> = Zahl, <code>{name}</code> = Person. Mehrere Zeilen „Titel | Text“ wechseln sich ab.</div>' +
+    '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Nur für Super-Admins. Änderungen gelten sofort auf allen Handys. In Texten: <code>{n}</code> = Zahl, <code>{name}</code> = Person, <code>{gruppe}</code> = Narrenfigur. Mehrere Zeilen „Titel | Text“ wechseln sich ab.</div>' +
     (S.eggRules ? '' : '<div class="note" style="margin-bottom:6px">Es gelten die Standard-Easter-Eggs. Sobald du etwas änderst, werden sie gespeichert.</div>');
   rules.forEach(r => {
     const k = r.id, q = f => 'data-er="' + k + '|' + f + '"';
     const isCount = COUNT_KINDS.includes(r.kind);
-    const kinds = KINDS.filter(x => r.who !== 'group' || COUNT_KINDS.includes(x[0]));
+    const kinds = KINDS.filter(x => (r.who !== 'group' && r.who !== 'team') || COUNT_KINDS.includes(x[0]));
     h += '<details class="pc" data-k="er' + k + '"' + (erNewOpen === k ? ' open' : '') + '><summary><span style="min-width:0"><b>' + esc((r.texts && r.texts[0] && r.texts[0].t) || 'Easter Egg') + '</b><br><small>' + esc(describeRule(r)) + '</small></span>' +
       '<span class="tag ' + (r.on === false ? 'cls' : 'act') + '">' + (r.on === false ? 'aus' : 'an') + '</span></summary><div class="grid2">' +
       '<label class="chk full"><input type="checkbox" ' + q('on') + (r.on === false ? '' : ' checked') + '> Aktiv</label>' +
-      '<label class="f">Für<select ' + q('who') + '><option value="me"' + (r.who !== 'group' ? ' selected' : '') + '>jede Person für sich</option><option value="group"' + (r.who === 'group' ? ' selected' : '') + '>alle gemeinsam</option></select></label>' +
+      '<label class="f">Für<select ' + q('who') + '><option value="me"' + (r.who !== 'group' && r.who !== 'team' ? ' selected' : '') + '>jede Person für sich</option><option value="group"' + (r.who === 'group' ? ' selected' : '') + '>alle gemeinsam</option><option value="team"' + (r.who === 'team' ? ' selected' : '') + '>jede Gruppe (Narrenfigur)</option></select></label>' +
       '<label class="f">Wann<select ' + q('kind') + '>' + kinds.map(x => '<option value="' + x[0] + '"' + (r.kind === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
     if (isCount) {
-      h += '<label class="f">Getränk<select ' + q('cat') + '>' + catOpts(r.cat || 'all', true) + '</select></label>' +
+      h += '<label class="f">Getränk<select ' + q('cat') + '>' + (r.who === 'team'
+        ? [['all', 'Alle Getränke'], ['bier', 'Bier'], ['na', 'Alkoholfreie (Wasser, Softdrinks …)']].map(c => '<option value="' + c[0] + '"' + ((r.cat || 'all') === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('')
+        : catOpts(r.cat || 'all', true)) + '</select></label>' +
         '<label class="f">Zeitraum<select ' + q('period') + '><option value="day"' + (r.period !== 'total' ? ' selected' : '') + '>heute</option><option value="total"' + (r.period === 'total' ? ' selected' : '') + '>seit Beginn</option></select></label>' +
         (r.kind !== 'schnaps' ? '<label class="f">' + (r.kind === 'every' ? 'jede n-te: n =' : 'Anzahl') + '<input ' + q('n') + ' inputmode="numeric" value="' + (r.n || '') + '"></label><div></div>' : '');
     } else if (r.kind === 'after') {
@@ -1189,6 +1346,13 @@ function rulesEditor() {
   h += '<div class="row"><button class="b pri" data-act="erAdd">Neues Easter Egg</button><button class="b sm" data-act="erReset">Standard wiederherstellen</button></div></section>';
   return h;
 }
+function groupsEditor() {
+  const L = groupsAll();
+  return '<section><h2>Gruppen (Narrenfiguren)</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Zuordnung der Personen unter „Personen“. Für Bestenliste und Gruppen-Easter-Eggs.</div>' +
+    L.map(g => '<div class="rw"><input data-gr="' + esc(g.id) + '" value="' + esc(g.name) + '" aria-label="Gruppenname" style="flex:1;padding:6px 8px"><small>' + Object.values(S.users).filter(u => u.grp === g.id && !u.deleted).length + ' Pers.</small><button class="b sm dng" data-act="grDel" data-id="' + esc(g.id) + '">Löschen</button></div>').join('') +
+    '<div class="row"><input id="grNew" placeholder="Neue Gruppe" style="flex:1"><button class="b sm" data-act="grAdd">Hinzufügen</button></div></section>';
+}
+function saveGroups(list) { S.groups = list; fire(F.setDoc(dref('config', 'groups'), { list, t: Date.now() }), 'Gruppen speichern'); renderAll(); }
 function saveRules(rules) {
   S.eggRules = rules;
   fire(F.setDoc(dref('config', 'eggs'), { rules, t: Date.now() }), 'Easter Eggs speichern');
@@ -1206,7 +1370,8 @@ function editRule(id, f, val) {
   else if (f === 'date') { const m = String(val).trim().match(/^(\d{1,2})\.(\d{1,2})\.?$/); if (!m || +m[1] > 31 || +m[2] > 12 || !+m[1] || !+m[2]) { toast('Datum als TT.MM, z. B. 11.11'); renderAdmin(); return; } r.date = m[1].padStart(2, '0') + '.' + m[2].padStart(2, '0'); }
   else r[f] = val;
   // sinnvolle Vorgaben, wenn sich die Art ändert
-  if (f === 'who' && r.who === 'group' && !COUNT_KINDS.includes(r.kind)) r.kind = 'count';
+  if (f === 'who' && (r.who === 'group' || r.who === 'team') && !COUNT_KINDS.includes(r.kind)) { r.kind = 'count'; r.n = r.n || 10; r.cat = 'all'; r.period = 'day'; }
+  if (f === 'who' && r.who === 'team' && !['all', 'bier', 'na'].includes(r.cat)) r.cat = 'all';
   if (f === 'kind') {
     if (COUNT_KINDS.includes(r.kind)) { r.cat = r.cat || 'bier'; r.period = r.period || 'day'; if (r.kind !== 'schnaps') r.n = r.n || 5; }
     if (r.kind === 'after') { r.cat = r.cat && r.cat !== 'all' ? r.cat : 'wasser'; r.cat2 = r.cat2 || 'bier'; r.n2 = r.n2 || 3; }
@@ -1227,16 +1392,28 @@ async function recomputeCounters() {
     add(users[s.uid] = users[s.uid] || { all: 0 }, c);
     add(total, c);
   });
+  // Ranglisten aus Buchungen und heutigen Gruppen neu aufbauen
+  const boards = { total: { g: {}, p: {} } };
+  const bAdd = (b, s, c) => {
+    const u = S.users[s.uid] || {}, grp = u.grp || '';
+    const pm = b.p[s.uid] = b.p[s.uid] || { n: u.name || s.who || '', g: grp, all: 0, beer: 0, na: 0 };
+    pm.all++; if (c === 'bier') pm.beer++; if (NONALC.includes(c)) pm.na++;
+    if (grp) { const gm = b.g[grp] = b.g[grp] || { all: 0, beer: 0, na: 0 }; gm.all++; if (c === 'bier') gm.beer++; if (NONALC.includes(c)) gm.na++; }
+  };
+  all.forEach(s => { const c = catOf(P(s.p)); bAdd(boards[s.day] = boards[s.day] || { g: {}, p: {} }, s, c); bAdd(boards.total, s, c); });
+  const old = (await F.getDocs(col('gboard'))).docs.map(d => ({ ref: d.ref, del: true }));
+  await commitInChunks(old);
   const ops = Object.keys(per).map(d => ({ ref: dref('gstats', d), data: per[d] }))
     .concat(Object.keys(users).map(u => ({ ref: dref('ustats', u), data: users[u] })))
-    .concat([{ ref: dref('gstats', 'total'), data: total }]);
+    .concat([{ ref: dref('gstats', 'total'), data: total }])
+    .concat(Object.keys(boards).map(k => ({ ref: dref('gboard', k), data: boards[k] })));
   await commitInChunks(ops);
   return total.all;
 }
 
 /* ---------- Super-Admin: alle Statistiken zurücksetzen ---------- */
 async function resetStats(withData) {
-  const cols = ['gstats', 'ustats', 'live', 'ueggs'].concat(withData ? ['scans', 'days'] : []);
+  const cols = ['gstats', 'ustats', 'live', 'ueggs', 'gboard', 'album', 'drv'].concat(withData ? ['scans', 'days'] : []);
   let n = 0;
   for (const c of cols) {
     const snap = await F.getDocs(col(c));
@@ -1371,6 +1548,225 @@ $('avDel').addEventListener('click', () => {
   fire(F.deleteDoc(dref('avatars', S.user.uid)), 'Profilbild entfernen'); logEv('person', 'entfernt das eigene Profilbild');
 });
 
+/* =========================================================
+   EXTRAS für alle: Bestenliste, Sammelalbum, Mein Konto, Rückblick
+   (Daten werden erst beim Antippen geladen, um Lesevorgänge zu sparen)
+   ========================================================= */
+let extraTab = '', bestPeriod = 'day', kontoPeriod = 'season';
+const isoOf = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function easterSunday(y) { // Gauß/Meeus
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3),
+    h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+    mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, mo - 1, da);
+}
+const ashWednesday = y => { const e = easterSunday(y); return new Date(e.getFullYear(), e.getMonth(), e.getDate() - 46); };
+// Fasnetssaison: 11.11. bis Aschermittwoch
+function season(now = new Date()) {
+  const y = now.getFullYear(), startY = now >= new Date(y, 10, 11) ? y : y - 1;
+  const from = new Date(startY, 10, 11), to = ashWednesday(startY + 1);
+  return { from: isoOf(from), to: isoOf(to), label: 'Fasnet ' + startY + '/' + String(startY + 1).slice(2), ash: to };
+}
+function wrapTime(now = new Date()) { const a = ashWednesday(now.getFullYear()), d = (now - a) / 864e5; return d >= 0 && d <= 21; }
+
+$('extraTabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-x]'); if (!b) return;
+  extraTab = extraTab === b.dataset.x ? '' : b.dataset.x;
+  if (extraTab === 'best') loadBoard();
+  if (extraTab === 'konto' || extraTab === 'wrap') loadMine();
+  if (extraTab === 'wrap') loadBoard();
+  renderExtra();
+});
+$('extra').addEventListener('click', e => {
+  const b = e.target.closest('[data-xa]'); if (!b) return;
+  const a = b.dataset.xa;
+  if (a === 'bestDay') { bestPeriod = 'day'; renderExtra(); }
+  if (a === 'bestTot') { bestPeriod = 'total'; renderExtra(); }
+  if (a === 'bestRefresh') { S.board = null; loadBoard(); }
+  if (a === 'kSeason') { kontoPeriod = 'season'; renderExtra(); }
+  if (a === 'kAll') { kontoPeriod = 'all'; renderExtra(); }
+  if (a === 'kRefresh') { S.myAll = null; loadMine(); }
+  if (a === 'kExcel') kontoExcel();
+  if (a === 'wShare') wrapShare();
+});
+$('wrapBanner').addEventListener('click', e => { if (e.target.closest('[data-wrap]')) { extraTab = 'wrap'; loadMine(); loadBoard(); renderExtra(); } });
+
+async function loadBoard() {
+  if (S.boardLoading) return;
+  if (S.board && Date.now() - S.board.t < 60000) return;
+  S.boardLoading = true; renderExtra();
+  try {
+    const [d, t] = await Promise.all([S.active ? F.getDoc(dref('gboard', S.active)) : null, F.getDoc(dref('gboard', 'total'))]);
+    S.board = { day: d && d.exists() ? d.data() : { g: {}, p: {} }, total: t.exists() ? t.data() : { g: {}, p: {} }, t: Date.now() };
+  } catch (err) { toast('Bestenliste braucht Internet'); }
+  S.boardLoading = false; renderExtra();
+}
+async function loadMine() {
+  if (S.mineLoading || (S.myAll && Date.now() - S.myAllT < 60000)) return;
+  S.mineLoading = true; renderExtra();
+  try {
+    const list = (await F.getDocs(F.query(col('scans'), F.where('uid', '==', S.user.uid)))).docs.map(d => d.data());
+    S.dayInfo = S.dayInfo || {};
+    const need = [...new Set(list.map(x => x.day))].filter(id => !S.dayInfo[id]);
+    await Promise.all(need.map(async id => { try { const d = await F.getDoc(dref('days', id)); S.dayInfo[id] = d.exists() ? Object.assign({ id }, d.data()) : { id, date: '', place: '' }; } catch (e) { S.dayInfo[id] = { id, date: '', place: '' }; } }));
+    S.myAll = list.sort((a, b) => a.t - b.t); S.myAllT = Date.now();
+  } catch (err) { toast('Dafür wird Internet benötigt'); }
+  S.mineLoading = false; renderExtra();
+}
+const dayDate = s => ((S.dayInfo || {})[s.day] || {}).date || isoOf(new Date(s.t));
+function mineIn(period) {
+  const L = S.myAll || [];
+  if (period === 'all') return L;
+  const se = season(); return L.filter(s => { const d = dayDate(s); return d >= se.from && d <= se.to; });
+}
+
+function renderExtra() {
+  const sec = $('extraSec');
+  const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.deleted));
+  sec.hidden = !ok; if (!ok) return;
+  $('wrapBanner').innerHTML = wrapTime() && extraTab !== 'wrap' ? '<div class="note ok" style="margin-bottom:10px"><b>Die Fasnet isch rum!</b> Dein Saison-Rückblick ist da. <button class="b sm pri" data-wrap="1">Ansehen</button></div>' : '';
+  $('extraTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.x === extraTab));
+  const el = $('extra');
+  if (!extraTab) { el.innerHTML = ''; return; }
+  if (extraTab === 'best') el.innerHTML = renderBest();
+  if (extraTab === 'album') el.innerHTML = renderAlbum();
+  if (extraTab === 'konto') el.innerHTML = renderKonto();
+  if (extraTab === 'wrap') el.innerHTML = renderWrap();
+}
+
+function renderBest() {
+  if (!S.board) return '<div class="empty">' + (S.boardLoading ? 'Lade Bestenliste …' : 'Bestenliste konnte nicht geladen werden.') + '</div>';
+  const B = bestPeriod === 'day' ? S.board.day : S.board.total, me = S.user.uid;
+  let h = '<div class="row" style="margin-top:0;margin-bottom:8px"><button class="b sm' + (bestPeriod === 'day' ? ' pri' : '') + '" data-xa="bestDay">Heute</button><button class="b sm' + (bestPeriod === 'total' ? ' pri' : '') + '" data-xa="bestTot">Gesamt</button><button class="b sm" data-xa="bestRefresh">Aktualisieren</button></div>';
+  // Personen nach alkoholfreien Getränken
+  const P_ = Object.keys(B.p || {}).map(uid => Object.assign({ uid }, B.p[uid])).filter(x => (x.na || 0) > 0).sort((a, b) => b.na - a.na || a.n.localeCompare(b.n, 'de'));
+  h += '<h2 style="font-size:1.05rem">Wasser & Softdrinks</h2>';
+  if (!P_.length) h += '<div class="empty">Noch niemand. Das erste Wasser bringt dich auf Platz 1!</div>';
+  else {
+    const top = P_.slice(0, 10), myI = P_.findIndex(x => x.uid === me);
+    const row = (x, i) => '<div class="rank' + (x.uid === me ? ' me' : '') + '"><span class="no">' + (i + 1) + '</span>' + avatarHTML(x.uid, x.n, 34) + '<span><b>' + esc(x.n) + '</b>' + (x.g && gname(x.g) ? '<br><small style="color:var(--mu)">' + esc(gname(x.g)) + '</small>' : '') + '</span><span class="val">' + x.na + '</span></div>';
+    h += top.map(row).join('') + (myI >= 10 ? '<div style="text-align:center;color:var(--mu)">…</div>' + row(P_[myI], myI) : '');
+  }
+  // Gruppen
+  const G = groupsAll().map(g => { const m = (B.g || {})[g.id] || {}; const n = Object.values(B.p || {}).filter(x => x.g === g.id).length; return { id: g.id, name: g.name, all: m.all || 0, na: m.na || 0, n }; }).filter(x => x.all > 0).sort((a, b) => b.all - a.all);
+  h += '<h2 style="font-size:1.05rem;margin-top:14px">Gruppen</h2>';
+  if (!G.length) h += '<div class="empty">' + (myGroup() ? 'Noch keine Buchungen.' : 'Du bist noch keiner Narrenfigur zugeordnet – das macht der Admin.') + '</div>';
+  else h += G.map((x, i) => '<div class="rank' + (x.id === myGroup() ? ' me' : '') + '"><span class="no">' + (i + 1) + '</span><span class="av" style="--s:34px">' + esc(initials(x.name)) + '</span><span><b>' + esc(x.name) + '</b><br><small style="color:var(--mu)">' + x.n + ' Pers. · ' + Math.round(x.all / Math.max(1, x.n) * 10) / 10 + ' pro Kopf · ' + Math.round(x.na / x.all * 100) + ' % alkoholfrei</small><div class="bar"><i style="width:' + Math.round(x.na / x.all * 100) + '%"></i></div></span><span class="val">' + x.all + '</span></div>').join('');
+  return h;
+}
+
+function renderAlbum() {
+  const minor = isMinor(), got = S.album || {};
+  const rules = activeRules().filter(r => !(minor && ruleAlc(r)));
+  const n = rules.filter(r => got[r.id]).length;
+  let h = '<div style="margin-bottom:10px"><b>' + n + ' von ' + rules.length + '</b> Easter Eggs gesammelt<div class="bar" style="height:8px"><i style="width:' + Math.round(n / Math.max(1, rules.length) * 100) + '%;background:var(--wy)"></i></div></div><div class="badges">';
+  h += rules.map(r => {
+    const g = got[r.id], v = r.kind === 'schnaps' ? 11 : r.n || r.n2 || 1, t = fill(pickText(r, v).t, { n: v, name: S.me, gruppe: gname(myGroup()) });
+    const icon = r.who === 'group' ? 'A' : r.who === 'team' ? 'G' : r.kind === 'time' ? '⏰' : r.kind === 'date' ? '📅' : (r.kind === 'count' ? r.n : '★');
+    return g ? '<div class="badge got"><span class="medal">' + esc(String(icon)) + '</span><b>' + esc(t) + '</b><small>' + (g.n > 1 ? g.n + '× · ' : '') + esc(describeRule(r)) + '</small></div>'
+      : '<div class="badge"><span class="medal">?</span><b>???</b><small>' + esc(describeRule(r)) + '</small></div>';
+  }).join('');
+  return h + '</div><div style="font-size:.78rem;color:var(--mu);margin-top:8px">A = für alle, G = für deine Gruppe. Gezählt wird ab dieser Version.</div>';
+}
+
+function kontoData(period) {
+  const L = mineIn(period), price = id => (P(id) || {}).price || 0;
+  const byP = {}, byDay = {};
+  L.forEach(s => { byP[s.p] = (byP[s.p] || 0) + 1; (byDay[s.day] = byDay[s.day] || []).push(s); });
+  return { L, byP, byDay, cost: L.reduce((a, s) => a + price(s.p), 0), price };
+}
+function renderKonto() {
+  if (!S.myAll) return '<div class="empty">' + (S.mineLoading ? 'Lade deine Buchungen …' : 'Konnte nicht geladen werden.') + '</div>';
+  const se = season(), K = kontoData(kontoPeriod);
+  let h = '<div class="row" style="margin-top:0;margin-bottom:8px"><button class="b sm' + (kontoPeriod === 'season' ? ' pri' : '') + '" data-xa="kSeason">' + se.label + '</button><button class="b sm' + (kontoPeriod === 'all' ? ' pri' : '') + '" data-xa="kAll">Alles</button><button class="b sm" data-xa="kRefresh">Aktualisieren</button></div>';
+  h += '<div class="wstats" style="margin-top:0"><div style="background:var(--white);border:1.5px solid var(--line)"><b style="color:var(--ink)">' + K.L.length + '</b><span style="color:var(--mu)">Getränke</span></div><div style="background:var(--white);border:1.5px solid var(--line)"><b style="color:var(--ink)">' + money(K.cost) + '</b><span style="color:var(--mu)">Kosten</span></div></div>';
+  if (!K.L.length) return h + '<div class="empty">In diesem Zeitraum keine Buchungen.</div>';
+  h += '<h2 style="font-size:1.05rem">Nach Getränk</h2>' + Object.keys(K.byP).sort((a, b) => K.byP[b] - K.byP[a]).map(id => '<div class="rw"><span></span><span>' + esc(pname(id)) + '</span><small>' + K.byP[id] + '× · ' + money(K.byP[id] * K.price(id)) + '</small></div>').join('');
+  h += '<h2 style="font-size:1.05rem;margin-top:14px">Nach Tag</h2>' + Object.keys(K.byDay).sort((a, b) => dayDate(K.byDay[b][0]).localeCompare(dayDate(K.byDay[a][0]))).map(id => {
+    const l = K.byDay[id], di = (S.dayInfo || {})[id] || {}, m = {};
+    l.forEach(s => { m[s.p] = (m[s.p] || 0) + 1; });
+    return '<details class="pc" data-k="kd' + id + '"><summary><span><b>' + esc(di.date ? fmtDate(di.date) : '?') + '</b><br><small>' + esc(di.place || '') + '</small></span><small>' + l.length + ' · ' + money(l.reduce((a, s) => a + K.price(s.p), 0)) + '</small></summary>' +
+      Object.keys(m).map(p => '<div class="rw"><span></span><span>' + esc(pname(p)) + '</span><small>' + m[p] + '× · ' + money(m[p] * K.price(p)) + '</small></div>').join('') + '</details>';
+  }).join('');
+  h += '<div class="row"><button class="b pri" data-xa="kExcel">Als Excel speichern</button></div><div style="font-size:.78rem;color:var(--mu);margin-top:6px">Kosten mit den aktuellen Preisen.</div>';
+  return h;
+}
+function kontoExcel() {
+  const K = kontoData(kontoPeriod), se = season(), H = t => ({ v: t, s: 1 }), E = v => ({ v: Math.round(v * 100) / 100, s: 2 });
+  const D = iso => iso ? { v: XL.date(iso), s: 5 } : '';
+  const ov = [[{ v: 'Mein Konto – ' + S.me, s: 3 }], [], ['Zeitraum', kontoPeriod === 'all' ? 'alles' : se.label], ['Getränke', K.L.length], ['Kosten', E(K.cost)], [], [H('Getränk'), H('Anzahl'), H('Preis'), H('Summe')]];
+  Object.keys(K.byP).sort((a, b) => pname(a).localeCompare(pname(b), 'de')).forEach(id => { const i = ov.length + 1; ov.push([pname(id), K.byP[id], E(K.price(id)), { v: Math.round(K.byP[id] * K.price(id) * 100) / 100, s: 2, f: 'B' + i + '*C' + i }]); });
+  const pd = [[H('Datum'), H('Ziel'), H('Getränk'), H('Anzahl'), H('Preis'), H('Summe')]];
+  Object.keys(K.byDay).forEach(id => { const di = (S.dayInfo || {})[id] || {}, m = {}; K.byDay[id].forEach(s => { m[s.p] = (m[s.p] || 0) + 1; });
+    Object.keys(m).forEach(p => { const i = pd.length + 1; pd.push([D(di.date), di.place || '', pname(p), m[p], E(K.price(p)), { v: Math.round(m[p] * K.price(p) * 100) / 100, s: 2, f: 'D' + i + '*E' + i }]); }); });
+  const bk = [[H('Datum'), H('Uhrzeit'), H('Ziel'), H('Getränk'), H('Preis')]];
+  K.L.forEach(s => { const di = (S.dayInfo || {})[s.day] || {}; bk.push([D(di.date), { v: XL.time(s.t), s: 6 }, di.place || '', pname(s.p), E(K.price(s.p))]); });
+  downloadBlob('Mein-Konto_' + S.me.replace(/[^\wäöüÄÖÜß-]+/g, '_') + '.xlsx', XL.build([
+    { name: 'Übersicht', rows: ov, widths: [26, 16, 10, 12] },
+    { name: 'Pro Tag', rows: pd, widths: [12, 22, 24, 9, 10, 11], freeze: 1, filter: 1 },
+    { name: 'Buchungen', rows: bk, widths: [12, 9, 22, 24, 10], freeze: 1, filter: 1 }
+  ]));
+}
+
+function wrapData() {
+  const se = season(), L = mineIn('season'), minor = isMinor(), price = id => (P(id) || {}).price || 0;
+  const byP = {}, byDay = {};
+  L.forEach(s => { byP[s.p] = (byP[s.p] || 0) + 1; byDay[s.day] = (byDay[s.day] || 0) + 1; });
+  const fav = Object.keys(byP).sort((a, b) => byP[b] - byP[a])[0];
+  const topDay = Object.keys(byDay).sort((a, b) => byDay[b] - byDay[a])[0];
+  const na = L.filter(s => NONALC.includes(catOf(P(s.p)))).length, days = Object.keys(byDay).length;
+  const eggs = Object.keys(S.album || {}).length;
+  let rank = null;
+  if (S.board && myGroup()) { const G = Object.keys(S.board.total.g || {}).sort((a, b) => (S.board.total.g[b].all || 0) - (S.board.total.g[a].all || 0)); const i = G.indexOf(myGroup()); if (i >= 0) rank = i + 1; }
+  const share = L.length ? na / L.length : 0;
+  const title = !L.length ? 'Noch ohne Strich' : share >= .6 ? 'Vernunft-Wefzg' : days >= 8 ? 'Treue Fasnetsseele' : L.length >= 40 ? 'Stammgast der Strichliste' : 'Gmiatliche Wefzg';
+  return { se, L, fav, favN: fav ? byP[fav] : 0, topDay, topN: topDay ? byDay[topDay] : 0, na, share, days, eggs, rank, title, cost: L.reduce((a, s) => a + price(s.p), 0), minor };
+}
+function renderWrap() {
+  if (!S.myAll) return '<div class="empty">' + (S.mineLoading ? 'Lade deinen Rückblick …' : 'Konnte nicht geladen werden.') + '</div>';
+  const W = wrapData(), di = W.topDay ? (S.dayInfo || {})[W.topDay] || {} : {};
+  const stat = (v, l) => '<div><b>' + v + '</b><span>' + l + '</span></div>';
+  return '<div class="wcard"><div style="display:flex;gap:12px;align-items:center;margin-top:8px">' + avatarHTML(S.user.uid, S.me, 64) + '<div><h3>Dein Rückblick</h3><div class="sub">' + esc(S.me) + ' · ' + W.se.label + (myGroup() ? ' · ' + esc(gname(myGroup())) : '') + '</div></div></div>' +
+    '<div class="wstats">' + stat(W.L.length, 'Getränke') + stat(W.days, W.days === 1 ? 'Tag dabei' : 'Tage dabei') +
+    stat(W.fav ? esc(pname(W.fav)).slice(0, 18) : '–', 'Lieblingsgetränk' + (W.fav ? ' (' + W.favN + '×)' : '')) + stat(Math.round(W.share * 100) + ' %', 'alkoholfrei') +
+    stat(W.topDay ? W.topN : '–', 'am stärksten Tag' + (di.date ? ': ' + fmtDate(di.date).replace(/^\w+\., /, '') : '')) + stat(W.eggs, 'Easter Eggs gesammelt') +
+    (W.rank ? stat(W.rank + '.', 'Platz deiner Gruppe') : '') + stat(money(W.cost), 'Strichliste') + '</div>' +
+    '<div class="wtitle"><small>Dein Fasnets-Titel</small><b>' + esc(W.title) + '</b></div></div>' +
+    '<div class="row"><button class="b pri" data-xa="wShare">Als Bild teilen</button></div><div style="font-size:.78rem;color:var(--mu);margin-top:6px">Saison ' + fmtDate(W.se.from) + ' bis Aschermittwoch ' + fmtDate(W.se.to) + '.</div>';
+}
+async function wrapShare() {
+  const W = wrapData(), c = document.createElement('canvas'); c.width = 1080; c.height = 1350;
+  const x = c.getContext('2d'), Y = '#f5c000', font = (w, s) => w + ' ' + s + 'px Oswald, "Arial Narrow", Arial, sans-serif';
+  x.fillStyle = '#141414'; x.fillRect(0, 0, 1080, 1350);
+  for (let i = -1350; i < 1080; i += 60) { x.fillStyle = Y; x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 30, 0); x.lineTo(i + 30 + 36, 36); x.lineTo(i + 36, 36); x.fill(); x.beginPath(); x.moveTo(i, 1314); x.lineTo(i + 30, 1314); x.lineTo(i + 66, 1350); x.lineTo(i + 36, 1350); x.fill(); }
+  x.fillStyle = Y; x.font = font('700', 96); x.fillText('WEXHAINIS', 80, 170);
+  x.fillStyle = '#fff'; x.font = font('500', 46); x.fillText('Mein Fasnets-Rückblick ' + W.se.label.replace('Fasnet ', ''), 80, 235);
+  const av = AV[S.user.uid];
+  const drawRest = () => {
+    x.fillStyle = '#fff'; x.font = font('700', 60); x.fillText(S.me, 300, 360);
+    x.fillStyle = '#d9d2bd'; x.font = font('500', 36); x.fillText(myGroup() ? gname(myGroup()) : 'Wexhainer Narrenzunft', 300, 410);
+    const cells = [[W.L.length, 'Getränke'], [W.days, 'Tage dabei'], [Math.round(W.share * 100) + ' %', 'alkoholfrei'], [W.eggs, 'Easter Eggs'], [W.fav ? pname(W.fav) : '–', 'Lieblingsgetränk'], [W.rank ? W.rank + '.' : '–', 'Platz der Gruppe']];
+    cells.forEach((cc, i) => {
+      const cx = 80 + (i % 2) * 470, cy = 490 + Math.floor(i / 2) * 210;
+      x.fillStyle = '#232323'; x.beginPath(); x.roundRect ? x.roundRect(cx, cy, 440, 180, 24) : x.rect(cx, cy, 440, 180); x.fill();
+      x.fillStyle = Y; x.font = font('700', String(cc[0]).length > 9 ? 44 : 76); x.fillText(String(cc[0]).slice(0, 18), cx + 30, cy + 100);
+      x.fillStyle = '#d9d2bd'; x.font = font('500', 32); x.fillText(cc[1], cx + 30, cy + 150);
+    });
+    x.strokeStyle = Y; x.lineWidth = 6; x.beginPath(); x.roundRect ? x.roundRect(80, 1135, 920, 140, 24) : x.rect(80, 1135, 920, 140); x.stroke();
+    x.fillStyle = '#d9d2bd'; x.font = font('500', 32); x.fillText('Mein Fasnets-Titel', 120, 1185);
+    x.fillStyle = Y; x.font = font('700', 58); x.fillText(W.title, 120, 1250);
+    c.toBlob(async blob => {
+      const file = new File([blob], 'Fasnets-Rueckblick.png', { type: 'image/png' });
+      try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Mein Fasnets-Rückblick' }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+      downloadBlob('Fasnets-Rueckblick.png', blob);
+    }, 'image/png');
+  };
+  x.save(); x.beginPath(); x.arc(170, 360, 90, 0, Math.PI * 2); x.closePath(); x.fillStyle = Y; x.fill();
+  if (av && av.img) {
+    const im = new Image(); im.onload = () => { x.clip(); x.drawImage(im, 80, 270, 180, 180); x.restore(); drawRest(); }; im.onerror = () => { x.restore(); drawRest(); }; im.src = av.img;
+  } else { x.fillStyle = '#141414'; x.font = font('700', 80); x.textAlign = 'center'; x.fillText(initials(S.me), 170, 390); x.textAlign = 'left'; x.restore(); drawRest(); }
+}
+
 /* ---------- Verlauf der Easter Eggs ---------- */
 let histTab = 'all';
 $('histTabs').addEventListener('click', e => { const b = e.target.closest('[data-h]'); if (!b) return; histTab = b.dataset.h; renderHist(); });
@@ -1378,7 +1774,7 @@ function renderHist() {
   const sec = $('histSec');
   if (!S.activeDay || !S.me || $('listSec').hidden) { sec.hidden = true; return; }
   sec.hidden = false;
-  const g = S.groupEggs || [], m = S.myEggs || [];
+  const g = (S.groupEggs || []).filter(x => !(isMinor() && x.alc)), m = S.myEggs || [];
   $('histTabs').querySelectorAll('button').forEach(b => {
     b.classList.toggle('on', b.dataset.h === histTab);
     b.textContent = (b.dataset.h === 'all' ? 'Für alle' : 'Deine') + ' (' + (b.dataset.h === 'all' ? g.length : m.length) + ')';
@@ -1394,8 +1790,15 @@ function setMainButtons() { const on = cam.on && cam.box === boxMain; $('startBt
 
 function book(pid, src) {
   const day = S.activeDay; if (!day || !S.user) return;
+  if (!S.me || isPending()) return;
+  const cat = catOf(P(pid));
+  if (isMinor() && isAlc(cat)) {
+    $('last').className = 'last unk'; $('last').hidden = false;
+    $('last').innerHTML = '<div><b>' + esc(pname(pid)) + ' ist für dich gesperrt</b><span>Jugendschutz – nimm doch ein Wasser oder einen Softdrink.</span></div>';
+    if (navigator.vibrate) navigator.vibrate([60, 60, 60]); return;
+  }
+  if (S.driver && isAlc(cat) && !confirm('Du hast angegeben, dass du heute fährst.\n\n' + pname(pid) + ' enthält Alkohol. Trotzdem buchen?')) return;
   const id = newId('scans');
-  if (!S.me) return;
   const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp(), who: S.me };
   fire(F.setDoc(dref('scans', id), data), 'Buchung');
   eggsAfterBook(pid, id).catch(err => console.warn('Easter Egg', err));
@@ -1424,7 +1827,7 @@ $('stopBtn').addEventListener('click', () => { camStop(); setMainButtons(); });
 
 function renderScan() {
   const info = $('dayInfo');
-  $('histSec').hidden = true;
+  $('histSec').hidden = true; $('extraSec').hidden = true;
   const show = !!S.activeDay;
   $('scanSec').hidden = !show; $('listSec').hidden = !show;
   if (!configured) {
@@ -1441,6 +1844,12 @@ function renderScan() {
     info.innerHTML = '<div class="note bad"><b>' + (S.meDoc.deleted ? 'Dieses Konto wurde entfernt.' : 'Dein Konto ist gesperrt.') + '</b> Bitte wende dich an den Vorstand.</div><div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
     return;
   }
+  if (isPending()) {
+    if (cam.box === boxMain) camStop();
+    $('nameSec').hidden = true; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
+    info.innerHTML = '<div class="note"><b>Fast geschafft, ' + esc(S.meDoc.name || '') + '!</b> Dein Konto wartet auf Freischaltung durch den Vorstand. Sobald es freigeschaltet ist, geht es hier automatisch weiter.</div><div class="row"><button class="b" data-logout="1">Abmelden</button></div>';
+    return;
+  }
   if (!S.me) {
     if (cam.box === boxMain) camStop();
     $('nameSec').hidden = false; $('scanSec').hidden = true; $('listSec').hidden = true; $('last').hidden = true;
@@ -1448,10 +1857,14 @@ function renderScan() {
   }
   $('nameSec').hidden = true;
   $('meName').textContent = S.me; renderMe();
+  $('meGrp').textContent = gname(myGroup());
+  $('youthNote').hidden = !isMinor();
+  $('drvNote').hidden = !S.driver;
+  $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor();
   if (!show) {
     if (cam.box === boxMain) camStop();
     info.innerHTML = '<div class="note"><b>Kein Tag aktiv.</b> Der Admin muss einen Tag anlegen und für das Scannen aktivieren.</div>';
-    $('last').hidden = true; setMainButtons(); return;
+    $('last').hidden = true; setMainButtons(); renderExtra(); return;
   }
   const day = S.activeDay, isToday = day.date === todayISO();
   info.innerHTML = '<div class="day-head"><b>' + esc(day.place || 'Ohne Ziel') + '</b><span>' + fmtDate(day.date) + '</span></div>' +
@@ -1459,7 +1872,7 @@ function renderScan() {
   // eigene Buchungen pro Getränk
   const mine = {}; S.myScans.forEach(s => { mine[s.p] = (mine[s.p] || 0) + 1; });
   const ids = new Set(Object.keys(day.load || {}).filter(k => day.load[k] > 0)); Object.keys(mine).forEach(k => ids.add(k));
-  const list = [...ids].map(id => P(id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const list = [...ids].map(id => P(id)).filter(Boolean).filter(p => !(isMinor() && isAlc(catOf(p)))).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const total = S.myScans.length, sum = S.myScans.reduce((a, s) => a + ((P(s.p) || {}).price || 0), 0);
   $('listHead').textContent = 'Deine Getränke heute' + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
   $('list').innerHTML = list.length ? list.map(p => {
@@ -1469,6 +1882,7 @@ function renderScan() {
   }).join('') : '<div class="empty">Für heute ist noch nichts eingetragen.</div>';
   setMainButtons();
   renderHist();
+  renderExtra();
 }
 
 /* =========================================================
@@ -1586,7 +2000,7 @@ $('sheetBody').addEventListener('click', e => {
   else if (a === 'create') {
     const name = $('qName').value.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
     const id = newId('products'), data = { name, codes: [sh.unknown], price: Math.max(0, num($('qPrice').value) || 0), packs: parsePacks($('qPacks').value) };
-    if ($('qCat').value) data.cat = $('qCat').value;
+    data.cat = $('qCat').value || guessCat(name);
     fire(F.setDoc(dref('products', id), data), 'Getränk anlegen');
     S.products.push(Object.assign({ id }, data)); logEv('getraenk', 'legt Getränk „' + name + '“ an (Barcode ' + data.codes[0] + ')');
     sh.pid = id; sh.unknown = null; toast('„' + name + '“ angelegt'); renderSheet();
@@ -1620,6 +2034,17 @@ $('title').addEventListener('click', () => {
   if (titleTaps >= 5) { titleTaps = 0; if (S.user && $('v-admin').hidden) { setMsg(''); setView('admin'); } }
 });
 $('backBtn').addEventListener('click', () => setView('scan'));
+// Nachtmodus umschalten: Auto → Hell → Dunkel
+const THEME_LABEL = { auto: 'Auto', light: 'Hell', dark: 'Nacht' };
+function renderThemeBtn() { const m = document.documentElement.dataset.mode || 'auto'; $('themeBtn').textContent = THEME_LABEL[m]; $('themeBtn').title = m === 'auto' ? 'Automatisch (nachts und bei dunklem Handy dunkel)' : m === 'light' ? 'Immer hell' : 'Immer dunkel'; }
+$('themeBtn').addEventListener('click', () => {
+  const order = ['auto', 'light', 'dark'], m = document.documentElement.dataset.mode || 'auto', next = order[(order.indexOf(m) + 1) % 3];
+  try { localStorage.setItem('strichliste_theme', next); } catch (e) {}
+  applyTheme(); renderThemeBtn(); toast(next === 'auto' ? 'Automatisch: nachts dunkel' : next === 'light' ? 'Immer hell' : 'Nachtmodus an');
+});
+renderThemeBtn();
+setInterval(applyTheme, 5 * 60000);
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
 function summary(rows) {
   if (!rows.length) return '<div class="note">Noch nichts eingetragen. Mit „Einladen per Scan“ die mitgenommenen Getränke erfassen.</div>';
@@ -1658,6 +2083,9 @@ function renderAdmin() {
   }
   const day = selDayObj(), scans = S.dayScansFor === S.selDay ? S.dayScans : [];
   let h = '';
+  const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== S.user.uid);
+  if (pend.length) h += '<section><h2>Neue Anmeldungen (' + pend.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erst nach dem Freischalten kann die Person buchen.</div>' +
+    pend.map(k => { const u = S.users[k]; return '<div class="rw" style="align-items:center"><span style="display:flex;gap:8px;align-items:center">' + avatarHTML(k, u.name, 32) + '</span><span>' + esc(u.name) + '<br><small>' + esc(u.email || '') + (u.t ? ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</small></span><button class="b sm pri" data-act="approve" data-id="' + k + '">Freischalten</button><button class="b sm dng" data-act="reject" data-id="' + k + '">Ablehnen</button></div>'; }).join('') + '</section>';
 
   h += '<section><h2>Tag</h2>';
   if (S.days.length) {
@@ -1681,6 +2109,7 @@ function renderAdmin() {
   if (day) {
     const rows = dayRows(day, scans);
     h += summary(rows);
+    if ((S.dayDrivers || []).length) h += '<div class="note">Fahrer heute: <b>' + S.dayDrivers.map(x => esc(uname(x.uid) !== '(Person)' ? uname(x.uid) : x.name || '')).join(', ') + '</b></div>';
     h += eggPreview(day, scans);
     h += '<section><h2>Mitnehmen und zurückzählen</h2><div class="row" style="margin-top:0">' +
       '<button class="b pri grow" data-act="sheetLoad">Einladen per Scan</button><button class="b grow" data-act="sheetCount">Rest zählen per Scan</button></div></section>';
@@ -1760,9 +2189,12 @@ function renderAdmin() {
       ulist.map(u => {
         const me = u.uid === S.user.uid;
         const badges = (me && S.isSuper ? '<span class="tag act">Super-Admin</span>' : u.role === 'admin' ? '<span class="tag act">Admin</span>' : '') +
+          (u.pending ? '<span class="tag" style="color:var(--amb)">wartet</span>' : '') + (u.minor ? '<span class="tag" style="color:var(--pet)">U18</span>' : '') + (u.grp && gname(u.grp) ? '<span class="tag cls">' + esc(gname(u.grp)) + '</span>' : '') +
           (u.blocked ? '<span class="tag" style="color:var(--pen)">gesperrt</span>' : '') +
           (counts[u.name.toLowerCase()] > 1 ? '<span class="tag" style="color:var(--amb)">doppelt</span>' : '') + (me ? '<span class="tag cls">du</span>' : '');
         let inner = '<label class="f full">Name<input data-u="' + u.uid + '" value="' + esc(u.name) + '"></label>' +
+          '<label class="f">Narrenfigur / Gruppe<select data-grp="' + u.uid + '"><option value="">keine</option>' + groupsAll().map(g => '<option value="' + esc(g.id) + '"' + (u.grp === g.id ? ' selected' : '') + '>' + esc(g.name) + '</option>').join('') + '</select></label>' +
+          '<label class="chk" style="align-self:end"><input type="checkbox" data-minor="' + u.uid + '"' + (u.minor ? ' checked' : '') + '> minderjährig (U18)</label>' +
           '<div class="full" style="font-size:.84rem;color:var(--mu)">' + (u.email ? esc(u.email) : 'E-Mail noch unbekannt (wird beim nächsten Öffnen der App ergänzt)') + (u.t ? ' · seit ' + new Date(u.t).toLocaleDateString('de-DE') : '') + '</div>';
         if (S.isSuper && !me) {
           inner += '<label class="f">Rolle<select data-role="' + u.uid + '"><option value=""' + (u.role !== 'admin' ? ' selected' : '') + '>Mitglied</option><option value="admin"' + (u.role === 'admin' ? ' selected' : '') + '>Admin</option></select></label><div></div>' +
@@ -1779,7 +2211,7 @@ function renderAdmin() {
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Entfernen sperrt das Konto in der App. Das Login selbst (E-Mail und Passwort) löschst du in der <a href="' + consoleUrl + '" target="_blank" rel="noopener">Firebase-Konsole → Authentication → Nutzer</a> über das Menü „⋮“ der Person.</div>' : '') +
       '</section>';
   }
-  if (S.isSuper) h += rulesEditor() + historySection();
+  if (S.isSuper) h += groupsEditor() + rulesEditor() + historySection();
   if (S.days.length) {
     const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
     if (!xlFrom) xlFrom = first; if (!xlTo) xlTo = lastD > todayISO() ? lastD : todayISO();
@@ -1791,11 +2223,11 @@ function renderAdmin() {
   h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     ('Notification' in window && Notification.permission !== 'granted' ? '<button class="b sm" data-act="notifyPerm">Warnungen aufs Handy erlauben</button>' : '') +
     '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' +
-    '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button><button class="b sm" data-act="restore">Backup importieren</button>' +
-    (day ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
+    '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button>' + (S.isSuper ? '<button class="b sm" data-act="restore">Backup importieren</button>' : '') +
+    (day && S.isSuper ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
     (S.isSuper ? '<button class="b sm dng" data-act="resetToggle">Statistiken zurücksetzen</button>' : '') + '</div>' +
     (S.isSuper && showReset ? '<div class="grid2" style="margin-top:10px;border:2px solid var(--pen);border-radius:12px;padding:12px;background:var(--white)">' +
-      '<div class="full" style="font-size:.88rem">Löscht alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn) und alle Easter-Egg-Verläufe. Danach können alle Easter Eggs neu ausgelöst werden. Das Protokoll bleibt erhalten.</div>' +
+      '<div class="full" style="font-size:.88rem">Löscht alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn), alle Easter-Egg-Verläufe, Sammelalben und Bestenlisten. Danach können alle Easter Eggs neu ausgelöst werden. Das Protokoll bleibt erhalten.</div>' +
       '<label class="chk full"><input type="checkbox" id="rsData"> Auch alle Buchungen und Tage löschen</label>' +
       '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
       '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig zurücksetzen</button><button class="b" data-act="resetToggle">Abbrechen</button></div></div>' : '') +
@@ -2048,6 +2480,9 @@ adminBody.addEventListener('change', e => {
   const t = e.target, day = selDayObj();
   if (t.dataset.sel === 'day') { S.selDay = t.value; showNewDay = false; listenDayScans(); renderAdmin(); return; }
   if (t.id === 'nbWho') { nbSel = t.value; renderAdmin(); return; }
+  if (t.dataset.grp) { const uid = t.dataset.grp; fire(F.updateDoc(dref('users', uid), { grp: t.value ? t.value : F.deleteField() }), 'Gruppe'); logEv('person', uname(uid) + ': Gruppe → ' + (gname(t.value) || 'keine')); toast(uname(uid) + ': ' + (gname(t.value) || 'keine Gruppe')); return; }
+  if (t.dataset.minor) { const uid = t.dataset.minor; fire(F.updateDoc(dref('users', uid), { minor: t.checked }), 'Jugendschutz'); logEv('person', uname(uid) + ': ' + (t.checked ? 'als minderjährig markiert' : 'nicht mehr minderjährig')); toast(uname(uid) + (t.checked ? ': Jugendschutz an' : ': Jugendschutz aus')); return; }
+  if (t.dataset.gr) { const id = t.dataset.gr, name = t.value.trim().slice(0, 40); if (!name) { renderAdmin(); return; } saveGroups(groupsAll().map(g => g.id === id ? { id, name } : g)); logEv('person', 'benennt Gruppe um: ' + name); return; }
   if (t.id === 'xlFrom' || t.id === 'xlTo') { if (t.value) { if (t.id === 'xlFrom') xlFrom = t.value; else xlTo = t.value; } return; }
   if (t.id === 'logDate') { logDate = t.value || todayISO(); S.logScans = null; renderAdmin(); return; }
   if (t.id === 'logScans') { logWithScans = t.checked; S.logScans = null; renderAdmin(); return; }
@@ -2151,6 +2586,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'addBooking' && day) {
     const uid = $('nbWho').value, pid = $('nbP').value, n = Math.min(100, parseInt($('nbN').value) || 0);
     if (!uid || !pid || n < 1) { toast('Person, Getränk und Anzahl wählen'); return; }
+    if ((S.users[uid] || {}).minor && isAlc(catOf(P(pid)))) { toast('Jugendschutz: ' + pname(pid) + ' ist für ' + uname(uid) + ' gesperrt'); return; }
     const name = (S.users[uid] || {}).name || '';
     const b2 = F.writeBatch(db);
     for (let i = 0; i < n; i++) b2.set(dref('scans', newId('scans')), { uid, day: day.id, p: pid, src: 'nachgetragen', t: Date.now() + i, at: F.serverTimestamp(), who: name });
@@ -2207,7 +2643,7 @@ adminBody.addEventListener('click', async e => {
     fire(F.deleteDoc(dref('scans', id)), 'Stornieren'); toast('Buchung storniert');
     if (sc) { adjustCounters(sc.uid, sc.day, sc.p, -1); logEv('buchung', 'storniert ' + pname(sc.p) + ' von ' + nameOf(sc) + ' (' + fmtTime(sc.t) + ')', sc.day); }
   }
-  else if (a === 'delDay' && day) {
+  else if (a === 'delDay' && day && S.isSuper) {
     if (!confirm('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
     try {
       const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
@@ -2222,7 +2658,7 @@ adminBody.addEventListener('click', async e => {
     const name = newDraft.name.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
     const list = [...new Set(newDraft.codes.split(/[,;\s]+/).map(norm).filter(Boolean))].filter(c => { const o = byCode(c); if (o) toast('Barcode ' + c + ' gehört schon zu „' + o.name + '“'); return !o; });
     const nd = { name, codes: list, price: Math.max(0, num(newDraft.price) || 0), packs: parsePacks(newDraft.packs) };
-    if (newDraft.cat) nd.cat = newDraft.cat;
+    nd.cat = newDraft.cat || guessCat(name);
     if (parseInt(newDraft.low) > 0) nd.low = parseInt(newDraft.low);
     fire(F.setDoc(dref('products', newId('products')), nd), 'Getränk anlegen'); logEv('getraenk', 'legt Getränk „' + name + '“ an');
     newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }; showNewProd = false; toast('Getränk angelegt');
@@ -2239,7 +2675,7 @@ adminBody.addEventListener('click', async e => {
       download('strichliste-backup-' + todayISO() + '.json', JSON.stringify({ v: 3, exported: new Date().toISOString(), active: S.active, products: S.products, days, scans, users: S.users }), 'application/json');
     } catch (err) { toast('Backup braucht Internet'); }
   }
-  else if (a === 'restore') $('fileIn').click();
+  else if (a === 'restore' && S.isSuper) $('fileIn').click();
   else if (a === 'xlAll' || a === 'xlMonth' || a === 'xlDay') {
     if (a === 'xlAll') { xlFrom = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date); xlTo = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date); if (xlTo < todayISO()) xlTo = todayISO(); }
     if (a === 'xlMonth') { const t = todayISO(); xlFrom = t.slice(0, 8) + '01'; const [y, m] = t.split('-').map(Number); xlTo = t.slice(0, 8) + String(new Date(y, m, 0).getDate()).padStart(2, '0'); }
@@ -2258,6 +2694,20 @@ adminBody.addEventListener('click', async e => {
       toast('Excel erstellt'); logEv('system', 'erstellt Excel-Auswertung ' + fmtDate(from) + (from === to ? '' : ' bis ' + fmtDate(to)));
     } catch (err) { console.error(err); toast(err.message || 'Excel konnte nicht erstellt werden'); }
     b.disabled = false; b.textContent = 'Excel erstellen';
+  }
+  else if (a === 'approve') { const u = S.users[id]; if (!u) return; fire(F.updateDoc(dref('users', id), { pending: false }), 'Freischalten'); toast(u.name + ' freigeschaltet'); logEv('person', 'schaltet ' + u.name + ' frei'); }
+  else if (a === 'reject') {
+    const u = S.users[id]; if (!u || !confirm('Anmeldung von „' + u.name + '“ (' + (u.email || '') + ') ablehnen?')) return;
+    fire(F.updateDoc(dref('users', id), { pending: false, deleted: true, blocked: true }), 'Ablehnen'); toast('Anmeldung abgelehnt'); logEv('person', 'lehnt die Anmeldung von ' + u.name + ' ab');
+  }
+  else if (a === 'grAdd') {
+    const name = ($('grNew').value || '').trim().slice(0, 40); if (!name) { toast('Bitte einen Namen eingeben'); return; }
+    saveGroups(groupsAll().concat([{ id: 'g' + Date.now().toString(36), name }])); logEv('person', 'legt Gruppe „' + name + '“ an');
+  }
+  else if (a === 'grDel') {
+    const g = groupsAll().find(x => x.id === id); if (!g || !confirm('Gruppe „' + g.name + '“ löschen? Zugeordnete Personen haben danach keine Gruppe mehr.')) return;
+    saveGroups(groupsAll().filter(x => x.id !== id)); logEv('person', 'löscht Gruppe „' + g.name + '“');
+    Object.keys(S.users).filter(k => S.users[k].grp === id).forEach(k => fire(F.updateDoc(dref('users', k), { grp: F.deleteField() }), 'Gruppe'));
   }
   else if (a === 'erTest') {
     const r = allRules().find(x => x.id === id); if (!r) return;

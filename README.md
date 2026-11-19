@@ -68,11 +68,12 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 ### 7. Testen
 1. Im Admin einen **neuen Tag** anlegen.
 2. **Einladen per Scan** wählen, eine Flasche scannen, das Getränk anlegen und Kästen antippen.
-3. Auf einem zweiten Handy ein Konto registrieren und scannen. Die Buchung erscheint beim Admin unter „Abgleich“ und „Nach Person“.
+3. Auf einem zweiten Handy ein Konto registrieren. Es wartet zuerst auf Freischaltung: im Admin oben unter **Neue Anmeldungen** auf „Freischalten“ tippen. Danach scannen. Die Buchung erscheint beim Admin unter „Abgleich“ und „Nach Person“.
 
 ## Für die Mitglieder
 
 - Seite öffnen, **Registrieren** wählen und Vor- und Nachname, E-Mail und Passwort eingeben. Dafür braucht man einmal Internet.
+- Danach steht „Fast geschafft – dein Konto wartet auf Freischaltung“. Sobald ein Admin freischaltet, geht die App von selbst weiter.
 - Am besten zum Home-Bildschirm hinzufügen:
   - iPhone: Safari → Teilen → „Zum Home-Bildschirm“
   - Android: Chrome → Menü → „Zum Startbildschirm hinzufügen“
@@ -81,9 +82,57 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 - **Passwort vergessen?** E-Mail eintragen und auf „Passwort vergessen?“ tippen. Es kommt eine Mail von Firebase zum Zurücksetzen.
 - Oben neben „Strichliste“ steht der Netzstatus. „offline · 3 warten“ heißt: 3 Buchungen sind gespeichert und werden gesendet, sobald Netz da ist. In dieser Zeit nicht abmelden; die App warnt davor.
 
+- **Ich fahre heute:** In der Scan-Ansicht auf das Auto tippen. Dann fragt die App bei jedem alkoholischen Getränk nach („Du fährst heute – trotzdem buchen?“). Admins sehen in der Tagesübersicht, wer heute fährt. Gilt nur für den einen Tag.
+- **Nachtmodus:** Oben rechts zwischen *Auto*, *Hell* und *Nacht* umschalten. *Auto* wird dunkel, wenn das Handy dunkel eingestellt ist oder zwischen 19 und 7 Uhr.
+
+## Mehr: Bestenliste, Album, Mein Konto, Rückblick
+
+Unter der Liste „Deine Getränke heute“ gibt es vier Reiter:
+
+| Reiter | Inhalt |
+|---|---|
+| **Bestenliste** | heute oder gesamt: wer am meisten Wasser und Softdrinks hatte, und die Gruppen im Vergleich (Getränke pro Kopf, Anteil alkoholfrei). Bewusst ohne Bier-Rangliste. |
+| **Sammelalbum** | alle Easter Eggs als Abzeichen, gesammelte farbig mit Datum, fehlende grau mit Hinweis. Minderjährige sehen nur die alkoholfreien. |
+| **Mein Konto** | eigene Getränke und Kosten der Saison (11.11. bis Aschermittwoch) pro Tag und Getränk, als Excel herunterladbar. |
+| **Rückblick** | die eigene Saison wie ein Jahresrückblick: Getränke, Tage, Lieblingsgetränk, stärkster Tag, Easter Eggs, Platz der Gruppe und ein Fasnets-Titel. **Als Bild teilen** erzeugt ein Bild für WhatsApp oder Instagram. Ab Aschermittwoch erscheint oben ein Hinweis. |
+
+## Freischaltung neuer Konten
+
+- Neue Konten können erst buchen, wenn ein **Admin** sie freischaltet. Admins sehen im Admin-Bereich ganz oben **Neue Anmeldungen** mit „Freischalten“ und „Ablehnen“ und bekommen eine kurze Meldung, wenn sich jemand registriert.
+- Beim Freischalten lassen sich gleich **Gruppe** und **unter 18** setzen.
+- Konten, die es vor Version 15 schon gab, bleiben aktiv. Der Super-Admin schaltet sich selbst automatisch frei.
+
+## Jugendschutz
+
+- Unter Admin → Personen (oder beim Freischalten) **unter 18** ankreuzen.
+- Minderjährige sehen nur alkoholfreie Getränke. Bier, Radler/Mischbier, Wein/Sekt und Schnaps lassen sich für sie nicht buchen – das prüfen auch die Firebase-Regeln, also nicht nur die App. Admins können für sie ebenfalls nichts Alkoholisches nachtragen.
+- Sie bekommen keine Easter Eggs mit Alkoholbezug, auch nicht die gemeinsamen der Gruppe.
+- Wichtig dafür ist die richtige **Sorte** jedes Getränks (Admin → Getränke): *Bier, Radler/Mischbier, Alkoholfrei, Wein/Sekt, Wasser, Softdrink, Schnaps, Sonstiges*. Fehlt sie, setzt die App sie beim nächsten Öffnen durch einen Admin automatisch anhand des Namens; bitte einmal kontrollieren.
+
+## Gruppen (Narrenfiguren)
+
+- Der **Super-Admin** legt unter Admin → **Gruppen** die Gruppen an (z. B. Wilde Wefzg, Hofgoischd), Admins ordnen Personen unter Admin → Personen zu.
+- Die Gruppe steht neben dem Namen, in der Bestenliste und im Rückblick.
+- Gruppen-Easter-Eggs: „30 Getränke für die Gruppe“ und „Gruppe bleibt vernünftig“ (10 alkoholfreie). Sie erscheinen auf allen Handys.
+
 ## Admin-Bereich öffnen
 
 Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den Titel** oben tippen (innerhalb von zwei Sekunden), dann öffnet sich der Admin-Bereich. Zurück geht es über „Zurück zum Scannen“ oben rechts. Das ist nur ein Sichtschutz – die eigentlichen Rechte prüfen die Firebase-Regeln. Wer kein Admin ist, sieht dort nur „Keine Admin-Rechte“.
+
+## Excel-Auswertung (Admins)
+
+Unter Admin → **Excel-Auswertung** einen Zeitraum wählen (oder „Gesamter Zeitraum“, „Dieser Monat“, „Gewählter Tag“) und **Excel erstellen** tippen. Die Datei enthält:
+
+| Blatt | Inhalt |
+|---|---|
+| Übersicht | Zeitraum, Anzahl Tage und Personen, Getränke, Wert, Fehlmengen, Liste der Tage |
+| Pro Person | jedes Mitglied mit Anzahl je Getränk, Getränke gesamt und **Kosten**, darunter die Summen |
+| Person pro Tag | wer an welchem Tag was getrunken hat, mit Preis und Summe |
+| Abgleich pro Tag | mitgenommen, gebucht, Soll-Rest, gezählt, Differenz und Werte |
+| Buchungen | jede einzelne Buchung mit Datum, Uhrzeit, Person, Getränk und Art |
+| Getränke | Stammdaten mit Sorte, Preis, Gebinde und Barcodes |
+
+Summen und Kosten stehen als Formeln drin, Kopfzeilen sind fixiert und mit Filter versehen. Die Kosten werden mit den **aktuellen** Preisen berechnet. Die Datei entsteht direkt im Browser (ohne zusätzliche Bibliothek); dafür wird nur Internet für das Laden der Buchungen gebraucht.
 
 ## Historie (Super-Admin)
 
@@ -95,7 +144,7 @@ Unter Admin → **Buchung nachtragen** die Person wählen: Darunter stehen ihre 
 
 ## Statistiken zurücksetzen (Super-Admin)
 
-Admin → Daten → **Statistiken zurücksetzen**, dann das eigene Passwort eingeben. Gelöscht werden alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn) und alle Easter-Egg-Verläufe; danach können alle Easter Eggs neu auslösen. Optional lassen sich zusätzlich **alle Buchungen und Tage** löschen. Getränke, Personen, Easter-Egg-Regeln und die Historie bleiben erhalten.
+Admin → Daten → **Statistiken zurücksetzen**, dann das eigene Passwort eingeben. Gelöscht werden alle Easter-Egg-Zähler (Gruppe und Personen, heute und seit Beginn) und alle Easter-Egg-Verläufe; danach können alle Easter Eggs neu auslösen. Mit gelöscht werden Bestenliste, Sammelalben und Fahrer-Einträge. Optional lassen sich zusätzlich **alle Buchungen und Tage** löschen. Getränke, Personen, Easter-Egg-Regeln und die Historie bleiben erhalten.
 
 ## Rollen
 
@@ -107,7 +156,9 @@ Admin → Daten → **Statistiken zurücksetzen**, dann das eigene Passwort eing
 | Buchungen stornieren und für andere nachtragen | | ✓ | ✓ |
 | Namen korrigieren | | ✓ | ✓ |
 | Anstehende Easter Eggs sehen | | ✓ | ✓ |
-| Easter Eggs verwalten, Historie, Statistiken zurücksetzen | | | ✓ |
+| Neue Konten freischalten, unter 18 markieren, Gruppe zuordnen | | ✓ | ✓ |
+| Easter Eggs verwalten, Gruppen anlegen, Historie, Statistiken zurücksetzen | | | ✓ |
+| Tag löschen, Backup importieren | | | ✓ |
 | Admins ernennen und abberufen | | | ✓ |
 | Konten sperren, entsperren, entfernen, wiederherstellen | | | ✓ |
 | Passwort-Mail an eine Person schicken | | | ✓ |
@@ -189,15 +240,17 @@ Hinweise:
 
 ## Update der App
 
-Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 13 auf 14):
-- in `index.html`: `const APP_VERSION = '13';`
-- in `sw.js`: `const VERSION = 'strichliste-v13';`
+Aktuell ist **Version 15**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 15 auf 16):
+- in `index.html`: `const APP_VERSION = '15';`
+- in `sw.js`: `const VERSION = 'strichliste-v15';`
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 13“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Bei Version 15 haben sich auch die Regeln geändert: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 15“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
 1. In der alten Version unter **Admin → Daten → Backup speichern** eine JSON-Datei erzeugen.
-2. In der neuen Version unter **Admin → Daten → Backup importieren** diese Datei auswählen.
+2. In der neuen Version unter **Admin → Daten → Backup importieren** diese Datei auswählen (nur der Super-Admin).
 
 Die alten Buchungen haben keinen Personennamen.

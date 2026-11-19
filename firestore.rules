@@ -25,19 +25,25 @@ service cloud.firestore {
     function profile()     { return get(profilePath()).data; }
 
     function isSuper() { return signedIn() && request.auth.uid in superUids(); }
-    // Mitglied mit Namen, nicht gesperrt, nicht entfernt
+    // Mitglied mit Namen, freigeschaltet, nicht gesperrt, nicht entfernt
     function isActive() {
       return signedIn() && hasProfile()
+        && profile().get('pending', false) != true
         && profile().get('blocked', false) != true
         && profile().get('deleted', false) != true;
     }
+    // Jugendschutz: alkoholische Sorten
+    function alcCats() { return ['bier', 'radler', 'wein', 'schnaps']; }
+    function productIsAlc(pid) {
+      return get(/databases/$(database)/documents/products/$(pid)).data.get('cat', 'sonst') in alcCats();
+    }
     function isAdmin() { return isSuper() || (isActive() && profile().get('role', '') == 'admin'); }
     // Zählerfelder: alle Getränke, Bier und je eine Sorte
-    function counterKeys() { return ['all', 'beer', 'c_radler', 'c_wasser', 'c_soft', 'c_schnaps', 'c_sonst']; }
+    function counterKeys() { return ['all', 'beer', 'c_radler', 'c_alkfrei', 'c_wein', 'c_wasser', 'c_soft', 'c_schnaps', 'c_sonst']; }
 
     // Getränke, Tage und „aktiver Tag“: alle lesen, nur Admins ändern
     match /products/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
-    match /days/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /days/{id}     { allow read: if signedIn(); allow create, update: if isAdmin(); allow delete: if isSuper(); }
     match /meta/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
 
     // Nur zum Prüfen der eigenen Rechte
@@ -48,8 +54,10 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
 
+      // neue Konten warten auf Freischaltung (pending = true)
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['name', 'email', 't'])
+        && request.resource.data.keys().hasOnly(['name', 'email', 't', 'pending'])
+        && request.resource.data.pending == true
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 3
         && request.resource.data.name.size() <= 40
@@ -58,9 +66,15 @@ service cloud.firestore {
       allow update: if
         // Super-Admin: alles (Rolle, Sperre, Entfernen, Name)
         isSuper()
-        // Admin: nur den Namen korrigieren
-        || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
-            && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 40)
+        // Admin: Name korrigieren, freischalten, Jugendschutz, Gruppe
+        || (isAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'pending', 'minor', 'grp'])
+            && request.resource.data.name is string
+            && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 40
+            && (!('pending' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.pending == false))
+        // Admin: eine wartende Anmeldung ablehnen
+        || (isAdmin() && resource.data.get('pending', false) == true
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pending', 'deleted', 'blocked']))
         // Mitglied: nur die eigene E-Mail-Adresse nachtragen
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email'])
@@ -88,7 +102,7 @@ service cloud.firestore {
       allow read: if signedIn();
       allow delete: if isAdmin();
       allow create, update: if isActive()
-        && request.resource.data.keys().hasOnly(['id', 'day', 'title', 'sub', 'uid', 'name', 't'])
+        && request.resource.data.keys().hasOnly(['id', 'day', 'title', 'sub', 'uid', 'name', 't', 'alc', 'rid'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.title is string && request.resource.data.title.size() <= 80
         && request.resource.data.sub is string && request.resource.data.sub.size() <= 160;
@@ -114,7 +128,26 @@ service cloud.firestore {
       allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
     }
 
-    // Easter-Egg-Regeln: alle lesen, nur Super-Admins ändern
+    // Bestenliste (Personen und Gruppen, pro Tag und gesamt)
+    match /gboard/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin() || (isActive() && request.resource.data.keys().hasOnly(['g', 'p']));
+    }
+    // Sammelalbum: welche Easter Eggs man hatte
+    match /album/{uid} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if isAdmin() || (isActive() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['r']));
+    }
+    // Fahrer-Modus pro Tag (Dokument-ID = Nutzer-ID + "_" + Tag)
+    match /drv/{id} {
+      allow read: if isAdmin() || (signedIn() && id.matches(request.auth.uid + '_.+'));
+      allow create, update: if isActive() && id.matches(request.auth.uid + '_.+')
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'day', 't', 'name']);
+      allow delete: if isAdmin() || (signedIn() && id.matches(request.auth.uid + '_.+'));
+    }
+
+    // Easter-Egg-Regeln und Gruppenliste: alle lesen, nur Super-Admins ändern
     match /config/{id} {
       allow read: if signedIn();
       allow write: if isSuper();
@@ -146,6 +179,8 @@ service cloud.firestore {
         && request.resource.data.t is number
         && request.resource.data.who is string
         && request.resource.data.who.size() <= 40
+        // Jugendschutz: Minderjährige dürfen keinen Alkohol buchen
+        && (profile().get('minor', false) != true || !productIsAlc(request.resource.data.p))
       );
 
       // Eigene Buchung zurücknehmen; Admins dürfen alles
