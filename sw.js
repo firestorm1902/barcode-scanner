@@ -1,6 +1,6 @@
 /* Service Worker: hält die App offline startbar.
    Firestore selbst puffert Buchungen eigenständig (IndexedDB). */
-const VERSION = 'strichliste-v6';
+const VERSION = 'strichliste-v7';
 const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 const CORE = [
   './',
@@ -32,7 +32,7 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
-  const cdn = url.hostname === 'www.gstatic.com' || url.hostname === 'unpkg.com';
+  const cdn = ['www.gstatic.com', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname);
   // Datenbank- und Anmelde-Anfragen nie anfassen
   if (!sameOrigin && !cdn) return;
 

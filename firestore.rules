@@ -2,51 +2,80 @@ rules_version = '2';
 
 // Sicherheitsregeln für die Strichliste.
 // In der Firebase-Konsole unter Firestore → Regeln komplett einfügen und „Veröffentlichen“.
+//
+// Rollen:
+//   Super-Admin – steht unten in superUids(); darf alles, ernennt Admins, sperrt und entfernt Konten
+//   Admin       – wird vom Super-Admin in der App ernannt; verwaltet Tage, Getränke, Abgleich
+//   Mitglied    – bucht für sich selbst
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ▼▼▼ Hier die Nutzer-IDs der Admin-Konten eintragen (Authentication → Nutzer → „Nutzer-UID“) ▼▼▼
-    function adminUids() {
-      return ['HIER_ADMIN_UID_EINTRAGEN'];
+    // ▼▼▼ Nutzer-IDs der Super-Admins (in der App unter Admin → „Für die Einrichtung: Nutzer-ID“) ▼▼▼
+    function superUids() {
+      return ['M6oUtrEDdAd7dKlrOGxdUezuSsE3'];
     }
     // ▲▲▲
 
-    // Angemeldet mit E-Mail und Passwort (anonyme Konten zählen nicht)
+    // Angemeldet mit E-Mail und Passwort
     function signedIn() {
       return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password';
     }
-    function isAdmin() { return signedIn() && request.auth.uid in adminUids(); }
+    function profilePath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function hasProfile()  { return exists(profilePath()); }
+    function profile()     { return get(profilePath()).data; }
 
-    // Getränke, Tage und „aktiver Tag“: alle Mitglieder lesen, nur Admins ändern
+    function isSuper() { return signedIn() && request.auth.uid in superUids(); }
+    // Mitglied mit Namen, nicht gesperrt, nicht entfernt
+    function isActive() {
+      return signedIn() && hasProfile()
+        && profile().get('blocked', false) != true
+        && profile().get('deleted', false) != true;
+    }
+    function isAdmin() { return isSuper() || (isActive() && profile().get('role', '') == 'admin'); }
+
+    // Getränke, Tage und „aktiver Tag“: alle lesen, nur Admins ändern
     match /products/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
     match /days/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
     match /meta/{id}     { allow read: if signedIn(); allow write: if isAdmin(); }
 
-    // Nur zum Prüfen, ob ein Konto Admin ist
+    // Nur zum Prüfen der eigenen Rechte
     match /admincheck/{id} { allow read: if isAdmin(); }
+    match /supercheck/{id} { allow read: if isSuper(); }
 
-    // Name pro Konto: einmal festlegen, danach nur noch durch Admins änderbar
+    // Personen: Name einmal selbst festlegen, danach ändern nur Admins
     match /users/{uid} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['name', 'email', 't'])
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 3
         && request.resource.data.name.size() <= 40
         && (!('email' in request.resource.data) || request.resource.data.email == request.auth.token.email.lower());
-      allow update, delete: if isAdmin();
+
+      allow update: if
+        // Super-Admin: alles (Rolle, Sperre, Entfernen, Name)
+        isSuper()
+        // Admin: nur den Namen korrigieren
+        || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+            && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 40)
+        // Mitglied: nur die eigene E-Mail-Adresse nachtragen
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email'])
+            && request.resource.data.email == request.auth.token.email.lower());
+
+      allow delete: if isSuper();
     }
 
     // Buchungen
     match /scans/{id} {
-      // Jedes Mitglied sieht nur seine eigenen Buchungen, Admins alle
+      // Mitglieder sehen nur ihre eigenen Buchungen, Admins alle
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
 
-      // Jedes Mitglied darf für sich selbst buchen – aber nur mit hinterlegtem Namen
+      // Mitglieder buchen für sich selbst; Admins dürfen auch nachtragen
       allow create: if isAdmin() || (
-        signedIn()
+        isActive()
         && request.resource.data.uid == request.auth.uid
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && request.resource.data.keys().hasOnly(['uid', 'day', 'p', 'src', 't', 'at', 'who'])
         && request.resource.data.day is string
         && request.resource.data.p is string
@@ -56,7 +85,7 @@ service cloud.firestore {
       );
 
       // Eigene Buchung zurücknehmen; Admins dürfen alles
-      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow delete: if isAdmin() || (isActive() && resource.data.uid == request.auth.uid);
       allow update: if isAdmin();
     }
   }

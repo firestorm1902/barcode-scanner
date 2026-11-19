@@ -1,4 +1,4 @@
-# Strichliste – Getränke pro Tag
+# Wexhainis Getränke-Strichliste
 
 Web-App für den Verein:
 - Getränke werden pro Ausfahrt-Tag eingeladen.
@@ -39,6 +39,9 @@ Die Firebase-Konsole hat links zwei Bereiche: **Projektverknüpfungen** (zuletzt
 4. Reiter **Regeln**: den kompletten Inhalt von `firestore.rules` einfügen und **Veröffentlichen**. Die Admin-ID trägst du in Schritt 6 nach.
 
 ### 4. Zugangsdaten in die App eintragen
+
+Für das Projekt `wexhainis-getraenkestrichliste` ist das bereits erledigt; die Zugangsdaten stehen in `index.html`. Für ein anderes Projekt:
+
 1. Links **Einstellungen** (Zahnrad) → **Allgemein**.
 2. Ganz nach unten zu **Meine Apps** scrollen, auf das Web-Symbol **`</>`** klicken.
 3. App-Namen vergeben (z. B. „Strichliste“). *Firebase Hosting* **nicht** anhaken, dann **App registrieren**.
@@ -50,16 +53,17 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 ### 5. Auf GitHub Pages hochladen
 `index.html`, `sw.js` und `index_min.js` ins Repository legen (alle im selben Ordner). Nach ein bis zwei Minuten ist die Seite unter `https://DEIN-NAME.github.io/REPO/` erreichbar.
 
-### 6. Admin festlegen
+### 6. Super-Admin festlegen
 1. Die Seite öffnen, **Registrieren** wählen und dein eigenes Konto anlegen (Name, E-Mail, Passwort).
-2. Oben auf **Admin** tippen. Es erscheint „Keine Admin-Rechte“. Darunter „Für die Einrichtung: Nutzer-ID“ aufklappen und die ID kopieren.
+2. **Fünfmal schnell auf den Titel** „Wexhainis Getränke-Strichliste“ oben tippen, das öffnet den Admin-Bereich. Es erscheint „Keine Admin-Rechte“. Darunter „Für die Einrichtung: Nutzer-ID“ aufklappen und die ID kopieren.
    - Alternativ steht die ID in der Firebase-Konsole unter Authentication → Nutzer → Spalte „Nutzer-UID“.
-3. In der Firebase-Konsole unter **Firestore → Regeln** bei `adminUids()` eintragen und **Veröffentlichen**:
+3. In der Firebase-Konsole unter **Firestore → Regeln** bei `superUids()` eintragen und **Veröffentlichen**:
    ```
    return ['aB3dE5fG7hJ9kL1mN3pQ5rS7tU9v'];
    ```
-   Mehrere Admins werden mit Komma getrennt: `['ID1', 'ID2']`.
+   Mehrere Super-Admins werden mit Komma getrennt: `['ID1', 'ID2']`. Ein zweiter Super-Admin als Vertretung ist sinnvoll.
 4. Seite neu laden. Der Admin-Bereich ist jetzt offen.
+5. Weitere **Admins** ernennst du direkt in der App unter **Admin → Personen**: Person antippen und bei „Rolle“ „Admin“ wählen. Die Regeln musst du dafür nicht mehr anfassen.
 
 ### 7. Testen
 1. Im Admin einen **neuen Tag** anlegen.
@@ -73,13 +77,37 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
   - iPhone: Safari → Teilen → „Zum Home-Bildschirm“
   - Android: Chrome → Menü → „Zum Startbildschirm hinzufügen“
 - Man bleibt angemeldet, auch offline. Neues Handy oder Browserdaten gelöscht? Einfach mit derselben E-Mail **anmelden**, Name und Buchungen sind wieder da.
+- **Passwort ändern:** angemeldet auf „Passwort ändern“ neben „Abmelden“ tippen.
 - **Passwort vergessen?** E-Mail eintragen und auf „Passwort vergessen?“ tippen. Es kommt eine Mail von Firebase zum Zurücksetzen.
 - Oben neben „Strichliste“ steht der Netzstatus. „offline · 3 warten“ heißt: 3 Buchungen sind gespeichert und werden gesendet, sobald Netz da ist. In dieser Zeit nicht abmelden; die App warnt davor.
+
+## Admin-Bereich öffnen
+
+Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den Titel** oben tippen (innerhalb von zwei Sekunden), dann öffnet sich der Admin-Bereich. Zurück geht es über „Zurück zum Scannen“ oben rechts. Das ist nur ein Sichtschutz – die eigentlichen Rechte prüfen die Firebase-Regeln. Wer kein Admin ist, sieht dort nur „Keine Admin-Rechte“.
+
+## Rollen
+
+| | Mitglied | Admin | Super-Admin |
+|---|:-:|:-:|:-:|
+| Getränke für sich buchen, eigene Buchung zurücknehmen | ✓ | ✓ | ✓ |
+| Eigenes Passwort ändern | ✓ | ✓ | ✓ |
+| Tage, Getränke, Einladen, Zählen, Abgleich, Exporte | | ✓ | ✓ |
+| Buchungen stornieren und für andere nachtragen | | ✓ | ✓ |
+| Namen korrigieren | | ✓ | ✓ |
+| Admins ernennen und abberufen | | | ✓ |
+| Konten sperren, entsperren, entfernen, wiederherstellen | | | ✓ |
+| Passwort-Mail an eine Person schicken | | | ✓ |
+
+Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
+- **Sperren:** wirkt sofort. Die Person sieht „Dein Konto ist gesperrt“ und kann nichts mehr buchen.
+- **Entfernen:** sperrt das Konto und nimmt es aus der Liste. Auf Wunsch werden dabei alle Buchungen der Person gelöscht. Unter „Entfernte Konten“ lässt sich das rückgängig machen.
+- **Login endgültig löschen:** In der Firebase-Konsole unter Authentication → Nutzer, über das Menü „⋮“ der Person. Die App verlinkt dorthin. Direkt aus der App geht das im kostenlosen Tarif nicht. Fremde Passwörter setzen geht ebenfalls nicht; dafür gibt es die Passwort-Mail.
 
 ## Namen
 
 - Der Name wird bei der Registrierung festgelegt und hängt am Konto. Mitglieder können ihn nicht ändern, das verhindern die Sicherheitsregeln.
-- Nur Admins können einen Namen unter **Admin → Personen** korrigieren, z. B. bei Tippfehlern. Dort stehen auch die E-Mail-Adressen. Gleiche Namen werden als „doppelt“ markiert.
+- Admins und Super-Admins können einen Namen unter **Admin → Personen** korrigieren, z. B. bei Tippfehlern. Dort stehen auch die E-Mail-Adressen. Gleiche Namen werden als „doppelt“ markiert.
+- Bei älteren Konten fehlt die E-Mail in der Liste noch. Sie wird automatisch ergänzt, sobald die Person die App das nächste Mal öffnet.
 - Wer mit einer zweiten E-Mail-Adresse ein weiteres Konto anlegt, taucht in der Personenliste als eigener Eintrag auf.
 
 ## Ablauf an einem Tag
@@ -103,11 +131,11 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 
 ## Update der App
 
-Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 5 auf 6):
-- in `index.html`: `const APP_VERSION = '5';`
-- in `sw.js`: `const VERSION = 'strichliste-v5';`
+Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 7 auf 8):
+- in `index.html`: `const APP_VERSION = '7';`
+- in `sw.js`: `const VERSION = 'strichliste-v7';`
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 5“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 7“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

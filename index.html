@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-title" content="Strichliste" />
-<meta name="theme-color" content="#eef2f1" />
-<title>WexGetraenke</title>
+<meta name="apple-mobile-web-app-title" content="Wexhainis" />
+<meta name="theme-color" content="#141414" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet" />
+<title>Wexhainis Getränke-Strichliste</title>
 <script>
 /* ZXing (Barcode-Erkennung): erst lokal, dann CDN */
 (function () {
@@ -127,24 +130,58 @@ label.f{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <style>
-.net{font-size:.74rem;font-weight:700;border-radius:999px;padding:3px 9px;border:1.5px solid var(--pet);color:var(--pet);white-space:nowrap}
-.net.off{border-color:var(--amb);color:var(--amb)}
-.net.err{border-color:var(--pen);color:var(--pen)}
+/* ---- Wexhainer Narrenzunft: Wespe in Schwarz und Gelb ---- */
+:root{--bg:#f6f3ea;--ink:#141414;--mu:#5c574b;--line:#d8d1bf;--wy:#f5c000;--wy2:#fff2bf;--pen:#c62828;--pet:#1f6b3b;--amb:#9a5b00;--white:#fff}
+body{padding-top:0;background:var(--bg)}
+h1,h2,.day-head b,.prod-h b,.cnt{font-family:"Oswald","Arial Narrow",system-ui,sans-serif}
+h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
+.top{display:block;background:var(--ink);color:#fff;margin:0 -14px 18px;position:relative}
+.me.who{flex-wrap:wrap;row-gap:8px}
+.me.who>span:first-child{flex:1 1 160px}
+.top::after{content:"";display:block;height:9px;background:repeating-linear-gradient(-45deg,var(--ink) 0 9px,var(--wy) 9px 18px)}
+.top-in{max-width:640px;margin:0 auto;padding:14px 16px 12px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+#title{display:flex;flex-direction:column;line-height:1;cursor:default;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#title .t1{font-size:2rem;font-weight:700;color:var(--wy);text-transform:uppercase;letter-spacing:.01em}
+#title .t2{font-size:1.02rem;font-weight:500;color:#fff;margin-top:4px}
+.top-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.back{background:transparent;color:#fff;border-color:#fff}
+.net{font-size:.74rem;font-weight:700;border-radius:999px;padding:3px 9px;border:1.5px solid var(--wy);color:var(--wy);white-space:nowrap}
+.net.off{border-color:#ffb74d;color:#ffb74d}
+.net.err{border-color:#ff8a80;color:#ff8a80}
+.b.pri{background:var(--wy);border-color:var(--ink);color:var(--ink)}
+.b.pri:disabled{opacity:.5}
+.mode button.on,nav button.on{background:var(--ink);color:var(--wy)}
+.frame{border-color:var(--wy)}
+.frame::after{background:var(--wy);box-shadow:0 0 8px var(--wy)}
+.vp,.ph{background:#111}
+.note{background:var(--wy2);border-color:var(--amb)}
+.note.ok{background:#e1efe4;border-color:var(--pet)}
+.last{border-color:var(--pet);background:#e1efe4}
+.last.unk{border-color:var(--amb);background:var(--wy2)}
+.prod{border-color:var(--ink)}
+.tag.act{color:var(--ink);background:var(--wy);border-color:var(--ink)}
+.dr .cnt{font-weight:700}
+.pwwrap{position:relative;display:block}
+.pwwrap input{padding-right:84px}
+.pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
+.pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
 .me{display:flex;gap:8px;align-items:center;font-size:.86rem;color:var(--mu)}
 .me input{flex:1;padding:6px 8px}
 .setup{background:var(--white);border:1.5px solid var(--ink);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
-.setup code{background:#e6ecea;padding:1px 5px;border-radius:4px;word-break:break-all}
-body.noauth main,body.noauth nav{display:none!important}
-.uid{font-family:ui-monospace,Menlo,monospace;background:#e6ecea;padding:6px 8px;border-radius:6px;word-break:break-all;user-select:all}
+.setup code{background:#eee6cc;padding:1px 5px;border-radius:4px;word-break:break-all}
+body.noauth main{display:none!important}
+.uid{font-family:ui-monospace,Menlo,monospace;background:#eee6cc;padding:6px 8px;border-radius:6px;word-break:break-all;user-select:all}
 </style>
 </head>
 <body>
+<header class="top">
+  <div class="top-in">
+    <h1 id="title"><span class="t1">Wexhainis</span><span class="t2">Getränke-Strichliste</span></h1>
+    <div class="top-side"><span class="net" id="net">…</span><button class="b sm back" id="backBtn" hidden>Zurück zum Scannen</button></div>
+  </div>
+</header>
 <div class="wrap">
-  <header>
-    <div class="hl"><h1>Wexhainis Getränke Strichliste</h1><span class="net" id="net">…</span></div>
-    <nav><button data-v="scan" class="on">Scannen</button><button data-v="admin">Admin</button></nav>
-  </header>
 
   <section id="authSec" hidden style="border-top:0;padding-top:0">
     <div class="mode" id="authTabs" style="display:inline-flex;margin-bottom:12px"><button data-a="login" class="on">Anmelden</button><button data-a="reg">Registrieren</button></div>
@@ -178,7 +215,7 @@ body.noauth main,body.noauth nav{display:none!important}
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
-      <div class="me" style="margin-top:10px;justify-content:space-between"><span>Gebucht als <b id="meName" style="color:var(--ink)"></b></span><span style="display:flex;gap:6px"><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div class="me who" style="margin-top:10px;justify-content:space-between"><span>Gebucht als <b id="meName" style="color:var(--ink)"></b></span><span style="display:flex;gap:6px"><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--white)">
         <label class="f full">Aktuelles Passwort<input id="pwOld" type="password" autocomplete="current-password"></label>
         <label class="f">Neues Passwort<input id="pwNew" type="password" autocomplete="new-password"></label>
@@ -233,7 +270,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '6';
+const APP_VERSION = '7';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -579,6 +616,15 @@ function setAuthMode(m) {
   $('aBtn').textContent = reg ? 'Konto anlegen' : 'Anmelden';
   $('aIntro').textContent = reg ? 'Einmalig ein Konto anlegen. Damit kannst du dich später auch auf einem anderen Handy anmelden.' : 'Melde dich an, um Getränke zu buchen. Beim ersten Mal bitte „Registrieren“ wählen.';
 }
+// Passwortfelder mit „Anzeigen“-Knopf
+document.querySelectorAll('input[type=password]').forEach(inp => {
+  const wrap = document.createElement('span'); wrap.className = 'pwwrap';
+  inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
+  const t = document.createElement('button'); t.type = 'button'; t.className = 'pwtoggle'; t.textContent = 'Anzeigen'; t.setAttribute('aria-label', 'Passwort anzeigen');
+  t.addEventListener('click', () => { const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; t.textContent = show ? 'Verbergen' : 'Anzeigen'; t.setAttribute('aria-label', show ? 'Passwort verbergen' : 'Passwort anzeigen'); });
+  wrap.appendChild(t);
+});
+function hidePasswords() { document.querySelectorAll('.pwwrap input').forEach(i => { i.type = 'password'; }); document.querySelectorAll('.pwtoggle').forEach(t => { t.textContent = 'Anzeigen'; }); }
 $('authTabs').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) setAuthMode(b.dataset.a); });
 const authMsg = code => ({
   'auth/invalid-credential': 'E-Mail oder Passwort falsch.', 'auth/wrong-password': 'E-Mail oder Passwort falsch.', 'auth/user-not-found': 'E-Mail oder Passwort falsch.',
@@ -622,7 +668,7 @@ async function logout() {
   if (S.pending && !confirm(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
   if (cam.on) camStop();
   stopAdminListeners(); stopUserListeners();
-  await F.signOut(auth); setView('scan');
+  await F.signOut(auth); hidePasswords(); setView('scan');
 }
 $('logoutBtn').addEventListener('click', logout);
 $('dayInfo').addEventListener('click', e => { if (e.target.closest('[data-logout]')) logout(); });
@@ -866,11 +912,17 @@ let newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }
 function setView(v) {
   if (cam.box === boxMain) camStop();
   $('v-scan').hidden = v !== 'scan'; $('v-admin').hidden = v !== 'admin';
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $('backBtn').hidden = v !== 'admin';
   if (v === 'admin') renderAdmin(); else renderScan();
   window.scrollTo(0, 0);
 }
-document.querySelector('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { setMsg(''); setView(b.dataset.v); } });
+// Admin-Bereich: 5× schnell auf den Titel tippen
+let titleTaps = 0, titleTimer = null;
+$('title').addEventListener('click', () => {
+  titleTaps++; clearTimeout(titleTimer); titleTimer = setTimeout(() => { titleTaps = 0; }, 2000);
+  if (titleTaps >= 5) { titleTaps = 0; if (S.user && $('v-admin').hidden) { setMsg(''); setView('admin'); } }
+});
+$('backBtn').addEventListener('click', () => setView('scan'));
 
 function summary(rows) {
   if (!rows.length) return '<div class="note">Noch nichts eingetragen. Mit „Einladen per Scan“ die mitgenommenen Getränke erfassen.</div>';
@@ -1230,7 +1282,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden && cam.on) { const wasSheet = cam.box === boxSheet; camStop(); setMainButtons(); if (wasSheet) boxSheet.ph.innerHTML = '<b>Kamera pausiert</b><span>„Fertig“ tippen und erneut öffnen.</span>'; }
 });
 renderAll();
-if (location.hash === '#admin') setView('admin');
 if (configured) initFirebase().catch(err => { console.error(err); S.dbError = S.online ? 'Firebase konnte nicht geladen werden: ' + err.message : 'Offline und die App ist noch nicht auf diesem Gerät gespeichert. Einmal mit Internet öffnen.'; renderAll(); });
 </script>
 </body>
