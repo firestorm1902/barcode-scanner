@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#eef2f1" />
+<title>Strichliste – Getränke scannen</title>
+<script>
+(function () {
+  const local = ['./zxing.min.js', './index_min.js', './zxing_min.js'];
+  const cdn = 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js';
+  const ok = () => !!(window.ZXing && window.ZXing.MultiFormatReader);
+  const inject = src => new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = false;
+    s.onload = () => res(); s.onerror = () => { s.remove(); rej(); };
+    document.head.appendChild(s);
+  });
+  window.__zxReady = (async () => {
+    for (const src of local) { try { await inject(src); if (ok()) return true; } catch (e) {} }
+    try { await inject(cdn); } catch (e) {}
+    return ok();
+  })();
+})();
+</script>
+<style>
+:root{--bg:#eef2f1;--ink:#16222e;--mu:#5d6b78;--line:#c9d3d1;--pen:#c1272d;--pet:#0b6e69;--amb:#9a5b00;--white:#fff}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:14px 14px 70px;line-height:1.35}
+.wrap{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.02rem;font-weight:700;margin-bottom:8px}
+nav{display:flex;border:1.5px solid var(--ink);border-radius:10px;overflow:hidden}
+nav button{border:0;background:transparent;color:var(--ink);font:600 .9rem inherit;font-family:inherit;padding:8px 14px;cursor:pointer}
+nav button.on{background:var(--ink);color:var(--white)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--pet);outline-offset:2px}
+section{border-top:1.5px solid var(--ink);padding-top:10px}
+.scanner{border-top:0;padding-top:0}
+.vp{position:relative;aspect-ratio:4/3;background:#0b1218;border-radius:12px;overflow:hidden}
+#reader,#reader video{width:100%;height:100%}
+#reader video{object-fit:cover;display:block}
+.ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px;text-align:center;color:#c8d3d9;background:#0b1218}
+.ph b{color:#fff;font-size:1.1rem}
+.ph span{font-size:.88rem;max-width:280px}
+.frame{position:absolute;left:8%;right:8%;top:20%;bottom:20%;border:2px solid rgba(255,255,255,.85);border-radius:10px;box-shadow:0 0 0 999px rgba(11,18,24,.45);pointer-events:none}
+.frame::after{content:"";position:absolute;left:6%;right:6%;top:50%;height:2px;background:var(--pen)}
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.b{font:600 .95rem inherit;font-family:inherit;border:1.5px solid var(--ink);background:var(--white);color:var(--ink);border-radius:10px;padding:11px 14px;cursor:pointer}
+.b.pri{background:var(--pet);border-color:var(--pet);color:#fff;flex:1}
+.b.dng{border-color:var(--pen);color:var(--pen)}
+.b.sm{padding:6px 10px;font-size:.82rem}
+.b:active{transform:scale(.97)}
+.note{border-left:4px solid var(--amb);background:#f8ecd6;padding:10px 12px;border-radius:0 8px 8px 0;font-size:.9rem}
+.note.ok{border-color:var(--pet);background:#d8eeeb}
+.note.bad{border-color:var(--pen);background:#f6dcdc}
+.last{display:flex;justify-content:space-between;align-items:center;gap:10px;border:2px solid var(--pet);background:#d8eeeb;border-radius:12px;padding:12px 14px}
+.last.unk{border-color:var(--amb);background:#f8ecd6}
+.last b{font-size:1.1rem;display:block}
+.last span{font-size:.88rem;color:var(--mu)}
+.dr{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.dr .nm b{font-size:1.02rem}
+.dr .nm small{display:block;color:var(--mu);font-size:.8rem}
+.dr .nm small.low{color:var(--pen);font-weight:700}
+.tl{grid-column:1 / -1;color:var(--pen);display:flex;flex-wrap:wrap;gap:6px;min-height:0}
+.tl:empty{display:none}
+.cnt{font-size:1.5rem;font-weight:800;min-width:32px;text-align:right}
+.empty{color:var(--mu);padding:14px 0;font-size:.92rem}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{font-weight:600;color:var(--mu);text-align:right;padding:4px 6px;border-bottom:1.5px solid var(--ink);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line)}
+td.bad{color:var(--pen);font-weight:700}td.good{color:var(--pet);font-weight:700}td.warn{color:var(--amb);font-weight:700}
+input{font:inherit;font-size:16px;border:1.5px solid var(--line);border-radius:8px;padding:8px;background:var(--white);color:var(--ink);width:100%}
+input.n{width:64px;text-align:right}
+.dc{border-bottom:1px solid var(--line);padding:10px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dc label{font-size:.78rem;color:var(--mu);display:flex;flex-direction:column;gap:3px}
+.dc .full{grid-column:1 / -1}
+.dc .acts{grid-column:1 / -1;display:flex;gap:6px;flex-wrap:wrap}
+.rw{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.rw span:nth-child(2){flex:1;font-weight:600}
+.rw small{color:var(--mu)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translate(-50%,80px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:.88rem;font-weight:600;transition:transform .2s;z-index:50;pointer-events:none}
+.toast.show{transform:translate(-50%,0)}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Strichliste</h1>
+    <nav><button data-v="scan" class="on">Scannen</button><button data-v="admin">Admin</button></nav>
+  </header>
+
+  <main id="v-scan" style="display:flex;flex-direction:column;gap:16px">
+    <section class="scanner">
+      <div class="vp">
+        <div id="reader"></div>
+        <div class="frame" id="frame" hidden></div>
+        <div class="ph" id="ph"><b>Getränk scannen</b><span>Kamera starten und den Barcode waagerecht in die Mitte halten.</span></div>
+      </div>
+      <div class="row">
+        <button class="b pri" id="startBtn">Kamera starten</button>
+        <button class="b" id="stopBtn" hidden>Kamera stoppen</button>
+      </div>
+    </section>
+    <div class="note" id="msg" hidden></div>
+    <div id="last" hidden></div>
+    <section><h2>Getränke</h2><div id="list"></div></section>
+  </main>
+
+  <main id="v-admin" hidden><div id="adminBody" style="display:flex;flex-direction:column;gap:18px"></div></main>
+</div>
+<input type="file" id="fileIn" accept="application/json,.json" hidden />
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const KEY = 'strichliste_v1';
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+/* ---------- Daten ---------- */
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && Array.isArray(d.drinks)) return Object.assign({ pin: '1234', scans: [] }, d); } catch (e) {}
+  return { pin: '1234', drinks: [], scans: [] };
+}
+let db = load(), adminOK = false, captureFor = null, draft = { name: '', codes: '', start: '', price: '', min: '' };
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('Speichern fehlgeschlagen'); } }
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = v => parseFloat(String(v).replace(',', '.'));
+const money = n => n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+const norm = c => { c = String(c).trim(); return /^\d+$/.test(c) ? c.replace(/^0+(?=\d)/, '') : c; };
+const findDrink = code => db.drinks.find(d => d.codes.includes(norm(code)));
+const used = d => db.scans.filter(s => s.d === d.id).length;
+const rest = d => d.start - used(d);
+const fmtT = t => new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+let toastT;
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+
+function tally(n) {
+  if (n <= 0 || n > 60) return '';
+  const grp = k => {
+    let s = '<svg viewBox="0 0 28 22" width="28" height="22" aria-hidden="true"><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round">';
+    for (let i = 0; i < Math.min(k, 4); i++) s += '<line x1="' + (4 + i * 6.5) + '" y1="2" x2="' + (4 + i * 6.5) + '" y2="20"/>';
+    if (k === 5) s += '<line x1="1" y1="17" x2="27" y2="5"/>';
+    return s + '</g></svg>';
+  };
+  let h = ''; for (let i = 0; i < Math.floor(n / 5); i++) h += grp(5);
+  return h + (n % 5 ? grp(n % 5) : '');
+}
+
+/* ---------- Buchen ---------- */
+function book(d, src) {
+  const s = { id: uid(), t: Date.now(), d: d.id, src };
+  db.scans.push(s); save();
+  const r = rest(d), low = r < 0 || (d.min > 0 && r <= d.min);
+  $('last').className = 'last'; $('last').hidden = false;
+  $('last').innerHTML = '<div><b>' + esc(d.name) + ' gebucht</b><span>Rest: ' + r + (low ? ' – bald leer, bitte auffüllen' : '') + '</span></div><button class="b sm" data-undo="' + s.id + '">Rückgängig</button>';
+  renderScan();
+}
+function showUnknown(code) {
+  $('last').className = 'last unk'; $('last').hidden = false;
+  $('last').innerHTML = '<div><b>Unbekannter Barcode</b><span>' + esc(code) + '</span></div><button class="b sm" data-new="' + esc(norm(code)) + '">Im Admin anlegen</button>';
+}
+$('last').addEventListener('click', e => {
+  const u = e.target.closest('[data-undo]'), n = e.target.closest('[data-new]');
+  if (u) { db.scans = db.scans.filter(s => s.id !== u.dataset.undo); save(); $('last').hidden = true; renderScan(); toast('Buchung zurückgenommen'); }
+  if (n) { draft.codes = n.dataset.new; setView('admin'); }
+});
+$('list').addEventListener('click', e => {
+  const b = e.target.closest('[data-plus]'); if (!b) return;
+  const d = db.drinks.find(x => x.id === b.dataset.plus); if (d) book(d, 'manuell');
+});
+function renderScan() {
+  $('list').innerHTML = db.drinks.length ? db.drinks.map(d => {
+    const n = used(d), r = rest(d), low = r < 0 || (d.min > 0 && r <= d.min);
+    return '<div class="dr"><div class="nm"><b>' + esc(d.name) + '</b><small class="' + (low ? 'low' : '') + '">Rest ' + r + (d.price ? ' · ' + money(d.price) : '') + '</small></div><span class="cnt">' + n + '</span><button class="b sm" data-plus="' + d.id + '" aria-label="' + esc(d.name) + ' manuell +1">+1</button><div class="tl" style="color:var(--pen)">' + tally(n) + '</div></div>';
+  }).join('') : '<div class="empty">Noch keine Getränke. Lege sie im Admin-Bereich an.</div>';
+}
+
+/* ---------- Scanner (ZXing auf Video-Frames) ---------- */
+let stream = null, video = null, timer = null, scanning = false, tk = 0, zx = null, nat = null, cv = null, cx = null, lastCode = '', lastT = 0;
+function buildReader() {
+  if (!(window.ZXing && ZXing.MultiFormatReader)) return null;
+  const Z = ZXing, h = new Map(), B = Z.BarcodeFormat;
+  h.set(Z.DecodeHintType.TRY_HARDER, true);
+  h.set(Z.DecodeHintType.POSSIBLE_FORMATS, [B.QR_CODE, B.EAN_13, B.EAN_8, B.UPC_A, B.UPC_E, B.CODE_128, B.CODE_39, B.CODE_93, B.ITF, B.DATA_MATRIX, B.AZTEC, B.PDF_417]);
+  const r = new Z.MultiFormatReader(); r.setHints(h); return r;
+}
+function zxFrame() {
+  const vw = video.videoWidth, vh = video.videoHeight; if (!vw || !vh) return null;
+  const cw = Math.floor(vw * 0.9), ch = Math.floor(vh * 0.6), sx = Math.floor((vw - cw) / 2), sy = Math.floor((vh - ch) / 2);
+  const k = Math.min(1, 1100 / cw), ow = Math.max(1, Math.floor(cw * k)), oh = Math.max(1, Math.floor(ch * k));
+  if (!cv) { cv = document.createElement('canvas'); cx = cv.getContext('2d', { willReadFrequently: true }); }
+  if (cv.width !== ow || cv.height !== oh) { cv.width = ow; cv.height = oh; }
+  cx.drawImage(video, sx, sy, cw, ch, 0, 0, ow, oh);
+  const Z = ZXing, src = new Z.HTMLCanvasElementLuminanceSource(cv), Bin = tk % 2 ? Z.GlobalHistogramBinarizer : Z.HybridBinarizer;
+  try { const r = zx.decode(new Z.BinaryBitmap(new Bin(src))); if (r && r.getText()) return r.getText(); } catch (e) {}
+  return null;
+}
+async function tick() {
+  timer = null; if (!scanning || !video) return; tk++;
+  try {
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      let code = null;
+      if (nat) { try { const d = await nat.detect(video); if (d && d.length && d[0].rawValue) code = d[0].rawValue; } catch (e) {} }
+      if (!code && zx) code = zxFrame();
+      if (code) onCode(code);
+    }
+  } catch (e) {}
+  if (scanning) timer = setTimeout(tick, 120);
+}
+async function openStream() {
+  const base = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  const tries = [{ video: Object.assign({ facingMode: { ideal: 'environment' } }, base), audio: false }, { video: { facingMode: 'environment' }, audio: false }, { video: true, audio: false }];
+  let err; for (const c of tries) { try { return await navigator.mediaDevices.getUserMedia(c); } catch (e) { err = e; } }
+  throw err;
+}
+function setMsg(t) { $('msg').hidden = !t; $('msg').innerHTML = t || ''; }
+async function startScanner() {
+  if (scanning) return;
+  await window.__zxReady;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { setMsg('<b>Kein Kamerazugriff:</b> Die Seite muss über HTTPS in Safari/Chrome geöffnet werden.'); return; }
+  zx = buildReader(); nat = null;
+  if (!IS_IOS && 'BarcodeDetector' in window) { try { nat = new BarcodeDetector(); } catch (e) {} }
+  if (!zx && !nat) { setMsg('<b>Scanner-Bibliothek fehlt:</b> Lege <code>index_min.js</code> (ZXing) neben diese Datei oder prüfe die Internetverbindung.'); return; }
+  try {
+    stream = await openStream();
+    $('reader').innerHTML = '';
+    video = document.createElement('video');
+    video.setAttribute('playsinline', 'true'); video.muted = true; video.autoplay = true; video.srcObject = stream;
+    $('reader').appendChild(video); await video.play();
+    try { const t = stream.getVideoTracks()[0], c = t.getCapabilities ? t.getCapabilities() : {}; if (c.focusMode && c.focusMode.includes('continuous')) await t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+    scanning = true; setMsg('');
+    $('ph').hidden = true; $('frame').hidden = false; $('startBtn').hidden = true; $('stopBtn').hidden = false;
+    timer = setTimeout(tick, 200);
+  } catch (e) {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    setMsg('<b>Kamera nicht verfügbar (' + esc((e && e.name) || 'Fehler') + '):</b> Erlaubnis prüfen (iPhone: Einstellungen → Safari → Kamera) und die Seite direkt im Browser öffnen.');
+  }
+}
+function stopScanner() {
+  scanning = false; clearTimeout(timer); timer = null;
+  if (stream) { stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} }); stream = null; }
+  if (video) { try { video.pause(); video.srcObject = null; } catch (e) {} video.remove(); video = null; }
+  $('ph').hidden = false; $('frame').hidden = true; $('startBtn').hidden = false; $('stopBtn').hidden = true;
+}
+function beep() {
+  try { const A = window.AudioContext || window.webkitAudioContext, c = new A(), o = c.createOscillator(), g = c.createGain();
+    o.frequency.value = 1046; g.gain.setValueAtTime(.15, c.currentTime); g.gain.exponentialRampToValueAtTime(.001, c.currentTime + .14);
+    o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + .14); } catch (e) {}
+}
+function onCode(raw) {
+  const code = norm(raw), now = Date.now();
+  if (code === lastCode && now - lastT < 2500) return;
+  lastCode = code; lastT = now;
+  beep(); if (navigator.vibrate) navigator.vibrate(60);
+  if (captureFor) {
+    const other = findDrink(code), mine = captureFor === 'new' ? null : db.drinks.find(d => d.id === captureFor);
+    if (other && other !== mine) { toast('Barcode gehört schon zu „' + other.name + '“'); return; }
+    if (captureFor === 'new') draft.codes = (draft.codes ? draft.codes + ', ' : '') + code;
+    else if (mine && !mine.codes.includes(code)) { mine.codes.push(code); save(); }
+    captureFor = null; setMsg(''); stopScanner(); setView('admin'); toast('Barcode übernommen'); return;
+  }
+  const d = findDrink(code);
+  if (d) book(d, 'scan'); else showUnknown(code);
+}
+
+/* ---------- Ansichten ---------- */
+function setView(v) {
+  if (v === 'admin' && scanning) stopScanner();
+  $('v-scan').hidden = v !== 'scan'; $('v-admin').hidden = v !== 'admin';
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  if (v === 'admin') renderAdmin(); else renderScan();
+  window.scrollTo(0, 0);
+}
+document.querySelector('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { captureFor = null; setMsg(''); setView(b.dataset.v); } });
+$('startBtn').addEventListener('click', startScanner);
+$('stopBtn').addEventListener('click', () => { captureFor = null; setMsg(''); stopScanner(); });
+
+/* ---------- Admin ---------- */
+function recon() {
+  return db.drinks.map(d => { const sc = used(d), soll = d.start - sc, ist = d.counted == null ? null : d.counted; return { d, sc, soll, ist, diff: ist == null ? null : ist - soll }; });
+}
+function summary(rows) {
+  if (!rows.length) return '';
+  const open = rows.filter(r => r.ist == null).length, bad = rows.filter(r => r.diff !== null && r.diff !== 0);
+  const missing = bad.filter(r => r.diff < 0).reduce((a, r) => a - r.diff, 0), extra = bad.filter(r => r.diff > 0).reduce((a, r) => a + r.diff, 0);
+  const cost = bad.filter(r => r.diff < 0).reduce((a, r) => a - r.diff * r.d.price, 0);
+  if (!open && !bad.length) return '<div class="note ok"><b>Alles abgescannt.</b> Bei allen ' + rows.length + ' Getränken stimmt der gezählte Rest mit dem Soll überein.</div>';
+  let t = '';
+  if (bad.length) t += '<b>' + bad.length + ' Abweichung' + (bad.length > 1 ? 'en' : '') + ':</b> ' + (missing ? missing + ' Stück nicht gescannt' + (cost ? ' (' + money(cost) + ')' : '') : '') + (missing && extra ? ', ' : '') + (extra ? extra + ' Stück mehr im Lager als erwartet' : '') + '. ';
+  if (open) t += open + ' von ' + rows.length + ' Getränken noch nicht gezählt.';
+  return '<div class="note ' + (missing ? 'bad' : '') + '">' + t + '</div>';
+}
+function renderAdmin() {
+  const el = $('adminBody');
+  if (!adminOK) {
+    el.innerHTML = '<section><h2>Admin-Bereich</h2><div class="row" style="margin-top:0"><input id="pinIn" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off" style="flex:1" /><button class="b pri" style="flex:0 0 auto" data-act="login">Anmelden</button></div></section>';
+    return;
+  }
+  const rows = recon();
+  const recent = db.scans.slice(-25).reverse().map(s => { const d = db.drinks.find(x => x.id === s.d); return '<div class="rw"><span>' + fmtT(s.t) + '</span><span>' + esc(d ? d.name : '(gelöscht)') + '</span><small>' + s.src + '</small><button class="b sm" data-act="storno" data-id="' + s.id + '">Stornieren</button></div>'; }).join('');
+  el.innerHTML =
+    (db.pin === '1234' ? '<div class="note">Die Standard-PIN <b>1234</b> ist noch aktiv. Ändere sie unten unter „Daten“.</div>' : '') +
+    summary(rows) +
+    '<section><h2>Abgleich: Soll gegen gezählt</h2>' + (rows.length ? '<div class="tw"><table><tr><th>Getränk</th><th>Start</th><th>Gescannt</th><th>Soll-Rest</th><th>Gezählt</th><th>Differenz</th></tr>' +
+      rows.map(r => '<tr><td>' + esc(r.d.name) + '</td><td>' + r.d.start + '</td><td>' + r.sc + '</td><td>' + r.soll + '</td><td><input class="n" inputmode="numeric" data-f="counted" data-id="' + r.d.id + '" value="' + (r.ist == null ? '' : r.ist) + '" aria-label="Gezählter Rest ' + esc(r.d.name) + '"></td><td class="' + (r.diff == null ? '' : r.diff === 0 ? 'good' : r.diff < 0 ? 'bad' : 'warn') + '">' + (r.diff == null ? '–' : r.diff === 0 ? 'passt' : r.diff < 0 ? 'fehlt ' + (-r.diff) : r.diff + ' zu viel') + '</td></tr>').join('') + '</table></div>' : '<div class="empty">Lege zuerst Getränke an.</div>') + '</section>' +
+    '<section><h2>Getränke</h2>' + db.drinks.map(d =>
+      '<div class="dc"><label class="full">Name<input data-f="name" data-id="' + d.id + '" value="' + esc(d.name) + '"></label>' +
+      '<label class="full">Barcodes (mehrere mit Komma)<input data-f="codes" data-id="' + d.id + '" value="' + esc(d.codes.join(', ')) + '" inputmode="numeric"></label>' +
+      '<label>Bestand zu Beginn<input data-f="start" data-id="' + d.id + '" value="' + d.start + '" inputmode="numeric"></label>' +
+      '<label>Preis in €<input data-f="price" data-id="' + d.id + '" value="' + (d.price || '') + '" inputmode="decimal"></label>' +
+      '<label>Warnen ab Rest<input data-f="min" data-id="' + d.id + '" value="' + (d.min || '') + '" inputmode="numeric"></label><div></div>' +
+      '<div class="acts"><button class="b sm" data-act="cap" data-id="' + d.id + '">Barcode scannen</button><button class="b sm" data-act="refill" data-id="' + d.id + '">Nachfüllen</button><button class="b sm dng" data-act="del" data-id="' + d.id + '">Löschen</button></div></div>').join('') +
+      '<div class="dc" style="border-bottom:0"><label class="full">Neues Getränk<input data-n="name" value="' + esc(draft.name) + '" placeholder="z. B. Cola 0,5 l"></label>' +
+      '<label class="full">Barcode<input data-n="codes" value="' + esc(draft.codes) + '" inputmode="numeric" placeholder="eintippen oder scannen"></label>' +
+      '<label>Bestand zu Beginn<input data-n="start" value="' + esc(draft.start) + '" inputmode="numeric"></label>' +
+      '<label>Preis in €<input data-n="price" value="' + esc(draft.price) + '" inputmode="decimal"></label>' +
+      '<label>Warnen ab Rest<input data-n="min" value="' + esc(draft.min) + '" inputmode="numeric"></label><div></div>' +
+      '<div class="acts"><button class="b sm" data-act="cap" data-id="new">Barcode scannen</button><button class="b pri sm" data-act="add">Hinzufügen</button></div></div></section>' +
+    '<section><h2>Buchungen (' + db.scans.length + ')</h2>' + (recent || '<div class="empty">Noch nichts gebucht.</div>') + '</section>' +
+    '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
+      '<button class="b" data-act="csv">Abgleich als CSV</button><button class="b" data-act="csvb">Buchungen als CSV</button><button class="b" data-act="backup">Backup speichern</button><button class="b" data-act="restore">Backup laden</button>' +
+      '<button class="b" data-act="pin">PIN ändern</button><button class="b" data-act="logout">Abmelden</button></div>' +
+      '<div class="row"><button class="b dng" data-act="period">Neue Periode starten</button></div></section>';
+}
+function setField(d, f, v) {
+  if (f === 'name') d.name = v.trim() || d.name;
+  else if (f === 'codes') {
+    const list = [...new Set(v.split(/[,;\s]+/).map(norm).filter(Boolean))], ok = [];
+    list.forEach(c => { const o = findDrink(c); if (o && o !== d) toast('Barcode ' + c + ' gehört schon zu „' + o.name + '“'); else ok.push(c); });
+    d.codes = ok;
+  } else if (f === 'price') d.price = isNaN(num(v)) ? 0 : Math.max(0, num(v));
+  else if (f === 'counted') d.counted = v.trim() === '' || isNaN(parseInt(v)) ? null : parseInt(v);
+  else d[f] = Math.max(0, parseInt(v) || 0);
+}
+function download(name, text, type) {
+  const a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type }));
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+const today = () => new Date().toISOString().slice(0, 10);
+const csvEsc = v => '"' + String(v).replace(/"/g, '""') + '"';
+function csvAbgleich() {
+  const rows = [['Getränk', 'Barcodes', 'Start', 'Gescannt', 'Soll-Rest', 'Gezählt', 'Differenz', 'Preis', 'Wert Differenz']];
+  recon().forEach(r => rows.push([csvEsc(r.d.name), csvEsc(r.d.codes.join(' ')), r.d.start, r.sc, r.soll, r.ist == null ? '' : r.ist, r.diff == null ? '' : r.diff, String(r.d.price || 0).replace('.', ','), r.diff == null ? '' : String(r.diff * (r.d.price || 0)).replace('.', ',')]));
+  download('abgleich-' + today() + '.csv', '\uFEFF' + rows.map(r => r.join(';')).join('\n'), 'text/csv;charset=utf-8');
+}
+$('adminBody').addEventListener('input', e => { const n = e.target.dataset.n; if (n) draft[n] = e.target.value; });
+$('adminBody').addEventListener('change', e => {
+  const f = e.target.dataset.f, id = e.target.dataset.id; if (!f) return;
+  const d = db.drinks.find(x => x.id === id); if (!d) return;
+  setField(d, f, e.target.value); save(); renderAdmin();
+});
+$('adminBody').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pinIn') $('adminBody').querySelector('[data-act=login]').click(); });
+$('adminBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, id = b.dataset.id, d = db.drinks.find(x => x.id === id);
+  if (a === 'login') { if ($('pinIn').value === db.pin) { adminOK = true; renderAdmin(); } else { toast('PIN falsch'); $('pinIn').value = ''; } }
+  else if (a === 'logout') { adminOK = false; renderAdmin(); }
+  else if (a === 'cap') { captureFor = id; setView('scan'); setMsg('<b>Barcode-Aufnahme:</b> Scanne jetzt die Flasche' + (d ? ' für „' + esc(d.name) + '“' : ' für das neue Getränk') + '.'); startScanner(); }
+  else if (a === 'add') {
+    const name = draft.name.trim(); if (!name) { toast('Bitte einen Namen eingeben'); return; }
+    const nd = { id: uid(), name, codes: [], start: 0, price: 0, min: 0, counted: null };
+    setField(nd, 'codes', draft.codes); setField(nd, 'start', draft.start); setField(nd, 'price', draft.price); setField(nd, 'min', draft.min);
+    db.drinks.push(nd); save(); draft = { name: '', codes: '', start: '', price: '', min: '' }; renderAdmin(); toast('Getränk angelegt');
+  }
+  else if (a === 'refill' && d) { const n = parseInt(prompt('Wie viele „' + d.name + '“ wurden nachgefüllt?', '12')); if (n > 0) { d.start += n; save(); renderAdmin(); toast(n + ' nachgefüllt'); } }
+  else if (a === 'del' && d) { if (confirm('„' + d.name + '“ und alle zugehörigen Buchungen löschen?')) { db.drinks = db.drinks.filter(x => x !== d); db.scans = db.scans.filter(s => s.d !== d.id); save(); renderAdmin(); } }
+  else if (a === 'storno') { db.scans = db.scans.filter(s => s.id !== id); save(); renderAdmin(); toast('Buchung storniert'); }
+  else if (a === 'csv') csvAbgleich();
+  else if (a === 'csvb') {
+    const rows = [['Zeit', 'Getränk', 'Quelle']]; db.scans.forEach(s => { const x = db.drinks.find(q => q.id === s.d); rows.push([new Date(s.t).toISOString(), csvEsc(x ? x.name : ''), s.src]); });
+    download('buchungen-' + today() + '.csv', '\uFEFF' + rows.map(r => r.join(';')).join('\n'), 'text/csv;charset=utf-8');
+  }
+  else if (a === 'backup') download('strichliste-backup-' + today() + '.json', JSON.stringify(db, null, 1), 'application/json');
+  else if (a === 'restore') $('fileIn').click();
+  else if (a === 'pin') { const p = prompt('Neue PIN (mindestens 4 Ziffern):'); if (p && /^\d{4,}$/.test(p)) { db.pin = p; save(); renderAdmin(); toast('PIN geändert'); } else if (p) toast('Bitte mindestens 4 Ziffern'); }
+  else if (a === 'period') {
+    if (!confirm('Neue Periode starten? Der Abgleich wird als CSV gespeichert, die Buchungen werden gelöscht und der gezählte Rest (sonst der Soll-Rest) wird der neue Startbestand.')) return;
+    csvAbgleich(); recon().forEach(r => { r.d.start = r.ist == null ? Math.max(0, r.soll) : r.ist; r.d.counted = null; }); db.scans = []; save(); renderAdmin(); toast('Neue Periode gestartet');
+  }
+});
+$('fileIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()); if (!Array.isArray(d.drinks) || !Array.isArray(d.scans)) throw 0;
+    if (!confirm('Backup laden? Die aktuellen Daten werden ersetzt.')) return;
+    db = Object.assign({ pin: '1234' }, d); save(); renderAdmin(); toast('Backup geladen');
+  } catch (err) { toast('Datei ist kein gültiges Backup'); }
+});
+
+renderScan();
+if (location.hash === '#admin') setView('admin');
+</script>
+</body>
+</html>
