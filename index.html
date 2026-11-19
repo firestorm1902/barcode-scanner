@@ -12,12 +12,14 @@
     (function loadScannerLibs() {
       const libs = [
         {
-          local: './zxing.min.js',
-          cdn: 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'
+          locals: ['./zxing.min.js', './index_min.js', './zxing_min.js'],
+          cdn: 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js',
+          check: () => !!(window.ZXing && window.ZXing.MultiFormatReader)
         },
         {
-          local: './html5-qrcode.min.js',
-          cdn: 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
+          locals: ['./html5-qrcode.min.js', './html5-qrcode_min.js'],
+          cdn: 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
+          check: () => !!window.Html5Qrcode
         }
       ];
 
@@ -27,25 +29,27 @@
           s.src = src;
           s.async = false;
           s.onload = () => resolve(src);
-          s.onerror = () => reject(new Error('Failed to load ' + src));
+          s.onerror = () => { s.remove(); reject(new Error('Failed to load ' + src)); };
           document.head.appendChild(s);
         });
       }
 
-      window.__libsReady = Promise.all(
-        libs.map(async (item) => {
-          try {
-            await injectScript(item.local);
-            return { name: item.local, source: 'local' };
-          } catch (e) {
-            if (navigator.onLine) {
-              await injectScript(item.cdn);
-              return { name: item.cdn, source: 'cdn' };
-            }
-            throw new Error('Bibliothek nicht offline verfuegbar: ' + item.local);
-          }
-        })
-      );
+      async function loadLib(item) {
+        for (const src of item.locals) {
+          try { await injectScript(src); if (item.check()) return { name: src, source: 'local' }; } catch (e) {}
+        }
+        await injectScript(item.cdn);
+        return { name: item.cdn, source: 'cdn' };
+      }
+
+      // nacheinander laden, Fehler einzelner Libs blockieren die andere nicht
+      window.__libsReady = (async () => {
+        const out = [];
+        for (const item of libs) {
+          try { out.push(await loadLib(item)); } catch (e) { out.push({ error: String(e) }); }
+        }
+        return out;
+      })();
     })();
   </script>
 
@@ -734,6 +738,8 @@
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
     const toast = document.getElementById('toast');
 
+    const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    let cameraListLoaded = false;
     let html5QrCode = null;
     let isScanning = false;
     let soundEnabled = true;
@@ -920,6 +926,12 @@
         aspectRatio: 1.333334
       };
 
+      // Kameraliste nur VOR dem Start und nicht auf iOS (zweiter getUserMedia-Aufruf beendet dort den laufenden Stream)
+      if (!IS_IOS && !cameraListLoaded) {
+        cameraListLoaded = true;
+        await populateCameras();
+      }
+
       const targetCamera = cameraIdOrConfig || { facingMode: 'environment' };
 
       try {
@@ -938,7 +950,6 @@
         stopBtn.style.display = 'flex';
 
         enforceVideoAttributes();
-        await populateCameras();
         checkTorchSupport();
       } catch (err) {
         console.error(err);
@@ -1169,10 +1180,6 @@
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, outW, outH);
 
-      if (contrastBoost) {
-        ctx.filter = 'contrast(1.35) brightness(1.05)';
-      }
-
       ctx.save();
       ctx.translate(outW / 2, outH / 2);
       ctx.rotate((angleDeg * Math.PI) / 180);
@@ -1180,6 +1187,20 @@
       const drawH = swap ? outW : outH;
       ctx.drawImage(source, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
+
+      if (contrastBoost) {
+        try {
+          const img = ctx.getImageData(0, 0, outW, outH);
+          const d = img.data;
+          for (let i = 0; i < d.length; i += 4) {
+            let g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            g = (g - 128) * 1.5 + 128;
+            g = g < 0 ? 0 : g > 255 ? 255 : g;
+            d[i] = d[i + 1] = d[i + 2] = g;
+          }
+          ctx.putImageData(img, 0, 0);
+        } catch (e) {}
+      }
 
       return canvas;
     }
@@ -1193,30 +1214,45 @@
       });
     }
 
-    async function decodeFromCanvas(canvas, zxingReader) {
-      if (zxingReader) {
+    function zxingDecodeCanvas(canvas) {
+      if (!(window.ZXing && ZXing.MultiFormatReader)) return null;
+      const Z = ZXing;
+      const hints = new Map();
+      hints.set(Z.DecodeHintType.TRY_HARDER, true);
+      hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
+        Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8,
+        Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128,
+        Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.CODE_93, Z.BarcodeFormat.ITF,
+        Z.BarcodeFormat.DATA_MATRIX, Z.BarcodeFormat.AZTEC, Z.BarcodeFormat.PDF_417
+      ]);
+      const reader = new Z.MultiFormatReader();
+      reader.setHints(hints);
+      const source = new Z.HTMLCanvasElementLuminanceSource(canvas);
+      const binarizers = [Z.HybridBinarizer, Z.GlobalHistogramBinarizer];
+      for (const B of binarizers) {
         try {
-          const result = await zxingReader.decodeFromCanvas(canvas);
-          if (result && result.getText()) {
-            const fmt = result.getBarcodeFormat ? String(result.getBarcodeFormat()) : 'BARCODE';
-            return { text: result.getText(), format: fmt };
+          const res = reader.decode(new Z.BinaryBitmap(new B(source)));
+          if (res && res.getText()) {
+            return { text: res.getText(), format: String(Z.BarcodeFormat[res.getBarcodeFormat()] || 'BARCODE') };
           }
         } catch (e) {}
       }
+      return null;
+    }
+
+    async function decodeFromCanvas(canvas) {
+      const z = zxingDecodeCanvas(canvas);
+      if (z) return z;
 
       if (html5QrCode) {
         try {
           const file = await canvasToFile(canvas, 'scan.jpg', 0.92);
           const res = await html5QrCode.scanFileV2(file, false);
           if (res && res.decodedText) {
-            return {
-              text: res.decodedText,
-              format: res?.result?.format?.formatName || 'BARCODE'
-            };
+            return { text: res.decodedText, format: res?.result?.format?.formatName || 'BARCODE' };
           }
         } catch (e) {}
       }
-
       return null;
     }
 
@@ -1244,13 +1280,6 @@
       try {
         await window.__libsReady;
       } catch (e) {}
-
-      let zxingReader = null;
-      if (window.ZXing && window.ZXing.BrowserMultiFormatReader) {
-        const hints = new Map();
-        hints.set(window.ZXing.DecodeHintType.TRY_HARDER, true);
-        zxingReader = new window.ZXing.BrowserMultiFormatReader(hints);
-      }
 
       if (!html5QrCode && window.Html5Qrcode) {
         html5QrCode = new Html5Qrcode('reader', {
@@ -1295,7 +1324,7 @@
           const p = passes[i];
           setStatus('', '<strong>Verarbeitung laeuft:</strong> Durchlauf ' + (i + 1) + '/' + passes.length + ' (' + p.label + ', ' + srcW + 'x' + srcH + 'px)...');
           const canvas = renderToCanvas(sourceImg, p.maxDim, p.angle, p.contrast);
-          found = await decodeFromCanvas(canvas, zxingReader);
+          found = await decodeFromCanvas(canvas);
           canvas.width = 0;
           canvas.height = 0;
         }
@@ -1323,9 +1352,6 @@
           '<strong>Verarbeitung fehlgeschlagen:</strong> ' + (err.message || 'Das Bild konnte nicht verarbeitet werden.')
         );
       } finally {
-        try {
-          if (zxingReader) zxingReader.reset();
-        } catch (e) {}
         placeholderTitle.textContent = 'Bereit zum Scannen';
         placeholderSub.textContent = 'Starte die Rueckkamera oder waehle ein Foto aus deiner Galerie.';
         fileInput.value = '';
