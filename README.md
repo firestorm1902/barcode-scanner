@@ -211,12 +211,18 @@ Bei bestimmten Buchungen erscheint für ein paar Sekunden ein Vollbild mit Wespe
 - 1., 3., 5., 7., 8., 9. und 10. Bier am Tag, danach bei jedem weiteren Bier (mit zunehmendem Augenzwinkern Richtung Heimfahrt)
 - erstes Wasser nach mindestens 3 Bier
 - Schnapszahl bei den eigenen Getränken (11, 22, 33 …): heute und seit Beginn
-- Scan um 11:11 Uhr und am 11.11.
+- Scan um 11:11 Uhr, um Mitternacht und am 11.11.
+- für jede Sorte etwas: erstes und fünftes/zehntes **Wasser**, erster und fünfter **Softdrink**, erstes und drittes **Alkoholfreies**, **Radler**, **Wein/Sekt** und **Schnaps**, das erste **sonstige** Getränk, „Schlau!“ (Wasser nach mindestens 2 Schnäpsen)
+- 50 und 100 Getränke seit Beginn
 
 **Auf allen Handys** („Max Meier hat … ausgelöst“)
 - Anstich: erster Scan des Tages
 - 10., 20. und 30. Bier der ganzen Gruppe am Tag
+- 10 Wasser, 10 Softdrinks und 11 Schnäpse der ganzen Gruppe am Tag
+- alle 100 Getränke seit Beginn
 - Schnapszahl bei allen Getränken der Gruppe: heute und seit Beginn
+
+**Animationen:** Konfetti, Sprudelblasen, Getränke-Regen (passendes Emoji zur Sorte), Feuerwerk, Wespenschwarm, „Dreh durch“ (die Karte wirbelt herein), Luftballons und Sternenregen – jeweils mit eigener Melodie und eigenem Vibrationsmuster. Standard ist „automatisch“: Die App wählt abwechselnd eine Animation, die zum Getränk passt. Im Editor lässt sich pro Easter Egg eine feste Animation oder „Zufall“ einstellen.
 
 Hinweise:
 - **Was als Bier zählt**, legt die **Sorte** des Getränks fest (Admin → Getränke). Ohne Angabe rät die App aus dem Namen. Radler und Alkoholfreies zählen nicht als Bier.
@@ -225,12 +231,14 @@ Hinweise:
 - **Easter Eggs: an/aus** schaltet alles für alle Handys ab.
 - **Verlauf für alle:** In der Scan-Ansicht steht unter „Deine Getränke heute“ der Abschnitt „Easter Eggs heute“ mit zwei Reitern: *Für alle* (alle gemeinsamen Easter Eggs des Tages mit Uhrzeit und Auslöser) und *Deine* (die eigenen). Die eigenen sind in der Datenbank gespeichert und bleiben auch bei einem Handywechsel erhalten.
 - **Vorschau für Admins:** Im Admin-Bereich zeigt „Anstehende Easter Eggs“ für den aktiven Tag, was als Nächstes kommt – für die Gruppe (Anstich, nächstes Gruppen-Bier, nächste Schnapszahl, 11:11 und 11.11.) und pro Person, sortiert danach, wer am nächsten dran ist.
-- **Verwalten (Super-Admin):** Unter Admin → **Easter Eggs verwalten** lässt sich jedes Easter Egg an- und ausschalten, ändern, kopieren, löschen und als Vorschau anzeigen; „Neues Easter Egg“ legt eins an, „Standard wiederherstellen“ setzt alles auf die mitgelieferten zurück. Einstellbar sind:
+- **Verwalten (Super-Admin):** Unter Admin → **Easter Eggs verwalten** lässt sich jedes Easter Egg an- und ausschalten, ändern, kopieren, löschen und als Vorschau anzeigen; „Neues Easter Egg“ legt eins an, „Standard-Easter-Eggs zurückholen“ setzt nur die mitgelieferten zurück und holt gelöschte wieder – **eigene Easter Eggs bleiben erhalten**. Einstellbar sind:
   - **Für:** jede Person für sich oder alle gemeinsam
   - **Wann:** genau bei einer Anzahl, bei jeder n-ten, ab einer Anzahl jedes Mal, bei Schnapszahl, „erstes … nach mindestens n …“, zu einer Uhrzeit, an einem Datum
   - **Getränk** (Sorte oder alle) und **Zeitraum** (heute oder seit Beginn)
+  - **Animation:** automatisch, fest oder Zufall
   - **Texte:** eine Zeile pro Variante im Format `Titel | Text`; mehrere Zeilen wechseln sich ab. `{n}` wird durch die Zahl ersetzt, `{name}` durch die Person.
-- Die mitgelieferten Easter Eggs stehen als `DEFAULT_RULES` in `index.html`. Sobald der Super-Admin etwas ändert, gelten die gespeicherten Regeln aus der Datenbank.
+- Die mitgelieferten Easter Eggs stehen als `DEFAULT_RULES` in `index.html`. Sobald der Super-Admin etwas ändert, wird die Liste in der Datenbank gespeichert und gilt für alle Handys. Neue mitgelieferte Easter Eggs aus späteren Updates kommen automatisch dazu – außer solche, die der Super-Admin gelöscht hat.
+  - **Animation:** pro Easter Egg wählbar (siehe oben).
 
 ## Kosten und Grenzen (kostenloser Spark-Tarif)
 
@@ -240,13 +248,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 16**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 16 auf 17):
-- in `index.html`: `const APP_VERSION = '16';`
-- in `sw.js`: `const VERSION = 'strichliste-v16';`
+Aktuell ist **Version 17**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 17 auf 18):
+- in `index.html`: `const APP_VERSION = '17';`
+- in `sw.js`: `const VERSION = 'strichliste-v17';`
 
 Seit Version 15 gelten neue Regeln. Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 16“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 17“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

@@ -262,11 +262,35 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .egg.go .egg-in{animation:eggPop .45s cubic-bezier(.2,1.4,.4,1)}
 .egg.go .wasp{animation:waspFly 1.6s ease-in-out infinite}
 .egg-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
-.egg-confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;animation:fall 2.4s linear forwards}
+.egg-confetti i{position:absolute;display:block;font-style:normal;line-height:1}
+.egg-confetti .cf{top:-12px;width:9px;height:14px;border-radius:2px;animation:fall 2.4s linear forwards}
+.egg-confetti .bb{bottom:-40px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.7),rgba(245,192,0,.15) 60%,transparent);animation:rise 3s ease-in forwards}
+.egg-confetti .em{top:-50px;animation:emFall 2.6s cubic-bezier(.4,0,.8,1) forwards}
+.egg-confetti .fw{width:9px;height:9px;border-radius:50%;opacity:0;animation:burst 1.2s ease-out forwards;box-shadow:0 0 8px currentColor}
+.egg-confetti .sw{left:0;animation:swarm 2.4s linear forwards}
+.egg-confetti .sw svg{display:block}
+.egg-confetti .bl{bottom:-80px;width:34px;height:42px;border-radius:50% 50% 48% 48%;border:2px solid #141414;animation:rise 3.4s ease-in forwards}
+.egg-confetti .bl::after{content:"";position:absolute;left:50%;top:100%;width:1.5px;height:40px;background:#ddd}
+.egg-confetti .st{color:var(--wy);opacity:0;animation:twinkle 1.4s ease-in-out 2 forwards;text-shadow:0 0 8px rgba(245,192,0,.8)}
+@keyframes rise{0%{transform:translate(0,0)}50%{transform:translate(var(--sx,12px),-55vh)}100%{transform:translate(0,-115vh)}}
+@keyframes emFall{to{transform:translateY(110vh) rotate(var(--rot,180deg))}}
+@keyframes burst{0%{opacity:1;transform:translate(0,0) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.4)}}
+@keyframes swarm{0%{transform:translateX(calc(var(--dir) * -60vw + 50vw)) scaleX(var(--dir))}25%{margin-top:-30px}50%{margin-top:20px}75%{margin-top:-20px}100%{transform:translateX(calc(var(--dir) * 70vw + 50vw)) scaleX(var(--dir))}}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1.2) rotate(40deg)}}
+@keyframes eggSpin{0%{transform:scale(.3) rotate(-540deg);opacity:0}70%{transform:scale(1.08) rotate(10deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+@keyframes eggZoom{0%{transform:scale(2.2);opacity:0}60%{transform:scale(.94);opacity:1}100%{transform:scale(1)}}
+@keyframes eggFloat{0%{transform:translateY(60vh);opacity:0}70%{transform:translateY(-12px);opacity:1}100%{transform:translateY(0)}}
+@keyframes eggDrop{0%{transform:translateY(-70vh)}60%{transform:translateY(0)}75%{transform:translateY(-22px)}90%{transform:translateY(0)}95%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+@keyframes eggShake{0%,100%{transform:translateX(0)}15%,55%{transform:translateX(-12px) rotate(-2deg)}35%,75%{transform:translateX(12px) rotate(2deg)}}
+.egg.go[data-anim=drehdurch] .egg-in{animation:eggSpin .9s cubic-bezier(.2,1,.4,1)}
+.egg.go[data-anim=feuerwerk] .egg-in{animation:eggZoom .6s ease-out}
+.egg.go[data-anim=blasen] .egg-in,.egg.go[data-anim=ballons] .egg-in{animation:eggFloat .8s cubic-bezier(.2,1,.4,1)}
+.egg.go[data-anim=regen] .egg-in{animation:eggDrop .9s ease-out}
+.egg.go[data-anim=schwarm] .egg-in{animation:eggPop .45s cubic-bezier(.2,1.4,.4,1),eggShake .6s .45s ease-in-out}
 @keyframes eggPop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes waspFly{0%,100%{transform:translate(0,0) rotate(-4deg)}25%{transform:translate(10px,-6px) rotate(3deg)}50%{transform:translate(-6px,-10px) rotate(-2deg)}75%{transform:translate(-10px,2px) rotate(4deg)}}
 @keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
-@media (prefers-reduced-motion:reduce){.egg.go .egg-in,.egg.go .wasp,.egg-confetti i{animation:none}.egg-confetti{display:none}}
+@media (prefers-reduced-motion:reduce){.egg.go .egg-in,.egg.go .wasp,.egg-confetti i,.egg.go[data-anim] .egg-in{animation:none!important}.egg-confetti{display:none}}
 .me{display:flex;gap:8px;align-items:center;font-size:.86rem;color:var(--mu)}
 .me input{flex:1;padding:6px 8px}
 .setup{background:var(--white);border:1.5px solid var(--ink);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
@@ -410,7 +434,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '16';
+const APP_VERSION = '17';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -590,7 +614,7 @@ function startUserListeners() {
   stop('cfg');
   unsub.cfg = F.onSnapshot(dref('config', 'eggs'), snap => {
     const d = snap.exists() ? snap.data() : null;
-    S.eggRules = d && Array.isArray(d.rules) ? d.rules : null; renderAdmin();
+    S.eggRules = d && Array.isArray(d.rules) ? d.rules : null; S.eggRemoved = d && Array.isArray(d.removed) ? d.removed : []; renderAdmin();
   }, err => console.warn('config', err));
   unsub.meta = F.onSnapshot(dref('meta', 'state'), snap => {
     S.metaState = snap.exists() ? snap.data() : {};
@@ -969,11 +993,42 @@ const DEFAULT_RULES = [
   { id: 'd_gsday', who: 'group', kind: 'schnaps', cat: 'all', period: 'day',   texts: [T('Schnapszahl für alle!', '{n} Getränke heut – ausglöst von {name}.')] },
   { id: 'd_gsall', who: 'group', kind: 'schnaps', cat: 'all', period: 'total', texts: [T('Schnapszahl für alle!', '{n} Getränke seit Beginn – ausglöst von {name}.')] },
   { id: 'd_t30',   who: 'team', kind: 'count', cat: 'all', period: 'day', n: 30, texts: [T('Runde für d’{gruppe}!', '{name} hat für d’{gruppe} des 30. Getränk heut gscannt.')] },
-  { id: 'd_tna',   who: 'team', kind: 'count', cat: 'na',  period: 'day', n: 10, texts: [T('D’{gruppe} bleibt vernünftig!', '10 alkoholfreie Getränke heut – ausglöst von {name}.')] }
+  { id: 'd_tna',   who: 'team', kind: 'count', cat: 'na',  period: 'day', n: 10, texts: [T('D’{gruppe} bleibt vernünftig!', '10 alkoholfreie Getränke heut – ausglöst von {name}.')] },
+  // für jede Sorte etwas – damit jeder was davon hat
+  { id: 'd_w1',  who: 'me', kind: 'count', cat: 'wasser', period: 'day', n: 1,  anim: 'blasen', texts: [T('Wasser marsch!', 'Des erschte Wasser heut – d’Wefzg trinkt au mol was Gscheits.')] },
+  { id: 'd_w5',  who: 'me', kind: 'count', cat: 'wasser', period: 'day', n: 5,  anim: 'blasen', texts: [T('Fünf Wasser!', 'Du bisch jo a richtiger Wasserbüffel.')] },
+  { id: 'd_w10', who: 'me', kind: 'count', cat: 'wasser', period: 'day', n: 10, anim: 'regen',  texts: [T('Zehn Wasser!', 'Obacht – du fangsch glei a zum Blubbern.')] },
+  { id: 'd_s1',  who: 'me', kind: 'count', cat: 'soft', period: 'day', n: 1, anim: 'blasen', texts: [T('Zischhhh!', 'Dei erschter Softdrink heut – jetzt wird’s spritzig.')] },
+  { id: 'd_s5',  who: 'me', kind: 'count', cat: 'soft', period: 'day', n: 5, anim: 'drehdurch', texts: [T('Zuckerschock!', 'Fünf Softdrinks – du hesch meh Zucker im Bluat als a Fasnetsküchle.')] },
+  { id: 'd_a1',  who: 'me', kind: 'count', cat: 'alkfrei', period: 'day', n: 1, anim: 'regen', texts: [T('Bier ohne Reue!', 'Schmeckt wie Bier, fährt wie Wasser.')] },
+  { id: 'd_a3',  who: 'me', kind: 'count', cat: 'alkfrei', period: 'day', n: 3, anim: 'sterne', texts: [T('Drei Alkoholfreie!', 'Morge bisch du der Einzige ohne Kopfweh.')] },
+  { id: 'd_r1',  who: 'me', kind: 'count', cat: 'radler', period: 'day', n: 1, anim: 'regen', texts: [T('Halbe-halbe!', 'A Radler – für alle, die sich net entscheide könnet.')] },
+  { id: 'd_r3',  who: 'me', kind: 'count', cat: 'radler', period: 'day', n: 3, anim: 'ballons', texts: [T('Drei Radler!', 'Mit em Radl kommsch heut trotzdem nemme hoim.')] },
+  { id: 'd_v1',  who: 'me', kind: 'count', cat: 'wein', period: 'day', n: 1, anim: 'sterne', texts: [T('Prösterle!', 'A Gläsle Wein – jetzt wird’s vornehm bei de Wefzge.')] },
+  { id: 'd_v3',  who: 'me', kind: 'count', cat: 'wein', period: 'day', n: 3, anim: 'feuerwerk', texts: [T('Drei Gläsle!', 'Du wirsch heut no zum Sommelier.')] },
+  { id: 'd_k1',  who: 'me', kind: 'count', cat: 'schnaps', period: 'day', n: 1, anim: 'drehdurch', texts: [T('Kurzer!', 'Ex und hopp – d’Wefzg sticht!')] },
+  { id: 'd_k3',  who: 'me', kind: 'count', cat: 'schnaps', period: 'day', n: 3, anim: 'schwarm', texts: [T('Drei Kurze!', 'Jetzt aber langsam, gell?')] },
+  { id: 'd_kw',  who: 'me', kind: 'after', cat: 'wasser', cat2: 'schnaps', n2: 2, anim: 'blasen', texts: [T('Schlau!', 'Nach de Kurze a Wasser – du hesch’s verstande.')] },
+  { id: 'd_o1',  who: 'me', kind: 'count', cat: 'sonst', period: 'day', n: 1, anim: 'ballons', texts: [T('Was isch denn des?', 'Mol was anders – Abwechslung muss sei.')] },
+  { id: 'd_t50', who: 'me', kind: 'count', cat: 'all', period: 'total', n: 50,  anim: 'feuerwerk', texts: [T('50 Getränke!', 'A halbs Hundert seit Fasnetsbeginn – Wefzg-Stammgascht!')] },
+  { id: 'd_t100', who: 'me', kind: 'count', cat: 'all', period: 'total', n: 100, anim: 'feuerwerk', texts: [T('100 Getränke!', 'Hundert! Bald kriegsch a eigene Kischt.')] },
+  { id: 'd_mid', who: 'me', kind: 'time', time: '00:00', anim: 'sterne', texts: [T('Geisterstunde!', 'Mitternacht – jetzt kommet d’Hexe raus.')] },
+  { id: 'd_gw10', who: 'group', kind: 'count', cat: 'wasser', period: 'day', n: 10, anim: 'blasen', texts: [T('10 Wasser für alle!', '{name} hat des 10. Wasser heut gscannt – d’Gruppe bleibt flüssig.')] },
+  { id: 'd_gs10', who: 'group', kind: 'count', cat: 'soft', period: 'day', n: 10, anim: 'ballons', texts: [T('Limo-Alarm!', '10 Softdrinks heut – ausglöst von {name}.')] },
+  { id: 'd_gk11', who: 'group', kind: 'count', cat: 'schnaps', period: 'day', n: 11, anim: 'schwarm', texts: [T('Elf Kurze!', 'Narrenzahl: der 11. Schnaps heut – {name} hat ausglöst.')] },
+  { id: 'd_g100', who: 'group', kind: 'every', cat: 'all', period: 'total', n: 100, anim: 'feuerwerk', texts: [T('Wieder 100 voll!', '{n} Getränke seit Beginn – ausglöst von {name}.')] }
 ];
+// Animationen
+const ANIMS = [['auto', 'automatisch (passend, wechselt)'], ['konfetti', 'Konfetti'], ['blasen', 'Sprudelblasen'], ['regen', 'Getränke-Regen'], ['feuerwerk', 'Feuerwerk'], ['schwarm', 'Wespenschwarm'], ['drehdurch', 'Dreh durch (Karte wirbelt)'], ['ballons', 'Luftballons'], ['sterne', 'Sternenregen'], ['zufall', 'Zufall']];
+const CAT_EMOJI = { bier: ['🍺', '🍻'], radler: ['🍋', '🍺'], alkfrei: ['🍺', '🚗'], wein: ['🍷', '🥂'], wasser: ['💧', '💦'], soft: ['🥤', '🧃'], schnaps: ['🥃', '🐝'], sonst: ['🎉', '🐝'], all: ['🎉', '🐝', '🥳'], na: ['💧', '🥤'] };
 const COUNT_KINDS = ['count', 'every', 'from', 'schnaps'];
 const KINDS = [['count', 'genau bei Anzahl'], ['every', 'bei jeder n-ten'], ['from', 'ab Anzahl jedes Mal'], ['schnaps', 'bei Schnapszahl (11, 22 …)'], ['after', 'erstes … nach mind. n …'], ['time', 'Scan zu einer Uhrzeit'], ['date', 'Scan an einem Datum']];
-const allRules = () => S.eggRules || DEFAULT_RULES;
+// Gespeicherte Regeln gelten; neue Standard-Eggs aus App-Updates kommen dazu, außer der Super-Admin hat sie gelöscht.
+const allRules = () => {
+  if (!S.eggRules) return DEFAULT_RULES;
+  const ids = new Set(S.eggRules.map(r => r.id)), rm = new Set(S.eggRemoved || []);
+  return S.eggRules.concat(DEFAULT_RULES.filter(r => !ids.has(r.id) && !rm.has(r.id)));
+};
 // Jugendschutz / Fahrer / Gruppe des eigenen Kontos
 const isMinor = () => !!(S.meDoc && S.meDoc.minor);
 const isPending = () => !!(S.meDoc && S.meDoc.pending === true) && !S.isAdmin;
@@ -1089,26 +1144,70 @@ function nextEgg() {
   $('eggAv').innerHTML = avatarHTML(e.uid, e.name, 104);
   $('eggName').textContent = e.group && e.name ? e.name : '';
   $('eggKind').textContent = e.force ? 'Vorschau' : e.group ? 'Für alle' : '';
-  const box = $('eggConfetti'); box.innerHTML = '';
-  for (let i = 0; i < 28; i++) {
-    const c = document.createElement('i');
-    c.style.left = (Math.random() * 100) + '%';
-    c.style.animationDelay = (Math.random() * .6) + 's';
-    c.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
-    c.style.background = i % 3 ? 'var(--wy)' : '#fff';
-    c.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
-    box.appendChild(c);
-  }
+  const rule = e.rid ? allRules().find(r => r.id === e.rid) : null, anim = pickAnim(rule);
+  el.dataset.anim = anim;
+  eggFx(anim, rule);
   el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
-  jingle(); if (navigator.vibrate) navigator.vibrate([90, 60, 90, 60, 220]);
+  jingle(anim); if (navigator.vibrate) navigator.vibrate(anim === 'drehdurch' ? [60, 40, 60, 40, 60, 40, 200] : anim === 'blasen' ? [30, 50, 30, 50, 30, 50, 30] : [90, 60, 90, 60, 220]);
   clearTimeout(eggTimer); eggTimer = setTimeout(nextEgg, 4200);
 }
-function jingle() {
+// passende Animation wählen: fest eingestellt oder automatisch nach Getränk und Art
+const ANIM_IDS = ANIMS.map(x => x[0]).filter(x => x !== 'auto' && x !== 'zufall');
+const rnd = L => L[Math.floor(Math.random() * L.length)];
+function pickAnim(r) {
+  const a = (r && r.anim) || 'auto';
+  if (a === 'zufall') return rnd(ANIM_IDS);
+  if (a !== 'auto' && ANIM_IDS.includes(a)) return a;
+  if (!r) return rnd(['konfetti', 'feuerwerk', 'schwarm']);
+  if (r.who === 'group' || r.who === 'team') return rnd(['feuerwerk', 'schwarm', 'ballons', 'konfetti']);
+  if (r.kind === 'schnaps') return rnd(['schwarm', 'drehdurch']);
+  if (r.kind === 'time' || r.kind === 'date') return rnd(['sterne', 'konfetti', 'schwarm']);
+  const c = r.cat || 'all';
+  if (['wasser', 'soft', 'alkfrei', 'na'].includes(c)) return rnd(['blasen', 'regen', 'ballons']);
+  if (c === 'bier' || c === 'radler') return rnd(['regen', 'konfetti', 'schwarm', 'drehdurch']);
+  if (c === 'wein') return rnd(['sterne', 'feuerwerk']);
+  if (c === 'schnaps') return rnd(['drehdurch', 'schwarm']);
+  return rnd(['konfetti', 'feuerwerk', 'ballons', 'sterne']);
+}
+const WASP_SVG = '<svg viewBox="0 0 120 80" width="56" height="38"><ellipse cx="52" cy="22" rx="20" ry="13" fill="#fff" opacity=".75" transform="rotate(-20 52 22)"/><ellipse cx="72" cy="20" rx="18" ry="12" fill="#fff" opacity=".6" transform="rotate(15 72 20)"/><ellipse cx="60" cy="48" rx="34" ry="20" fill="#f5c000" stroke="#141414" stroke-width="3"/><path d="M44 30 v36 M58 28 v40 M72 30 v36" stroke="#141414" stroke-width="7"/><circle cx="96" cy="44" r="12" fill="#141414"/><circle cx="100" cy="41" r="3" fill="#f5c000"/><path d="M26 48 l-14 4 l14 4z" fill="#141414"/></svg>';
+function eggFx(anim, rule) {
+  const box = $('eggConfetti'); box.innerHTML = ''; box.dataset.fx = anim;
+  const R = (a, b) => a + Math.random() * (b - a);
+  const add = (cls, css, html) => { const i = document.createElement('i'); i.className = cls; Object.keys(css).forEach(k => k.startsWith('--') ? i.style.setProperty(k, css[k]) : (i.style[k] = css[k])); if (html) i.innerHTML = html; box.appendChild(i); return i; };
+  const COL = ['var(--wy)', '#fff', '#141414', 'var(--wy)', '#e8b400'];
+  if (anim === 'konfetti' || anim === 'drehdurch') {
+    for (let k = 0; k < (anim === 'drehdurch' ? 18 : 34); k++) add('cf', { left: R(0, 100) + '%', animationDelay: R(0, .6) + 's', animationDuration: R(1.6, 3) + 's', background: k % 3 ? 'var(--wy)' : '#fff', transform: 'rotate(' + R(0, 360) + 'deg)' });
+  } else if (anim === 'blasen') {
+    for (let k = 0; k < 30; k++) { const s = R(10, 34); add('bb', { left: R(0, 100) + '%', width: s + 'px', height: s + 'px', animationDelay: R(0, 1.4) + 's', animationDuration: R(2, 3.6) + 's', '--sx': R(-40, 40) + 'px' }); }
+  } else if (anim === 'regen') {
+    const L = CAT_EMOJI[(rule && rule.cat) || 'all'] || CAT_EMOJI.all;
+    for (let k = 0; k < 26; k++) add('em', { left: R(0, 96) + '%', fontSize: R(22, 42) + 'px', animationDelay: R(0, 1.2) + 's', animationDuration: R(1.8, 3.2) + 's', '--rot': R(-200, 200) + 'deg' }, L[k % L.length]);
+  } else if (anim === 'feuerwerk') {
+    const FCOL = ['#f5c000', '#fff', '#ff7a2f', '#7fd6ff', '#f5c000', '#ff5e8a'];
+    for (let b = 0; b < 7; b++) {
+      const x = R(12, 88), y = b % 2 ? R(4, 22) : R(74, 92), d = b * .38 + R(0, .15), col = FCOL[b % FCOL.length];
+      for (let k = 0; k < 18; k++) { const a = k / 18 * Math.PI * 2, dist = R(55, 110); add('fw', { left: x + '%', top: y + '%', background: col, color: col, animationDelay: d + 's', '--dx': Math.cos(a) * dist + 'px', '--dy': Math.sin(a) * dist + 'px' }); }
+    }
+  } else if (anim === 'schwarm') {
+    for (let k = 0; k < 8; k++) add('sw', { top: R(4, 85) + '%', animationDelay: R(0, 1.6) + 's', animationDuration: R(1.8, 3) + 's', '--dir': k % 2 ? '1' : '-1' }, WASP_SVG);
+  } else if (anim === 'ballons') {
+    for (let k = 0; k < 14; k++) add('bl', { left: R(2, 92) + '%', background: COL[k % 3 === 2 ? 0 : k % 3], animationDelay: R(0, 1.4) + 's', animationDuration: R(2.6, 4) + 's' });
+  } else if (anim === 'sterne') {
+    for (let k = 0; k < 30; k++) add('st', { left: R(0, 98) + '%', top: R(0, 95) + '%', fontSize: R(18, 40) + 'px', animationDelay: R(0, 1.2) + 's', animationDuration: R(1, 1.8) + 's' }, k % 4 ? '★' : '✦');
+  }
+}
+const MELODY = {
+  konfetti: [523.25, 659.25, 783.99, 1046.5], drehdurch: [392, 523.25, 392, 659.25, 392, 783.99], blasen: [880, 988, 1175, 1319, 1568],
+  regen: [659.25, 587.33, 523.25, 659.25, 783.99], feuerwerk: [261.63, 392, 523.25, 783.99, 1046.5], schwarm: [440, 466.16, 440, 466.16, 523.25],
+  ballons: [587.33, 739.99, 880, 1174.66], sterne: [1046.5, 1318.5, 1568, 2093]
+};
+function jingle(anim) {
   try {
     const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A();
     const c = beep.c, t0 = c.currentTime + .05;
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-      const o = c.createOscillator(), g = c.createGain(); o.type = 'triangle'; o.frequency.value = f;
+    (MELODY[anim] || MELODY.konfetti).forEach((f, i) => {
+      const o = c.createOscillator(), g = c.createGain(); o.type = anim === 'schwarm' ? 'sawtooth' : anim === 'blasen' ? 'sine' : 'triangle'; o.frequency.value = f;
+      if (anim === 'blasen') o.frequency.exponentialRampToValueAtTime(f * 1.6, t0 + i * .11 + .1);
       g.gain.setValueAtTime(.0001, t0 + i * .11); g.gain.exponentialRampToValueAtTime(.18, t0 + i * .11 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + i * .11 + .22);
       o.connect(g); g.connect(c.destination); o.start(t0 + i * .11); o.stop(t0 + i * .11 + .25);
     });
@@ -1198,7 +1297,7 @@ async function eggsAfterBook(pid, scanId) {
     if (!eggOnce('sent_' + uid + '_' + id)) return; // nach Rückgängig nicht noch einmal
     eggOnce('seen_' + uid + '_' + id);
     const tx = pickText(r, v), vals = { n: v, name: S.me, gruppe };
-    const e = { title: fill(tx.t, vals), sub: fill(tx.s, vals), group: true, uid, name: S.me };
+    const e = { title: fill(tx.t, vals), sub: fill(tx.s, vals), group: true, uid, name: S.me, rid: r.id };
     if (!(minor && ruleAlc(r))) showEgg(e);
     albumAdd([r.id]);
     const doc = { id: epoch() + '_' + id, day: dayId, title: e.title, sub: e.sub, uid, name: S.me, t: Date.now(), alc: ruleAlc(r), rid: r.id };
@@ -1238,7 +1337,7 @@ function onLiveEgg(d) {
   if (Date.now() - (d.t || 0) > 120000) return; // älter als 2 Minuten: nicht mehr zeigen
   if (!eggOnce('seen_' + S.user.uid + '_' + d.id)) return;
   if (d.alc && isMinor()) return; // Jugendschutz
-  showEgg({ title: d.title, sub: d.sub, group: true, uid: d.uid, name: d.name });
+  showEgg({ title: d.title, sub: d.sub, group: true, uid: d.uid, name: d.name, rid: d.rid });
 }
 
 /* ---------- Admin: anstehende Easter Eggs ---------- */
@@ -1314,7 +1413,8 @@ function rulesEditor() {
   const catOpts = (cur, withAll) => (withAll ? '<option value="all"' + (cur === 'all' ? ' selected' : '') + '>Alle Getränke</option>' : '') + CATS.map(c => '<option value="' + c[0] + '"' + (cur === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('');
   let h = '<section><h2>Easter Eggs verwalten (' + rules.length + ')</h2>' +
     '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Nur für Super-Admins. Änderungen gelten sofort auf allen Handys. In Texten: <code>{n}</code> = Zahl, <code>{name}</code> = Person, <code>{gruppe}</code> = Narrenfigur. Mehrere Zeilen „Titel | Text“ wechseln sich ab.</div>' +
-    (S.eggRules ? '' : '<div class="note" style="margin-bottom:6px">Es gelten die Standard-Easter-Eggs. Sobald du etwas änderst, werden sie gespeichert.</div>');
+    (S.eggRules ? '' : '<div class="note" style="margin-bottom:6px">Es gelten die Standard-Easter-Eggs. Sobald du etwas änderst, werden sie gespeichert.</div>') +
+    '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">„Standard-Easter-Eggs zurückholen“ setzt nur die mitgelieferten zurück – deine eigenen bleiben. Neue Easter Eggs aus App-Updates erscheinen automatisch.</div>';
   rules.forEach(r => {
     const k = r.id, q = f => 'data-er="' + k + '|' + f + '"';
     const isCount = COUNT_KINDS.includes(r.kind);
@@ -1339,11 +1439,12 @@ function rulesEditor() {
     } else if (r.kind === 'date') {
       h += '<label class="f">Datum (TT.MM)<input ' + q('date') + ' value="' + esc(r.date || '') + '" placeholder="11.11" inputmode="numeric"></label><div></div>';
     }
+    h += '<label class="f full">Animation<select ' + q('anim') + '>' + ANIMS.map(x => '<option value="' + x[0] + '"' + ((r.anim || 'auto') === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
     h += '<label class="f full">Texte (eine Zeile pro Variante: Titel | Text)<textarea ' + q('texts') + ' rows="' + Math.max(2, (r.texts || []).length + 1) + '" style="font:inherit;font-size:16px;border:1.5px solid var(--line);border-radius:8px;padding:8px;width:100%">' +
       esc((r.texts || []).map(x => x.t + ' | ' + x.s).join('\n')) + '</textarea></label>' +
       '<div class="full row" style="margin-top:0"><button class="b sm" data-act="erTest" data-id="' + k + '">Vorschau</button><button class="b sm" data-act="erCopy" data-id="' + k + '">Kopieren</button><button class="b sm dng" data-act="erDel" data-id="' + k + '">Löschen</button></div></div></details>';
   });
-  h += '<div class="row"><button class="b pri" data-act="erAdd">Neues Easter Egg</button><button class="b sm" data-act="erReset">Standard wiederherstellen</button></div></section>';
+  h += '<div class="row"><button class="b pri" data-act="erAdd">Neues Easter Egg</button><button class="b sm" data-act="erReset">Standard-Easter-Eggs zurückholen</button></div></section>';
   return h;
 }
 function groupsEditor() {
@@ -1353,9 +1454,10 @@ function groupsEditor() {
     '<div class="row"><input id="grNew" placeholder="Neue Gruppe" style="flex:1"><button class="b sm" data-act="grAdd">Hinzufügen</button></div></section>';
 }
 function saveGroups(list) { S.groups = list; fire(F.setDoc(dref('config', 'groups'), { list, t: Date.now() }), 'Gruppen speichern'); renderAll(); }
-function saveRules(rules) {
+function saveRules(rules, removed) {
   S.eggRules = rules;
-  fire(F.setDoc(dref('config', 'eggs'), { rules, t: Date.now() }), 'Easter Eggs speichern');
+  if (removed) S.eggRemoved = removed;
+  fire(F.setDoc(dref('config', 'eggs'), { rules, removed: S.eggRemoved || [], t: Date.now() }), 'Easter Eggs speichern');
   renderAdmin();
 }
 function editRule(id, f, val) {
@@ -2712,7 +2814,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'erTest') {
     const r = allRules().find(x => x.id === id); if (!r) return;
     const v = r.kind === 'schnaps' ? 11 : r.kind === 'after' ? r.n2 : r.n || 1, tx = pickText(r, v);
-    showEgg({ title: fill(tx.t, { n: v, name: S.me }), sub: fill(tx.s, { n: v, name: S.me }), uid: S.user.uid, name: S.me, group: r.who === 'group' }, true);
+    showEgg({ title: fill(tx.t, { n: v, name: S.me }), sub: fill(tx.s, { n: v, name: S.me }), uid: S.user.uid, name: S.me, group: r.who === 'group', rid: r.id }, true);
   }
   else if (a === 'erAdd') {
     const nr = { id: 'r' + Date.now().toString(36), who: 'me', kind: 'count', cat: 'bier', period: 'day', n: 6, texts: [T('Sechse!', '{name} hat {n} Bier.')] };
@@ -2726,11 +2828,12 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'erDel') {
     const r = allRules().find(x => x.id === id); if (!r) return;
     if (!confirm('Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ löschen?')) return;
-    saveRules(allRules().filter(x => x.id !== id)); logEv('egg', 'löscht Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ (' + describeRule(r) + ')');
+    saveRules(allRules().filter(x => x.id !== id), DEFAULT_RULES.some(x => x.id === id) ? (S.eggRemoved || []).filter(x => x !== id).concat([id]) : null); logEv('egg', 'löscht Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ (' + describeRule(r) + ')');
   }
   else if (a === 'erReset') {
-    if (!confirm('Alle Easter Eggs auf den Standard zurücksetzen? Eigene Easter Eggs gehen dabei verloren.')) return;
-    saveRules(JSON.parse(JSON.stringify(DEFAULT_RULES))); logEv('egg', 'stellt die Standard-Easter-Eggs wieder her');
+    if (!confirm('Die mitgelieferten Easter Eggs auf den Standard zurücksetzen und gelöschte zurückholen? Deine eigenen Easter Eggs bleiben erhalten.')) return;
+    const own = allRules().filter(r => !DEFAULT_RULES.some(x => x.id === r.id));
+    saveRules(JSON.parse(JSON.stringify(DEFAULT_RULES)).concat(own), []); logEv('egg', 'holt die Standard-Easter-Eggs zurück (' + own.length + ' eigene bleiben)');
   }
   else if (a === 'resetToggle') { showReset = !showReset; renderAdmin(); }
   else if (a === 'resetGo') {
