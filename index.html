@@ -36,13 +36,27 @@
     return ok();
   })();
 })();
-/* Nachtmodus: auto = dunkel bei dunklem Handy-Design oder zwischen 19 und 7 Uhr */
+/* Nachtmodus: auto = dunkel bei dunklem Handy-Design oder in der Nachtzeit (Standard 19–7 Uhr).
+   Der Super-Admin stellt die Nachtzeit ein und kann den Nachtmodus in dieser Zeit für alle erzwingen.
+   Die Einstellung wird auf dem Handy gemerkt, damit sie schon vor der Anmeldung gilt. */
+window.themeCfg = function () {
+  let c = null; try { c = JSON.parse(localStorage.getItem('strichliste_themecfg') || 'null'); } catch (e) {}
+  return Object.assign({ from: '19:00', to: '07:00', force: false }, c || {});
+};
+window.inNight = function (c) {
+  c = c || themeCfg();
+  const mm = v => { const m = /^(\d{1,2}):(\d{2})$/.exec(v || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  const a = mm(c.from), b = mm(c.to), d = new Date(), n = d.getHours() * 60 + d.getMinutes();
+  if (a == null || b == null || a === b) return false;
+  return a < b ? n >= a && n < b : n >= a || n < b;
+};
 window.applyTheme = function () {
   let m = 'auto'; try { m = localStorage.getItem('strichliste_theme') || 'auto'; } catch (e) {}
-  const h = new Date().getHours();
-  const dark = m === 'dark' || (m === 'auto' && ((window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) || h >= 19 || h < 7));
+  const c = themeCfg(), night = inNight(c), forced = !!c.force && night;
+  const dark = forced || m === 'dark' || (m === 'auto' && ((window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) || night));
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.dataset.mode = m;
+  document.documentElement.dataset.forced = forced ? '1' : '';
   const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = '#141414';
 };
 applyTheme();
@@ -677,7 +691,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '46';
+const APP_VERSION = '47';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -857,6 +871,7 @@ function startUserListeners() {
   ['cfgFeat', 'cfgContact', 'cfgBest'].forEach(stop);
   listenMyReqs(); listenMyMsgs();
   unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
+  stop('cfgTheme'); unsub.cfgTheme = F.onSnapshot(dref('config', 'theme'), snap => { S.theme = snap.exists() ? snap.data() : null; setThemeCfg(S.theme); if (S.isSuper) renderAdmin(); }, err => console.warn('theme', err));
   unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
   stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
@@ -966,7 +981,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -2933,14 +2948,25 @@ function noAdminGo() {
 $('backBtn').addEventListener('click', () => setView('scan'));
 // Nachtmodus umschalten: Auto → Hell → Dunkel
 const THEME_LABEL = { auto: 'Auto', light: 'Hell', dark: 'Nacht' };
-function renderThemeBtn() { const m = document.documentElement.dataset.mode || 'auto'; $('themeBtn').textContent = THEME_LABEL[m]; $('themeBtn').title = m === 'auto' ? 'Automatisch (nachts und bei dunklem Handy dunkel)' : m === 'light' ? 'Immer hell' : 'Immer dunkel'; }
+const nightTxt = () => { const c = themeCfg(); return c.from + ' bis ' + c.to + ' Uhr'; };
+function renderThemeBtn() {
+  const m = document.documentElement.dataset.mode || 'auto', forced = document.documentElement.dataset.forced === '1';
+  $('themeBtn').textContent = forced ? 'Nacht 🔒' : THEME_LABEL[m];
+  $('themeBtn').title = forced ? 'Von ' + nightTxt() + ' ist der Nachtmodus für alle eingeschaltet' : m === 'auto' ? 'Automatisch (' + nightTxt() + ' und bei dunklem Handy dunkel)' : m === 'light' ? 'Immer hell' : 'Immer dunkel';
+}
 $('themeBtn').addEventListener('click', () => {
+  if (document.documentElement.dataset.forced === '1') { toast('Von ' + nightTxt() + ' ist der Nachtmodus für alle an'); return; }
   const order = ['auto', 'light', 'dark'], m = document.documentElement.dataset.mode || 'auto', next = order[(order.indexOf(m) + 1) % 3];
   try { localStorage.setItem('strichliste_theme', next); } catch (e) {}
-  applyTheme(); renderThemeBtn(); toast(next === 'auto' ? 'Automatisch: nachts dunkel' : next === 'light' ? 'Immer hell' : 'Nachtmodus an');
+  applyTheme(); renderThemeBtn(); toast(next === 'auto' ? 'Automatisch: dunkel von ' + nightTxt() : next === 'light' ? 'Immer hell' : 'Nachtmodus an');
 });
 renderThemeBtn();
-setInterval(applyTheme, 5 * 60000);
+setInterval(() => { applyTheme(); renderThemeBtn(); }, 60000);
+function setThemeCfg(c) {
+  const v = { from: c && c.from || '19:00', to: c && c.to || '07:00', force: !!(c && c.force) };
+  try { localStorage.setItem('strichliste_themecfg', JSON.stringify(v)); } catch (e) {}
+  applyTheme(); renderThemeBtn();
+}
 if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
 function summary(rows) {
@@ -3347,6 +3373,12 @@ function settingsSection() {
     '<label class="f full">Zusätzlicher Text (optional)<textarea id="pvExtra" rows="2" class="ta">' + esc(pv.extra) + '</textarea></label>' +
     '<div class="full"><button class="b pri sm" data-set="privacySave">Datenschutz speichern</button></div></div>';
   h += partyAdmin();
+  const tc = themeCfg();
+  h += '<h3 class="sub3">Nachtmodus</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">In dieser Zeit wird die App bei „Auto“ dunkel (außerdem, wenn das Handy auf dunkel steht). Mit „Erzwingen“ ist sie in der Zeit für alle dunkel – auch für alle, die „Hell“ gewählt haben.' + (inNight(tc) ? ' <b>Gerade ist Nachtzeit.</b>' : '') + '</div>' +
+    '<div class="grid2"><label class="f">Dunkel ab<input type="time" id="thFrom" value="' + esc(tc.from) + '"></label>' +
+    '<label class="f">bis<input type="time" id="thTo" value="' + esc(tc.to) + '"></label>' +
+    '<label class="chk full"><input type="checkbox" id="thForce"' + (tc.force ? ' checked' : '') + '> Nachtmodus in dieser Zeit für alle erzwingen</label>' +
+    '<div class="full row" style="margin-top:0"><button class="b pri sm" data-set="themeSave">Nachtmodus speichern</button><button class="b sm" data-set="themeReset">Standard (19–7 Uhr, nicht erzwingen)</button></div></div>';
   h += '<h3 class="sub3">Wer sieht was?</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Standard: ausgeblendet. Gezählt wird trotzdem – beim Einschalten sind die Daten da. „Mein Konto“ sehen immer alle.</div>' +
     FEATURES.map(([f, label]) => {
       const fc = (S.features || {})[f] || {}, m = fc.mode || 'none', uids = fc.uids || [];
@@ -3376,6 +3408,16 @@ $('adminBody').addEventListener('click', e => {
     S.privacy = pv; fire(F.setDoc(dref('config', 'privacy'), pv), 'Datenschutz speichern'); logEv('system', 'ändert den Datenschutzhinweis'); toast('Datenschutzhinweis gespeichert');
   }
   if (b.dataset.set === 'privacyShow') openModal(privacyHTML());
+  if (b.dataset.set === 'themeSave' || b.dataset.set === 'themeReset') {
+    const re = /^\d{2}:\d{2}$/, reset = b.dataset.set === 'themeReset';
+    const c = reset ? { from: '19:00', to: '07:00', force: false } : { from: $('thFrom').value, to: $('thTo').value, force: $('thForce').checked };
+    if (!re.test(c.from) || !re.test(c.to)) { toast('Bitte beide Uhrzeiten eintragen'); return; }
+    if (c.from === c.to) { toast('Beginn und Ende müssen verschieden sein'); return; }
+    S.theme = Object.assign({ t: Date.now() }, c); setThemeCfg(c);
+    fire(F.setDoc(dref('config', 'theme'), S.theme), 'Nachtmodus speichern');
+    logEv('system', 'Nachtmodus: ' + c.from + '–' + c.to + ' Uhr' + (c.force ? ', erzwungen' : ''));
+    toast('Nachtmodus: ' + c.from + '–' + c.to + ' Uhr' + (c.force ? ', für alle erzwungen' : '')); renderAdmin();
+  }
 
   if (b.dataset.set === 'regSeen') { try { localStorage.setItem('strichliste_regseen', String(Date.now())); } catch (e) {} renderAdmin(); }
 });
