@@ -677,7 +677,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '45';
+const APP_VERSION = '46';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1014,6 +1014,7 @@ function adjustCounters(uid, dayId, pid, d) {
   fire(F.setDoc(dref('ustats', uid), incFor(cat, d), { merge: true }), 'Zähler');
   fire(F.setDoc(dref('gstats', dayId), incFor(cat, d), { merge: true }), 'Zähler');
   fire(F.setDoc(dref('gstats', 'total'), incFor(cat, d), { merge: true }), 'Zähler');
+  if (S.isAdmin && dayId !== S.active) markDirty(dayId); // der aktive Tag wird ohnehin geprüft
 }
 const setLoad = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['load.' + pid]: Math.max(0, v) }), 'Menge speichern');
 const setCount = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['count.' + pid]: v == null ? F.deleteField() : Math.max(0, v) }), 'Zählung speichern');
@@ -1937,34 +1938,102 @@ function editRule(id, f, val) {
   saveRules(rules);
 }
 
-/* ---------- Admin: Zähler aus allen Buchungen neu berechnen ---------- */
-async function recomputeCounters() {
-  const all = await allScans();
-  const per = {}, users = {}, total = { all: 0 };
-  const add = (m, c) => { m.all = (m.all || 0) + 1; if (c !== 'all') m[ckey(c)] = (m[ckey(c)] || 0) + 1; };
-  all.forEach(s => {
-    const c = catOf(P(s.p));
-    add(per[s.day] = per[s.day] || { all: 0 }, c);
-    add(users[s.uid] = users[s.uid] || { all: 0 }, c);
-    add(total, c);
+/* ---------- Zähler aus den Buchungen neu berechnen ----------
+   Pro Tag gibt es eine kleine Zusammenfassung (dsum/<Tag>: wer wie viel von welcher Sorte; nur der Super-Admin
+   liest und schreibt sie). Die tägliche Prüfung liest nur die Buchungen der Tage neu, an denen sich etwas
+   geändert hat (neue Buchungen, Stornos, Nachträge, die letzten 14 Tage). Alle Zähler – pro Tag, gesamt,
+   pro Person und die Bestenliste – entstehen dann aus diesen Zusammenfassungen. So bleibt der Verbrauch
+   an Lesevorgängen klein, auch wenn über die Jahre sehr viele Buchungen zusammenkommen. */
+const DSUM_V = 1;
+const tsMs = v => v && v.toMillis ? v.toMillis() : (+v || 0);
+const isoDaysAgo = n => { const d = new Date(Date.now() - n * 864e5); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+// Admins merken sich Tage, an denen sie Buchungen geändert haben (Storno, Nachtrag, Antrag)
+function markDirty(dayId) { if (!S.isAdmin || !dayId) return; fire(F.setDoc(dref('meta', 'state'), { dirty: { [dayId]: Date.now() } }, { merge: true }), 'Änderung merken'); }
+function summarize(scans) { // { uid: { n, all, beer, c_… } } – nur Buchungen seit dem letzten Zurücksetzen
+  const u = {}, ep = epoch();
+  scans.forEach(s => {
+    if ((s.t || 0) < ep || !s.uid) return;
+    const k = ckey(catOf(P(s.p))), m = u[s.uid] = u[s.uid] || { n: s.who || '', all: 0 };
+    m.all++; if (k !== 'all') m[k] = (m[k] || 0) + 1;
+    if (!m.n && s.who) m.n = s.who;
   });
-  // Ranglisten aus Buchungen und heutigen Gruppen neu aufbauen
-  const boards = { total: { g: {}, p: {} } };
-  const bAdd = (b, s, c) => {
-    const u = S.users[s.uid] || {}, grp = u.grp || '';
-    const pm = b.p[s.uid] = b.p[s.uid] || { n: u.name || s.who || '', g: grp, all: 0, beer: 0, na: 0 };
-    pm.all++; if (c === 'bier') pm.beer++; if (NONALC.includes(c)) pm.na++;
-    if (grp) { const gm = b.g[grp] = b.g[grp] || { all: 0, beer: 0, na: 0 }; gm.all++; if (c === 'bier') gm.beer++; if (NONALC.includes(c)) gm.na++; }
+  return u;
+}
+function deriveCounters(sums) {
+  const gs = {}, us = {}, gb = {}, total = { all: 0 }, tb = { g: {}, p: {} };
+  const addC = (t, m) => Object.keys(m).forEach(k => { if (k !== 'n' && typeof m[k] === 'number') t[k] = (t[k] || 0) + m[k]; });
+  const addB = (b, uid, m) => {
+    const u = S.users[uid] || {}, grp = u.grp || '', na = NONALC.reduce((a, x) => a + (m['c_' + x] || 0), 0);
+    const pm = b.p[uid] = b.p[uid] || { n: u.name || m.n || '', g: grp, all: 0, beer: 0, na: 0 };
+    pm.all += m.all || 0; pm.beer += m.beer || 0; pm.na += na;
+    if (grp) { const gm = b.g[grp] = b.g[grp] || { all: 0, beer: 0, na: 0 }; gm.all += m.all || 0; gm.beer += m.beer || 0; gm.na += na; }
   };
-  all.forEach(s => { const c = catOf(P(s.p)); bAdd(boards[s.day] = boards[s.day] || { g: {}, p: {} }, s, c); bAdd(boards.total, s, c); });
-  const old = (await F.getDocs(col('gboard'))).docs.map(d => ({ ref: d.ref, del: true }));
-  await commitInChunks(old);
-  const ops = Object.keys(per).map(d => ({ ref: dref('gstats', d), data: per[d] }))
-    .concat(Object.keys(users).map(u => ({ ref: dref('ustats', u), data: users[u] })))
-    .concat([{ ref: dref('gstats', 'total'), data: total }])
-    .concat(Object.keys(boards).map(k => ({ ref: dref('gboard', k), data: boards[k] })));
+  Object.keys(sums).forEach(d => {
+    const g = gs[d] = { all: 0 }, b = gb[d] = { g: {}, p: {} };
+    Object.keys(sums[d]).forEach(uid => { const m = sums[d][uid]; addC(g, m); addC(total, m); addC(us[uid] = us[uid] || { all: 0 }, m); addB(b, uid, m); addB(tb, uid, m); });
+  });
+  gs.total = total; gb.total = tb;
+  return { gs, us, gb };
+}
+// gleiche Inhalte erkennen (Nullen und leere Einträge zählen nicht), damit nur Abweichungen geschrieben werden
+function canon(v) {
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    const o = {};
+    Object.keys(v).sort().forEach(k => { const c = canon(v[k]); if (c === 0 || c === undefined || c === '' || (c && typeof c === 'object' && !Object.keys(c).length)) return; o[k] = c; });
+    return o;
+  }
+  return v;
+}
+const sameDoc = (a, b) => JSON.stringify(canon(a || {})) === JSON.stringify(canon(b || {}));
+async function diffOps(name, want) {
+  const ops = [], have = {};
+  (await F.getDocs(col(name))).docs.forEach(d => { have[d.id] = d.data(); });
+  Object.keys(want).forEach(id => { if (!sameDoc(have[id], want[id])) ops.push({ ref: dref(name, id), data: want[id] }); });
+  Object.keys(have).forEach(id => { if (!(id in want)) ops.push({ ref: dref(name, id), del: true }); });
+  return ops;
+}
+// full = alle Buchungen neu lesen (Knopf „Zähler neu berechnen“, nach Import oder Zurücksetzen)
+async function recomputeCounters(full) {
+  const ep = epoch(), meta = S.metaState || {};
+  let st = null, sums = {}, useDsum = true;
+  const ops = [];
+  try {
+    (await F.getDocs(col('dsum'))).docs.forEach(d => { if (d.id === '_state') st = d.data(); else sums[d.id] = d.data().u || {}; });
+    S.dsumDenied = false;
+  } catch (err) {
+    if (err && err.code === 'permission-denied') { S.dsumDenied = true; useDsum = false; } else throw err;
+  }
+  if (!useDsum && !full) return -1; // alte Regeln: nicht täglich alles lesen, nur auf Knopfdruck
+  if (meta.recountFull || !st || st.v !== DSUM_V || (st.epoch || 0) !== ep) full = true;
+  const had = new Set(Object.keys(sums));
+  let changed;
+  if (full) {
+    const by = groupByDay(await allScans());
+    sums = {}; changed = new Set(Object.keys(by).concat([...had]));
+    Object.keys(by).forEach(d => { const u = summarize(by[d]); if (Object.keys(u).length) sums[d] = u; });
+  } else {
+    changed = new Set();
+    const since = Math.max(0, tsMs(st.at) - 3600000);
+    (await F.getDocs(F.query(col('scans'), F.where('at', '>=', F.Timestamp ? F.Timestamp.fromMillis(since) : since)))).docs.forEach(d => changed.add(d.data().day));
+    Object.keys(meta.dirty || {}).forEach(d => changed.add(d));
+    const lim = isoDaysAgo(14); (S.days || []).forEach(d => { if ((d.date || '') >= lim) changed.add(d.id); });
+    if (S.active) changed.add(S.active);
+    changed.delete(undefined); changed.delete(null);
+    for (const d of changed) {
+      const u = summarize((await F.getDocs(F.query(col('scans'), F.where('day', '==', d)))).docs.map(x => x.data()));
+      if (Object.keys(u).length) sums[d] = u; else delete sums[d];
+    }
+  }
+  if (useDsum) {
+    changed.forEach(d => { if (sums[d]) ops.push({ ref: dref('dsum', d), data: { u: sums[d], at: F.serverTimestamp() } }); else if (had.has(d)) ops.push({ ref: dref('dsum', d), del: true }); });
+    ops.push({ ref: dref('dsum', '_state'), data: { v: DSUM_V, epoch: ep, at: F.serverTimestamp(), full: !!full, days: changed.size } });
+  }
+  const D = deriveCounters(sums);
+  ops.push(...await diffOps('gstats', D.gs), ...await diffOps('ustats', D.us), ...await diffOps('gboard', D.gb));
   await commitInChunks(ops);
-  return total.all;
+  if (meta.dirty || meta.recountFull) fire(F.updateDoc(dref('meta', 'state'), { dirty: F.deleteField(), recountFull: F.deleteField() }), 'Zähler prüfen');
+  S.recountInfo = { full: !!full, days: changed.size, ops: ops.length };
+  return D.gs.total.all || 0;
 }
 
 /* ---------- Zähler des aktiven Tages automatisch prüfen ----------
@@ -2005,15 +2074,15 @@ async function verifyDayCounters() {
   } catch (err) { console.warn('verify', err); }
   finally { verifyBusy = false; }
 }
-setInterval(verifyDayCounters, 5 * 60000); window.__verifyDay = verifyDayCounters;
+setInterval(verifyDayCounters, 5 * 60000); window.__verifyDay = verifyDayCounters; window.__recount = f => recomputeCounters(f).then(n => ({ n, info: S.recountInfo, denied: !!S.dsumDenied }));
 setTimeout(verifyDayCounters, 30000);
-// Super-Admin: einmal am Tag alle Zähler (auch „seit Beginn“) aus den Buchungen neu berechnen
+// Super-Admin: einmal am Tag alle Zähler (auch „seit Beginn“) prüfen – nur geänderte Tage werden neu gelesen
 async function dailyRecount() {
   if (!S.isSuper || !navigator.onLine) return;
   let last = 0; try { last = +localStorage.getItem('strichliste_recount') || 0; } catch (e) {}
   if (Date.now() - last < 20 * 3600000) return;
   try { localStorage.setItem('strichliste_recount', String(Date.now())); } catch (e) {}
-  try { await recomputeCounters(); } catch (err) { console.warn('recount', err); }
+  try { await recomputeCounters(false); if (S.dsumDenied) renderAdmin(); } catch (err) { console.warn('recount', err); }
 }
 setTimeout(dailyRecount, 45000);
 
@@ -2026,7 +2095,8 @@ async function resetStats(withData) {
     n += snap.docs.length;
     await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true })));
   }
-  const upd = { epoch: Date.now() };
+  try { const snap = await F.getDocs(col('dsum')); n += snap.docs.length; await commitInChunks(snap.docs.map(d => ({ ref: d.ref, del: true }))); } catch (err) { console.warn('dsum', err); }
+  const upd = { epoch: Date.now(), dirty: F.deleteField(), recountFull: F.deleteField() };
   if (withData) upd.active = null;
   await F.setDoc(dref('meta', 'state'), upd, { merge: true });
   return n;
@@ -3065,6 +3135,7 @@ function renderAdmin() {
   if (!RO) h += '<section><h2>Daten</h2><div class="row" style="margin-top:0">' +
     ('Notification' in window && Notification.permission !== 'granted' ? '<button class="b sm" data-act="notifyPerm">Warnungen aufs Handy erlauben</button>' : '') +
     (S.isSuper ? '<button class="b sm" data-act="eggsToggle">Easter Eggs: ' + (eggsOn() ? 'an' : 'aus') + '</button><button class="b sm" data-act="recount">Zähler neu berechnen</button>' : '') +
+    (S.isSuper && S.dsumDenied ? '<div class="note bad" style="flex-basis:100%">Die Firebase-Regeln sind veraltet: Die tägliche Zählerprüfung ist ausgesetzt. Bitte <b>firestore.rules</b> neu in die Firebase-Konsole einfügen und veröffentlichen.</div>' : '') +
     '<button class="b sm" data-act="csvAll">Alle Tage als CSV</button><button class="b sm" data-act="backup">Backup speichern</button>' + (S.isSuper ? '<button class="b sm" data-act="restore">Backup importieren</button>' : '') +
     (day && S.isSuper ? '<button class="b sm dng" data-act="delDay">Diesen Tag löschen</button>' : '') +
     (S.isSuper ? '<button class="b sm dng" data-act="resetToggle">Statistiken zurücksetzen</button>' : '') + '</div>' +
@@ -4247,7 +4318,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'eggsToggle' && S.isSuper) { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); logEv('egg', 'schaltet Easter Eggs ' + (on ? 'an' : 'aus')); }
   else if (a === 'recount' && S.isSuper) {
     if (!await ask('Zähler für Easter Eggs (Gruppe und Personen) aus allen Buchungen neu berechnen? Nötig nach Stornos, Nachträgen oder einem Import.')) return;
-    try { b.disabled = true; const n = await recomputeCounters(); toast('Zähler neu berechnet: ' + n + ' Buchungen'); logEv('system', 'berechnet die Zähler neu (' + n + ' Buchungen)'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
+    try { b.disabled = true; const n = await recomputeCounters(true); toast('Zähler neu berechnet: ' + n + ' Buchungen'); logEv('system', 'berechnet die Zähler neu (' + n + ' Buchungen)'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
     b.disabled = false;
   }
   else if (a === 'csvAll') {
@@ -4300,7 +4371,7 @@ adminBody.addEventListener('click', async e => {
     try { list = (await F.getDocs(F.query(col('scans'), F.where('uid', '==', id)))).docs; } catch (err) { toast('Buchungen konnten nicht geladen werden – Internet nötig'); return; }
     const delScans = list.length > 0 && await ask('Auch alle ' + list.length + ' Buchungen von „' + u.name + '“ löschen?', { ok: 'Buchungen löschen', cancel: 'Buchungen behalten', danger: true, note: 'Behalten ist sinnvoll, solange noch abgerechnet werden muss.' });
     try {
-      if (delScans) await commitInChunks(list.map(d => ({ ref: d.ref, del: true })));
+      if (delScans) { await commitInChunks(list.map(d => ({ ref: d.ref, del: true }))); [...new Set(list.map(d => d.data().day))].forEach(markDirty); }
       await F.updateDoc(dref('users', id), { deleted: true, blocked: true, role: F.deleteField() });
       toast(u.name + ' entfernt' + (delScans ? ', ' + list.length + ' Buchungen gelöscht' : ''));
       logEv('person', 'entfernt ' + u.name + (delScans ? ' und löscht ' + list.length + ' Buchungen' : ' (Buchungen bleiben)'));
@@ -4327,6 +4398,7 @@ adminBody.addEventListener('click', async e => {
       const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
       await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat([{ ref: dref('days', day.id), del: true }]));
       if (S.active === day.id) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Tag deaktivieren');
+      markDirty(day.id);
       toast('Tag gelöscht'); logEv('tag', 'löscht ' + dayLabel(day) + ' mit ' + sc.length + ' Buchungen', day.id);
     } catch (err) { toast('Löschen fehlgeschlagen – Internet nötig'); }
   }
@@ -4444,6 +4516,7 @@ $('fileIn').addEventListener('change', async e => {
   try {
     toast('Importiere …'); await commitInChunks(ops);
     if (d.active && !S.active) await F.setDoc(dref('meta', 'state'), { active: String(d.active) }, { merge: true });
+    fire(F.setDoc(dref('meta', 'state'), { recountFull: true }, { merge: true }), 'Import');
     toast('Import fertig: ' + ops.length + ' Einträge'); logEv('system', 'importiert ein Backup (' + ops.length + ' Einträge)');
   } catch (err) { console.error(err); toast('Import fehlgeschlagen: ' + (err.code || err.message)); }
 });

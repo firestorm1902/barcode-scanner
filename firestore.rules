@@ -193,6 +193,9 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/config/features).data.get('partyOk', false) == true);
     }
 
+    // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
+    match /dsum/{id} { allow read, write: if isSuper(); }
+
     // Protokoll aller Änderungen: jeder schreibt eigene Einträge, nur Super-Admins lesen, niemand ändert oder löscht
     match /log/{id} {
       allow read: if isSuper();
