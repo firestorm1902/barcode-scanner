@@ -195,6 +195,9 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.torch{position:absolute;right:10px;top:10px;z-index:4;width:48px;height:48px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(20,20,20,.55);color:#fff;font-size:1.4rem;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(4px)}
+.torch[hidden]{display:none}
+.torch.on{background:var(--wy);border-color:#fff;box-shadow:0 0 18px rgba(245,192,0,.9)}
 #adminBody{overflow-anchor:none}
 @media (max-width:430px){table{font-size:.8rem}th{padding:4px 3px}td{padding:6px 3px}input.n{width:44px;padding:5px 4px}td.bad,td.good,td.warn{white-space:normal;line-height:1.15;min-width:44px}}
 /* Partymodus */
@@ -544,6 +547,7 @@ body.noauth main{display:none!important}
       <div class="vp">
         <div class="cam" id="camMain"></div>
         <div class="frame" id="frameMain" hidden></div>
+        <button type="button" class="torch" id="torchMain" hidden aria-pressed="false" aria-label="Taschenlampe">🔦</button>
         <div class="ph" id="phMain"><b>Getränk scannen</b><span>Kamera starten und den Barcode waagerecht in die Mitte halten.</span></div>
       </div>
       <div class="row">
@@ -593,6 +597,7 @@ body.noauth main{display:none!important}
     <div class="vp">
       <div class="cam" id="camSheet"></div>
       <div class="frame" id="frameSheet" hidden></div>
+      <button type="button" class="torch" id="torchSheet" hidden aria-pressed="false" aria-label="Taschenlampe">🔦</button>
       <div class="ph" id="phSheet"><b>Kamera startet …</b></div>
     </div>
     <div id="sheetBody"></div>
@@ -672,7 +677,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '44';
+const APP_VERSION = '45';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1080,6 +1085,7 @@ async function camStart(box, handler) {
     try { const t = cam.stream.getVideoTracks()[0], c = t.getCapabilities ? t.getCapabilities() : {}; if (c.focusMode && c.focusMode.includes('continuous')) await t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
     cam.on = true; cam.tk = 0; cam.lastCode = '';
     box.ph.hidden = true; box.frame.hidden = false;
+    torchInit(box);
     cam.timer = setTimeout(camTick, 200);
     return null;
   } catch (e) {
@@ -1091,7 +1097,8 @@ function camStop() {
   cam.on = false; clearTimeout(cam.timer); cam.timer = null;
   if (cam.stream) { cam.stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} }); cam.stream = null; }
   if (cam.video) { try { cam.video.pause(); cam.video.srcObject = null; } catch (e) {} cam.video.remove(); cam.video = null; }
-  if (cam.box) { cam.box.ph.hidden = false; cam.box.frame.hidden = true; }
+  if (cam.box) { cam.box.ph.hidden = false; cam.box.frame.hidden = true; if (cam.box.torch) { cam.box.torch.hidden = true; cam.box.torch.classList.remove('on'); } }
+  cam.torch = false;
   cam.box = null; cam.handler = null;
 }
 function beep() {
@@ -1099,8 +1106,43 @@ function beep() {
     o.frequency.value = 1046; g.gain.setValueAtTime(.15, c.currentTime); g.gain.exponentialRampToValueAtTime(.001, c.currentTime + .14);
     o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + .14); } catch (e) {}
 }
-const boxMain = { cam: $('camMain'), frame: $('frameMain'), ph: $('phMain') };
-const boxSheet = { cam: $('camSheet'), frame: $('frameSheet'), ph: $('phSheet') };
+const boxMain = { cam: $('camMain'), frame: $('frameMain'), ph: $('phMain'), torch: $('torchMain') };
+const boxSheet = { cam: $('camSheet'), frame: $('frameSheet'), ph: $('phSheet'), torch: $('torchSheet') };
+/* ---------- Taschenlampe beim Scannen ----------
+   Geht, wenn Handy und Browser das Licht der Kamera freigeben (Android/Chrome meist ja; iPhone je nach iOS-Version). */
+const torchPref = () => { try { return localStorage.getItem('strichliste_torch') === '1'; } catch (e) { return false; } };
+function torchTrack() { return cam.stream ? cam.stream.getVideoTracks()[0] : null; }
+function torchSupported() {
+  const t = torchTrack(); if (!t || !t.getCapabilities) return false;
+  const c = t.getCapabilities() || {};
+  return c.torch === true || (Array.isArray(c.torch) && c.torch.includes(true)) || (Array.isArray(c.fillLightMode) && c.fillLightMode.includes('flash'));
+}
+async function torchSet(on) {
+  const t = torchTrack(); if (!t) return false;
+  try { await t.applyConstraints({ advanced: [{ torch: on }] }); }
+  catch (e) { try { await t.applyConstraints({ advanced: [{ fillLightMode: on ? 'flash' : 'off' }] }); } catch (e2) { return false; } }
+  cam.torch = on;
+  const b = cam.box && cam.box.torch; if (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+  return true;
+}
+async function torchInit(box) {
+  if (!box || !box.torch) return;
+  cam.torch = false; box.torch.classList.remove('on');
+  // manche Handys melden die Lampe erst kurz nach dem Start
+  for (const wait of [0, 400, 1200]) {
+    if (wait) await new Promise(r => setTimeout(r, wait));
+    if (cam.box !== box || !cam.stream) return;
+    if (torchSupported()) { box.torch.hidden = false; if (torchPref()) torchSet(true); return; }
+  }
+  box.torch.hidden = true;
+}
+[boxMain, boxSheet].forEach(box => box.torch.addEventListener('click', async e => {
+  e.stopPropagation();
+  if (cam.box !== box) return;
+  const on = !cam.torch;
+  if (!(await torchSet(on))) { toast('Taschenlampe geht auf diesem Handy nicht'); box.torch.hidden = true; return; }
+  try { localStorage.setItem('strichliste_torch', on ? '1' : '0'); } catch (err) {}
+}));
 
 /* =========================================================
    Scan-Ansicht (alle Handys)
