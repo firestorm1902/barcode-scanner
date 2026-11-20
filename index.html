@@ -718,7 +718,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '52';
+const APP_VERSION = '53';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -903,6 +903,10 @@ function startUserListeners() {
   stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
+  stop('cfgBackup'); unsub.cfgBackup = F.onSnapshot(dref('config', 'backup'), snap => {
+    S.backupCfg = snap.exists() ? snap.data() : null; renderAdmin();
+    try { const k = 'strichliste_bkremind_' + todayISO(); if (S.isAdmin && backupDue() && !localStorage.getItem(k)) { localStorage.setItem(k, '1'); toast('Letztes Backup: ' + backupAgo() + ' – bitte sichern (Admin → Daten)'); } } catch (e) {}
+  }, err => console.warn('backup', err));
   stop('cfgTitles'); unsub.cfgTitles = F.onSnapshot(dref('config', 'titles'), snap => { S.titles = snap.exists() ? snap.data() : null; if (extraTab === 'wrap') renderExtra(); if (S.isSuper) renderAdmin(); }, err => console.warn('titles', err));
   unsub.cfgBest = F.onSnapshot(dref('config', 'best'), snap => { S.best = snap.exists() ? snap.data() : null; if (extraTab === 'best') renderExtra(); }, err => console.warn('best', err));
   stop('cfg');
@@ -1013,7 +1017,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -3192,7 +3196,7 @@ function renderAdmin() {
   }
   const day = selDayObj(), scans = S.dayScansFor === S.selDay ? S.dayScans : [];
   const RO = !S.isAdmin; // Vorstand: nur lesen
-  let h = '';
+  let h = backupReminder();
   if (S.isSuper) {
     const dr = Object.keys(S.users).filter(k => S.users[k].delreq && !S.users[k].deleted);
     if (dr.length) h += '<section><h2>Löschanträge (' + dr.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Diese Personen möchten ihr Konto löschen lassen. Vorher offene Beträge abrechnen. „Entfernen“ fragt, ob die Buchungen mit gelöscht werden; das Login löschst du danach in der Firebase-Konsole.</div>' +
@@ -3362,7 +3366,8 @@ function renderAdmin() {
       '<label class="chk full"><input type="checkbox" id="rsData"> Auch alle Buchungen und Tage löschen</label>' +
       '<label class="f full">Zur Bestätigung dein Passwort<input id="rsPw" type="password" autocomplete="current-password"></label>' +
       '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig zurücksetzen</button><button class="b" data-act="resetToggle">Abbrechen</button></div></div>' : '') +
-    '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
+    backupBox() +
+    '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ liest auch ältere Backups und Daten aus der Offline-Version.</div></section>';
   const navX = el.querySelector('.admnav-in') ? el.querySelector('.admnav-in').scrollLeft : 0;
   const y0 = window.scrollY; // Neu-Zeichnen darf die Seite nicht verschieben (z. B. beim Tippen im Abgleich)
   keepState(el, h);
@@ -3614,7 +3619,14 @@ $('adminBody').addEventListener('click', e => {
   if (b.dataset.set === 'regSeen') { try { localStorage.setItem('strichliste_regseen', String(Date.now())); } catch (e) {} renderAdmin(); }
 });
 $('adminBody').addEventListener('change', e => {
-  const t = e.target; if (!S.isSuper) return;
+  const t = e.target;
+  if (t.id === 'bkAv') { try { localStorage.setItem('strichliste_bkav', t.checked ? '1' : '0'); } catch (err) {} return; }
+  if (t.id === 'bkEvery' && S.isSuper) {
+    const v = parseInt(t.value); if (!(v >= 0 && v <= 365)) { toast('Bitte 0 bis 365 Tage'); renderAdmin(); return; }
+    S.backupCfg = Object.assign({}, bkCfg(), { every: v }); fire(F.setDoc(dref('config', 'backup'), S.backupCfg), 'Backup-Erinnerung');
+    toast(v ? 'Erinnerung nach ' + v + ' Tagen ohne Backup' : 'Keine Backup-Erinnerung'); logEv('system', 'Backup-Erinnerung: ' + (v ? v + ' Tage' : 'aus')); renderAdmin(); return;
+  }
+  if (!S.isSuper) return;
   if (t.dataset.feat || t.dataset.featu) {
     const F_ = JSON.parse(JSON.stringify(S.features || {}));
     if (t.dataset.feat) { const f = t.dataset.feat; F_[f] = Object.assign({ uids: [] }, F_[f], { mode: t.value }); logEv('system', 'Sichtbarkeit ' + f + ' → ' + t.value); }
@@ -4725,11 +4737,10 @@ adminBody.addEventListener('click', async e => {
     fire(F.deleteDoc(dref('products', id)), 'Getränk löschen'); logEv('getraenk', 'löscht Getränk „' + p.name + '“');
   }
   else if (a === 'backup') {
-    try {
-      const scans = await allScans();
-      const days = (await F.getDocs(col('days'))).docs.map(d => Object.assign({ id: d.id }, d.data()));
-      download('strichliste-backup-' + todayISO() + '.json', JSON.stringify({ v: 3, exported: new Date().toISOString(), active: S.active, products: S.products, days, scans, users: S.users }), 'application/json');
-    } catch (err) { toast('Backup braucht Internet'); }
+    if (!navigator.onLine) { toast('Backup braucht Internet'); return; }
+    b.disabled = true;
+    try { await makeBackup(); } catch (err) { console.error(err); toast('Backup fehlgeschlagen – Internet nötig'); }
+    b.disabled = false;
   }
   else if (a === 'restore' && S.isSuper) $('fileIn').click();
   else if (a === 'xlAll' || a === 'xlMonth' || a === 'xlDay') {
@@ -4806,24 +4817,85 @@ adminBody.addEventListener('click', async e => {
     b.disabled = false; renderAdmin();
   }
 });
-$('fileIn').addEventListener('change', async e => {
-  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  let d;
-  try { d = JSON.parse(await f.text()); if (!Array.isArray(d.products) || !Array.isArray(d.days) || !Array.isArray(d.scans)) throw 0; }
-  catch (err) { toast('Die Datei ist kein gültiges Backup'); return; }
-  if (!await ask('Backup mit ' + d.products.length + ' Getränken, ' + d.days.length + ' Tagen und ' + d.scans.length + ' Buchungen importieren? Gleiche Einträge werden überschrieben, andere bleiben erhalten.')) return;
-  const clean = (o, keys) => { const r = {}; keys.forEach(k => { if (o[k] !== undefined) r[k] = o[k]; }); return r; };
+/* ---------- Vollständiges Backup ----------
+   Sichert alle Daten, die sich nicht aus anderen neu berechnen lassen. Zähler und Bestenliste
+   werden nach dem Import aus den Buchungen neu berechnet. Logins (Firebase Authentication) lassen sich nicht sichern. */
+const BACKUP_V = 4;
+const BACKUP_COLS = [['products', 'Getränke'], ['days', 'Tage'], ['scans', 'Buchungen'], ['users', 'Personen'], ['config', 'Einstellungen'], ['reqs', 'Anträge'], ['msgs', 'Posteingang'], ['log', 'Historie'], ['album', 'Sammelalben'], ['ueggs', 'Easter-Egg-Verläufe'], ['drv', 'Fahrer-Markierungen'], ['avatars', 'Profilbilder']];
+const bkCfg = () => Object.assign({ every: 30, t: 0 }, S.backupCfg || {});
+const bkAvPref = () => { try { return localStorage.getItem('strichliste_bkav') !== '0'; } catch (e) { return true; } };
+// Zeitstempel aus Firestore als { __ts: ms } speichern und beim Import zurückverwandeln
+const bkOut = v => v && typeof v === 'object' ? (typeof v.toMillis === 'function' ? { __ts: v.toMillis() } : Array.isArray(v) ? v.map(bkOut) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, bkOut(x)]))) : v;
+const bkIn = v => v && typeof v === 'object' ? (Array.isArray(v) ? v.map(bkIn) : Object.keys(v).length === 1 && typeof v.__ts === 'number' ? (F.Timestamp ? F.Timestamp.fromMillis(v.__ts) : v.__ts) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, bkIn(x)]))) : v;
+async function makeBackup() {
+  const withAv = bkAvPref(), out = { v: BACKUP_V, app: APP_VERSION, exported: new Date().toISOString(), by: S.me || S.user.email, active: S.active || null, meta: {}, data: {}, skipped: [] };
+  toast('Backup wird erstellt …');
+  for (const [c, label] of BACKUP_COLS) {
+    if (c === 'avatars' && !withAv) { out.skipped.push(label + ' (nicht gewählt)'); continue; }
+    try { const snap = await F.getDocs(col(c)); out.data[c] = {}; snap.docs.forEach(d => { out.data[c][d.id] = bkOut(d.data()); }); }
+    catch (err) { if (err && err.code === 'permission-denied') out.skipped.push(label + ' (keine Berechtigung)'); else throw err; }
+  }
+  try { const m = await F.getDoc(dref('meta', 'state')); if (m.exists()) { const x = m.data(); out.meta = { eggs: x.eggs, epoch: x.epoch }; } } catch (e) {}
+  const n = Object.keys(out.data.scans || {}).length;
+  const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+  downloadBlob('strichliste-backup-' + todayISO() + '.json', blob);
+  const cfg = { every: bkCfg().every, t: Date.now(), by: S.user.uid, byName: S.me || '', n, full: !out.skipped.length || (out.skipped.length === 1 && !withAv) };
+  S.backupCfg = cfg; fire(F.setDoc(dref('config', 'backup'), cfg), 'Backup merken');
+  logEv('system', 'speichert ein Backup (' + n + ' Buchungen' + (out.skipped.length ? '; ohne ' + out.skipped.join(', ') : '') + ')');
+  toast('Backup gespeichert: ' + n + ' Buchungen' + (out.skipped.length ? ' – ohne ' + out.skipped.join(', ') : ''));
+  renderAdmin();
+}
+async function restoreBackup(d) {
+  if (!d || !d.data || typeof d.data !== 'object') return restoreLegacy(d);
+  const cnt = BACKUP_COLS.filter(([c]) => d.data[c]).map(([c, l]) => Object.keys(d.data[c]).length + ' ' + l).join(', ');
+  if (!await ask('Backup vom ' + (d.exported ? new Date(d.exported).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : '?') + (d.by ? ' (' + d.by + ')' : '') + ' importieren?\n\n' + cnt + '.',
+    { title: 'Backup importieren', ok: 'Importieren', note: 'Einträge mit gleicher Kennung werden überschrieben, alle anderen bleiben erhalten. Zähler und Bestenliste werden danach neu berechnet.' })) return;
   const ops = [];
-  d.products.forEach(p => ops.push({ ref: dref('products', String(p.id)), data: Object.assign({ codes: [], price: 0, packs: [] }, clean(p, ['name', 'codes', 'price', 'packs'])) }));
-  d.days.forEach(x => ops.push({ ref: dref('days', String(x.id)), data: Object.assign({ load: {}, count: {}, closed: false, place: '' }, clean(x, ['date', 'place', 'closed', 'load', 'count', 'created'])) }));
-  Object.keys(d.users || {}).forEach(uid => ops.push({ ref: dref('users', uid), data: clean(d.users[uid], ['name', 'email', 't']) }));
-  d.scans.forEach(s => ops.push({ ref: dref('scans', String(s.id)), data: Object.assign({ uid: s.uid || S.user.uid, src: s.src || 'import' }, clean(s, ['day', 'p', 't', 'who'])) }));
+  // Historie lässt sich nicht ändern: nur Einträge ergänzen, die fehlen
+  let logHave = new Set(); if (d.data.log) { try { logHave = new Set((await F.getDocs(col('log'))).docs.map(x => x.id)); } catch (e) { delete d.data.log; } }
+  BACKUP_COLS.forEach(([c]) => { const m = d.data[c]; if (!m) return; Object.keys(m).forEach(id => { if ((c === 'config' && id === 'backup') || (c === 'log' && logHave.has(id))) return; ops.push({ ref: dref(c, id), data: bkIn(m[id]) }); }); });
+  try {
+    toast('Importiere ' + ops.length + ' Einträge …'); await commitInChunks(ops);
+    const st = { recountFull: true };
+    if (d.active && !S.active) st.active = String(d.active);
+    if (d.meta && d.meta.eggs != null) st.eggs = d.meta.eggs;
+    await F.setDoc(dref('meta', 'state'), st, { merge: true });
+    toast('Import fertig: ' + ops.length + ' Einträge'); logEv('system', 'importiert ein Backup vom ' + (d.exported || '?').slice(0, 10) + ' (' + ops.length + ' Einträge)');
+  } catch (err) { console.error(err); toast('Import fehlgeschlagen: ' + (err.code === 'permission-denied' ? 'Keine Berechtigung – sind die neuen Firebase-Regeln veröffentlicht?' : (err.code || err.message))); }
+}
+// ältere Backups (bis Version 52) und Daten aus der Offline-Version
+async function restoreLegacy(d) {
+  if (!d || !Array.isArray(d.products) || !Array.isArray(d.days) || !Array.isArray(d.scans)) { toast('Die Datei ist kein gültiges Backup'); return; }
+  if (!await ask('Älteres Backup mit ' + d.products.length + ' Getränken, ' + d.days.length + ' Tagen und ' + d.scans.length + ' Buchungen importieren? Gleiche Einträge werden überschrieben, andere bleiben erhalten.')) return;
+  const ops = [], strip = o => { const r = Object.assign({}, o); delete r.id; return r; };
+  d.products.forEach(p => ops.push({ ref: dref('products', String(p.id)), data: Object.assign({ codes: [], price: 0, packs: [] }, strip(p)) }));
+  d.days.forEach(x => ops.push({ ref: dref('days', String(x.id)), data: Object.assign({ load: {}, count: {}, closed: false, place: '' }, strip(x)) }));
+  Object.keys(d.users || {}).forEach(uid => ops.push({ ref: dref('users', uid), data: d.users[uid] }));
+  d.scans.forEach(s => ops.push({ ref: dref('scans', String(s.id)), data: Object.assign({ uid: S.user.uid, src: 'import' }, bkIn(strip(s))) }));
   try {
     toast('Importiere …'); await commitInChunks(ops);
-    if (d.active && !S.active) await F.setDoc(dref('meta', 'state'), { active: String(d.active) }, { merge: true });
-    fire(F.setDoc(dref('meta', 'state'), { recountFull: true }, { merge: true }), 'Import');
+    await F.setDoc(dref('meta', 'state'), Object.assign({ recountFull: true }, d.active && !S.active ? { active: String(d.active) } : {}), { merge: true });
     toast('Import fertig: ' + ops.length + ' Einträge'); logEv('system', 'importiert ein Backup (' + ops.length + ' Einträge)');
   } catch (err) { console.error(err); toast('Import fehlgeschlagen: ' + (err.code || err.message)); }
+}
+function backupDue() { const c = bkCfg(); return c.every > 0 && Date.now() - (c.t || 0) > c.every * 864e5; }
+function backupAgo() { const c = bkCfg(); if (!c.t) return 'noch nie'; const d = Math.floor((Date.now() - c.t) / 864e5); return new Date(c.t).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + (d === 0 ? ' (heute)' : d === 1 ? ' (gestern)' : ' (vor ' + d + ' Tagen)'); }
+function backupBox() {
+  const c = bkCfg();
+  return '<div class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:10px">' +
+    '<div class="full" style="font-size:.88rem"><b>Letztes Backup:</b> ' + esc(backupAgo()) + (c.byName ? ' von ' + esc(c.byName) : '') + (c.n != null ? ' · ' + c.n + ' Buchungen' : '') + '</div>' +
+    '<div class="full" style="font-size:.8rem;color:var(--mu)">Enthält Getränke, Tage, Buchungen, Personen mit Rollen und Gruppen, alle Einstellungen (auch Gruppen, Fasnets-Titel, Easter Eggs), Anträge, Posteingang, Historie, Sammelalben und auf Wunsch Profilbilder. Die Logins liegen bei Firebase und lassen sich nicht sichern. Die Datei enthält persönliche Daten – sicher aufbewahren.</div>' +
+    '<label class="chk full"><input type="checkbox" id="bkAv"' + (bkAvPref() ? ' checked' : '') + '> Profilbilder mitsichern (größere Datei)</label>' +
+    (S.isSuper ? '<label class="f full">Erinnern, wenn das letzte Backup länger her ist als … Tage (0 = nie)<input class="n" id="bkEvery" inputmode="numeric" value="' + (c.every || 0) + '" style="width:80px"></label>' : '<div class="f" style="font-size:.8rem;color:var(--mu)">Erinnerung nach ' + (c.every || 0) + ' Tagen (stellt der Super-Admin ein)</div>') + '</div>';
+}
+function backupReminder() {
+  if (!backupDue() || !S.isAdmin) return '';
+  return '<div class="note bad" style="margin-bottom:12px"><b>Zeit für ein Backup.</b> Letztes Backup: ' + esc(backupAgo()) + '. <button class="b sm pri" data-act="backup" style="margin-left:6px">Jetzt sichern</button></div>';
+}
+$('fileIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f || !S.isSuper) return;
+  let d; try { d = JSON.parse(await f.text()); } catch (err) { toast('Die Datei ist kein gültiges Backup'); return; }
+  restoreBackup(d);
 });
 
 /* ---------- Start ---------- */
