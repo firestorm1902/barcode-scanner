@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Wexhainis" />
@@ -195,6 +195,22 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.dlg{position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+.dlg[hidden]{display:none}
+.dlg-in{width:100%;max-width:420px;background:var(--white);color:var(--ink);border:2px solid var(--ink);border-radius:18px;padding:20px 18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.5);animation:dlgIn .18s ease-out;border-top:6px solid var(--wy)}
+.dlg-in h3{font:700 1.3rem/1.15 "Oswald","Arial Narrow",sans-serif;margin:0 0 8px}
+.dlg-in p{margin:0 0 8px;font-size:1rem;line-height:1.45;white-space:pre-line}
+.dlg-in small{display:block;color:var(--mu);margin-bottom:8px}
+.dlg-in input{width:100%;margin:4px 0 6px}
+.dlg-btns{display:flex;gap:10px;margin-top:12px}
+.dlg-btns .b{flex:1;padding:12px 10px;font-size:1rem}
+.b.dng.solid{background:var(--pen);color:#fff;border-color:var(--pen)}
+@keyframes dlgIn{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+.stepper{display:flex;align-items:stretch;gap:6px;width:100%}
+.stepper input{flex:1;min-width:0;text-align:center;font-size:1.1rem;-moz-appearance:textfield}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stepper .b{width:46px;flex:0 0 46px;padding:0;font-size:1.4rem;line-height:1}
+.modal-in{max-height:calc(100dvh - 24px)}
 .ecat td,.ecat th{text-align:center}.ecat td:first-child,.ecat th:first-child{text-align:left}
 .sw{position:relative;display:inline-block;width:42px;height:24px;cursor:pointer}
 .sw input{opacity:0;width:0;height:0;position:absolute}
@@ -608,6 +624,7 @@ body.noauth main{display:none!important}
 </div>
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-in"><button class="modal-x" id="modalX" aria-label="Schließen">×</button><div id="modalBody"></div></div></div>
 <div class="updbar" id="updBar" hidden role="status"><span><b>Neue Version da.</b> Kurz neu laden, um sie zu nutzen.</span><button class="b sm pri" id="updGo">Neu laden</button></div>
+<div class="dlg" id="dlg" hidden role="alertdialog" aria-modal="true"><div class="dlg-in"><div id="dlgBody"></div><div class="dlg-btns"><button class="b" id="dlgNo">Abbrechen</button><button class="b pri" id="dlgOk">OK</button></div></div></div>
 <footer id="ver" style="max-width:640px;margin:28px auto 0;text-align:center;font-size:.75rem;color:var(--mu)"></footer>
 
 <script type="module">
@@ -627,7 +644,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '35';
+const APP_VERSION = '36';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1100,7 +1117,7 @@ $('aBtn').addEventListener('click', async () => {
     if (pw !== $('aPw2').value) { toast('Die Passwörter stimmen nicht überein'); return; }
     if (!$('aDs').checked) { toast('Bitte den Datenschutzhinweis lesen und bestätigen'); $('fDs').classList.add('shake'); setTimeout(() => $('fDs').classList.remove('shake'), 600); return; }
     const grp = groupsAll().some(g => g.id === $('aGrp').value) ? $('aGrp').value : '';
-    if (!confirm('Konto für „' + name + '“ anlegen? Der Name kann danach nur noch vom Admin geändert werden.')) return;
+    if (!await ask('Konto für „' + name + '“ anlegen? Der Name kann danach nur noch vom Admin geändert werden.')) return;
     btn.disabled = true; S.registering = name; renderScan();
     try {
       const cred = await F.createUserWithEmailAndPassword(auth, mail, pw);
@@ -1118,7 +1135,7 @@ $('aBtn').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
-['aMail', 'aPw', 'aPw2', 'aName'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('aBtn').click(); }));
+
 // Gruppenliste und Datenschutz-Angaben schon vor der Anmeldung laden (Regeln erlauben das Lesen)
 let publicLoaded = 0;
 async function loadPublicCfg() {
@@ -1144,7 +1161,7 @@ $('aForgot').addEventListener('click', async () => {
   catch (err) { toast(err.code === 'auth/invalid-email' ? 'Die E-Mail-Adresse ist ungültig.' : 'Falls es ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen.'); }
 });
 async function logout() {
-  if (S.pending && !confirm(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
+  if (S.pending && !await ask(S.pending + ' Buchungen sind noch nicht gesendet und gehen beim Abmelden verloren. Trotzdem abmelden?')) return;
   if (cam.on) camStop();
   stopAdminListeners(); stopUserListeners();
   await F.signOut(auth); hidePasswords(); setView('scan');
@@ -1213,15 +1230,15 @@ $('pwSave').addEventListener('click', async () => {
   btn.disabled = false;
 });
 
-$('nameBtn').addEventListener('click', () => {
+$('nameBtn').addEventListener('click', async () => {
   if (!S.user) return;
   const name = $('nameIn').value.trim().replace(/\s+/g, ' ');
   if (name.length < 3 || !/\s/.test(name)) { toast('Bitte Vor- und Nachnamen eingeben'); return; }
-  if (!confirm('Getränke auf „' + name + '“ buchen? Der Name kann danach nicht mehr geändert werden.')) return;
+  if (!await ask('Getränke auf „' + name + '“ buchen? Der Name kann danach nicht mehr geändert werden.')) return;
   fire(F.setDoc(dref('users', S.user.uid), { name: name.slice(0, 40), email: (S.user.email || '').toLowerCase(), t: Date.now(), pending: true }), 'Name speichern');
   S.me = name.slice(0, 40); logEv('person', 'legt den Namen „' + name.slice(0, 40) + '“ fest');
 });
-$('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('nameBtn').click(); });
+
 const nameOf = s => (S.users[s.uid] && S.users[s.uid].name) || s.who || 'ohne Namen';
 
 /* =========================================================
@@ -2112,8 +2129,8 @@ $('avIn').addEventListener('change', async e => {
     toast('Profilbild gespeichert');
   } catch (err) { toast(err.message || 'Bild konnte nicht verarbeitet werden'); }
 });
-$('avDel').addEventListener('click', () => {
-  if (!S.user || !confirm('Profilbild entfernen?')) return;
+$('avDel').addEventListener('click', async () => {
+  if (!S.user || !await ask('Profilbild entfernen?')) return;
   setAvatarCache(S.user.uid, null); renderMe(); avatarsChanged();
   fire(F.deleteDoc(dref('avatars', S.user.uid)), 'Profilbild entfernen'); logEv('person', 'entfernt das eigene Profilbild');
 });
@@ -2339,10 +2356,10 @@ function privacyHTML() {
   }
   return h;
 }
-$('modalBody').addEventListener('click', e => {
+$('modalBody').addEventListener('click', async e => {
   if (e.target.id === 'dsOkBtn') { confirmDs(); closeModal(); return; }
   if (e.target.id === 'delReqBtn') {
-    if (!S.user || !confirm('Löschung deines Kontos und deiner Buchungen beantragen?')) return;
+    if (!S.user || !await ask('Löschung deines Kontos und deiner Buchungen beantragen?')) return;
     fire(F.updateDoc(dref('users', S.user.uid), { delreq: Date.now() }), 'Löschung beantragen');
     logEv('person', 'beantragt die Löschung des eigenen Kontos');
     S.meDoc = Object.assign({}, S.meDoc, { delreq: Date.now() }); toast('Löschung beantragt'); openModal(privacyHTML());
@@ -2515,7 +2532,7 @@ function showLast(cls, html) {
   clearInterval(lastTimer); lastTimer = setInterval(tick, 250); tick();
 }
 function hideLast() { clearInterval(lastTimer); lastTimer = null; $('last').hidden = true; }
-function book(pid, src) {
+async function book(pid, src) {
   const day = S.activeDay; if (!day || !S.user) return;
   if (!S.me || isPending()) return;
   const cat = catOf(P(pid));
@@ -2523,7 +2540,7 @@ function book(pid, src) {
     showLast('last unk', '<div><b>' + esc(pname(pid)) + ' ist für dich gesperrt</b><span>Jugendschutz – nimm doch ein Wasser oder einen Softdrink.</span></div><small class="last-cd"></small>');
     if (navigator.vibrate) navigator.vibrate([60, 60, 60]); return;
   }
-  if (S.driver && isAlc(cat) && !confirm('Du hast angegeben, dass du heute fährst.\n\n' + pname(pid) + ' enthält Alkohol. Trotzdem buchen?')) return;
+  if (S.driver && isAlc(cat) && !(await ask(pname(pid) + ' enthält Alkohol. Trotzdem buchen?', { title: 'Du fährst heute 🚗', ok: 'Trotzdem buchen', cancel: 'Lieber nicht' }))) return;
   const id = newId('scans');
   const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp(), who: S.me };
   fire(F.setDoc(dref('scans', id), data), 'Buchung');
@@ -2691,7 +2708,7 @@ function renderSheet() {
       '<button class="b" data-qty="1" data-l="Flasche">' + sign + ' 1 Flasche<small>einzeln</small></button>' +
       (p.packs || []).map(k => '<button class="b" data-qty="' + k.n + '" data-l="' + esc(k.l) + '">' + sign + ' 1 ' + esc(k.l) + '<small>' + k.n + ' Flaschen</small></button>').join('') +
       '</div>' +
-      '<div class="row" style="margin-top:0;align-items:center"><input id="qQty" inputmode="numeric" placeholder="Anzahl Flaschen" style="flex:1"><button class="b" data-sh="addQty">' + (sh.minus ? 'Abziehen' : 'Hinzufügen') + '</button></div>' +
+      '<div class="row" style="margin-top:0;align-items:center">' + stepper('qQty', '', { ph: 'Flaschen' }) + '<button class="b" data-sh="addQty">' + (sh.minus ? 'Abziehen' : 'Hinzufügen') + '</button></div>' +
       '<label class="chk"><input type="checkbox" id="qMinus"' + (sh.minus ? ' checked' : '') + '> Korrektur: abziehen statt hinzufügen</label>' +
       ((p.packs || []).length ? '' : '<div style="font-size:.84rem;color:var(--mu)">Für Kästen unter „Getränke“ ein Gebinde eintragen, z. B. „Kasten 20“.</div>') + '</div>';
   } else {
@@ -2883,7 +2900,7 @@ function renderAdmin() {
       h += '<section><h2>Buchung nachtragen</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Für jemanden, der vergessen hat zu scannen.</div><div class="grid2">' +
         '<label class="f full">Person<select id="nbWho"><option value="">Wählen …</option>' + people.map(x => '<option value="' + x.uid + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
         '<label class="f">Getränk<select id="nbP"><option value="">Wählen …</option>' + S.products.map(x => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
-        '<label class="f">Anzahl<input id="nbN" inputmode="numeric" value="1"></label>' +
+        '<label class="f">Anzahl' + stepper('nbN', 1, { max: 100 }) + '</label>' +
         '<div class="full"><button class="b pri" data-act="addBooking">Nachtragen</button></div></div>';
       if (nbSel && S.users[nbSel]) {
         const ps = scans.filter(x => x.uid === nbSel), byP = {};
@@ -3045,7 +3062,7 @@ $('adminBody').addEventListener('click', async e => {
   if (a === 'calc') shopCalc();
   if (a === 'fromLast') {
     const d = S.days.find(x => x.id === b.dataset.id); if (!d) return;
-    if (!confirm('Lagerbestand auf „Übrig“ vom ' + fmtDate(d.date) + ' setzen?')) return;
+    if (!await ask('Lagerbestand auf „Übrig“ vom ' + fmtDate(d.date) + ' setzen?')) return;
     S.products.forEach(p => { const c = (d.count || {})[p.id]; if (c != null) fire(F.updateDoc(dref('products', p.id), { stock: Math.max(0, c) }), 'Lager speichern'); });
     logEv('getraenk', 'Lager = Übrig vom ' + fmtDate(d.date)); toast('Lager übernommen');
   }
@@ -3102,7 +3119,7 @@ $('adminBody').addEventListener('click', async e => {
   if (r) {
     const ids = r.dataset.dsr === '*' ? Object.keys(S.users).filter(k => { const u = S.users[k]; return !u.deleted && !u.pending && !dsConfirmed(u) && k !== S.user.uid; }) : [r.dataset.dsr];
     if (!ids.length) return;
-    if (ids.length > 1 && !confirm(ids.length + ' Personen beim nächsten Öffnen der App erinnern?')) return;
+    if (ids.length > 1 && !await ask(ids.length + ' Personen beim nächsten Öffnen der App erinnern?')) return;
     const t = Date.now();
     ids.forEach(k => fire(F.updateDoc(dref('users', k), { dsremind: t }), 'Erinnerung'));
     logEv('person', 'erinnert an den Datenschutzhinweis: ' + ids.map(uname).join(', ').slice(0, 200));
@@ -3119,7 +3136,7 @@ $('adminBody').addEventListener('click', async e => {
     window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank', 'noopener'); return;
   }
   if (e.target.closest('[data-dsver]')) {
-    if (!confirm('Den Datenschutzhinweis als neue Fassung markieren? Dann müssen ALLE ihn erneut bestätigen (auch du).')) return;
+    if (!await ask('Den Datenschutzhinweis als neue Fassung markieren? Dann müssen ALLE ihn erneut bestätigen (auch du).')) return;
     const pv = Object.assign({}, privCfg(), { ver: Date.now(), t: Date.now() });
     S.privacy = pv; fire(F.setDoc(dref('config', 'privacy'), pv), 'Neue Fassung'); logEv('system', 'markiert den Datenschutzhinweis als neue Fassung – alle müssen erneut bestätigen'); toast('Alle werden beim nächsten Öffnen gebeten, erneut zu bestätigen'); renderAll();
   }
@@ -3269,7 +3286,7 @@ async function reqForm() {
     '<div class="mode full" id="rqType" style="display:flex"><button data-rt="add" class="on" style="flex:1">Nachbuchen</button><button data-rt="del" style="flex:1">Stornieren</button></div>' +
     '<label class="f full">Tag<select id="rqDay">' + reqDays.map(d => '<option value="' + d.id + '"' + (d.id === S.active ? ' selected' : '') + '>' + esc(fmtDate(d.date) + (d.place ? ' – ' + d.place : '')) + '</option>').join('') + '</select></label>' +
     '<label class="f">Getränk<select id="rqP"><option value="">Wählen …</option>' + prods.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('') + '</select></label>' +
-    '<label class="f">Anzahl<input id="rqN" inputmode="numeric" value="1"></label>' +
+    '<label class="f">Anzahl' + stepper('rqN', 1, { max: 20 }) + '</label>' +
     '<div class="full rqinfo" id="rqInfo" hidden></div>' +
     '<label class="f full">Bemerkung (optional)<input id="rqNote" maxlength="200" placeholder="z. B. Handy war leer"></label>' +
     '<div class="full"><button class="b pri" data-req="send" style="width:100%">Antrag senden</button></div></div>');
@@ -3322,7 +3339,7 @@ document.addEventListener('click', async e => {
   const a = b.dataset.req;
   if (a === 'new') reqForm();
   if (a === 'mine') reqMine();
-  if (a === 'withdraw') { if (confirm('Antrag zurückziehen?')) { fire(F.deleteDoc(dref('reqs', b.dataset.id)), 'Zurückziehen'); toast('Antrag zurückgezogen'); setTimeout(reqMine, 200); } }
+  if (a === 'withdraw') { if (await ask('Antrag zurückziehen?')) { fire(F.deleteDoc(dref('reqs', b.dataset.id)), 'Zurückziehen'); toast('Antrag zurückgezogen'); setTimeout(reqMine, 200); } }
   if (a === 'send') {
     const type = (document.querySelector('#rqType .on') || {}).dataset.rt || 'add', day = $('rqDay').value, p = $('rqP').value, n = parseInt($('rqN').value), note = $('rqNote').value.trim().slice(0, 200);
     if (!p) { toast('Bitte ein Getränk wählen'); return; }
@@ -3368,19 +3385,19 @@ $('adminBody').addEventListener('click', async e => {
   // Super-Admin: Anträge löschen (Buchungen bleiben unverändert)
   if (b.dataset.rq === 'delDone' && S.isSuper) {
     const L = (S.reqs || []).filter(x => x.status !== 'open');
-    if (!L.length || !confirm(L.length + ' erledigte Anträge löschen? Die Buchungen selbst bleiben unverändert.')) return;
+    if (!L.length || !await ask(L.length + ' erledigte Anträge löschen? Die Buchungen selbst bleiben unverändert.')) return;
     const bt = F.writeBatch(db); L.forEach(x => bt.delete(dref('reqs', x.id)));
     fire(bt.commit(), 'Anträge löschen'); logEv('buchung', 'löscht ' + L.length + ' erledigte Korrekturanträge'); toast(L.length + ' Anträge gelöscht'); return;
   }
   if (b.dataset.rq === 'del' && S.isSuper) {
     const x = (S.reqs || []).find(q => q.id === b.dataset.id); if (!x) return;
-    if (!confirm('Antrag ' + reqTxt(x) + ' von ' + (x.name || '') + ' löschen?' + (x.status === 'open' ? ' Er ist noch offen und wird damit nicht bearbeitet.' : ' Die Buchungen bleiben unverändert.'))) return;
+    if (!await ask('Antrag ' + reqTxt(x) + ' von ' + (x.name || '') + ' löschen?' + (x.status === 'open' ? ' Er ist noch offen und wird damit nicht bearbeitet.' : ' Die Buchungen bleiben unverändert.'))) return;
     fire(F.deleteDoc(dref('reqs', x.id)), 'Antrag löschen'); logEv('buchung', 'löscht Antrag ' + reqTxt(x) + ' von ' + (x.name || '') + ' (' + (x.status === 'ok' ? 'genehmigt' : x.status === 'no' ? 'abgelehnt' : 'offen') + ')', x.day); toast('Antrag gelöscht'); return;
   }
   const r = (S.reqs || []).find(x => x.id === b.dataset.id); if (!r || r.status !== 'open') return;
   const fin = (status, reason) => fire(F.updateDoc(dref('reqs', r.id), { status, by: S.user.uid, byName: S.me || '', at: Date.now(), reason: reason || '' }), 'Antrag');
   if (b.dataset.rq === 'no') {
-    const reason = prompt('Antrag ablehnen – Begründung für ' + (r.name || '') + ' (optional):', '');
+    const reason = await askText('Begründung für ' + (r.name || '') + ' (optional):', '', { title: 'Antrag ablehnen', ok: 'Ablehnen', danger: true, ph: 'z. B. zu spät gemeldet' });
     if (reason === null) return;
     fin('no', reason.trim().slice(0, 200)); logEv('buchung', 'lehnt Antrag ab: ' + reqTxt(r) + ' von ' + r.name + (reason ? ' („' + reason + '“)' : ''), r.day); toast('Abgelehnt'); return;
   }
@@ -3395,7 +3412,7 @@ $('adminBody').addEventListener('click', async e => {
     let list;
     try { list = (await F.getDocs(F.query(col('scans'), F.where('day', '==', r.day), F.where('uid', '==', r.uid)))).docs.map(d => Object.assign({ id: d.id }, d.data())).filter(s => s.p === r.p).sort((x, y) => y.t - x.t); }
     catch (err) { toast('Dafür wird Internet benötigt'); return; }
-    if (list.length < r.n && !confirm(r.name + ' hat an dem Tag nur ' + list.length + '× ' + pname(r.p) + '. ' + (list.length ? 'Diese stornieren?' : 'Antrag trotzdem als erledigt markieren?'))) return;
+    if (list.length < r.n && !await ask(r.name + ' hat an dem Tag nur ' + list.length + '× ' + pname(r.p) + '. ' + (list.length ? 'Diese stornieren?' : 'Antrag trotzdem als erledigt markieren?'))) return;
     const del = list.slice(0, r.n), bt = F.writeBatch(db);
     del.forEach(s => bt.delete(dref('scans', s.id)));
     if (del.length) { fire(bt.commit(), 'Stornieren'); adjustCounters(r.uid, r.day, r.p, -del.length); }
@@ -3495,7 +3512,7 @@ function inboxSection() {
       (m.read ? '<button class="b sm" data-ib="unread" data-id="' + m.id + '">Ungelesen</button>' : '') + '<button class="b sm dng" data-ib="del" data-id="' + m.id + '">Löschen</button></div></div></details>').join('') : '<div class="empty">Nichts in dieser Ansicht.</div>') +
     (L.some(m => m.status === 'done') ? '<div class="row"><button class="b sm dng" data-ib="delDone">Alle erledigten löschen</button></div>' : '') + '</section>';
 }
-$('adminBody').addEventListener('click', e => {
+$('adminBody').addEventListener('click', async e => {
   if (!S.isSuper) return;
   const f = e.target.closest('[data-ibf]'); if (f) { inboxFilter = f.dataset.ibf; renderAdmin(); return; }
   const sm = e.target.closest('details[data-mid] > summary');
@@ -3509,12 +3526,82 @@ $('adminBody').addEventListener('click', e => {
   if (a === 'done' && m) fire(F.updateDoc(dref('msgs', id), { status: 'done', read: true }), 'Erledigt');
   if (a === 'reopen' && m) fire(F.updateDoc(dref('msgs', id), { status: 'open' }), 'Öffnen');
   if (a === 'unread' && m) fire(F.updateDoc(dref('msgs', id), { read: false }), 'Ungelesen');
-  if (a === 'del' && m && confirm('Nachricht von ' + m.name + ' löschen?')) fire(F.deleteDoc(dref('msgs', id)), 'Löschen');
+  if (a === 'del' && m && await ask('Nachricht von ' + m.name + ' löschen?')) fire(F.deleteDoc(dref('msgs', id)), 'Löschen');
   if (a === 'delDone') {
     const L = (S.inbox || []).filter(x => x.status === 'done');
-    if (!confirm(L.length + ' erledigte Nachrichten löschen?')) return;
+    if (!await ask(L.length + ' erledigte Nachrichten löschen?')) return;
     const bt = F.writeBatch(db); L.forEach(x => bt.delete(dref('msgs', x.id))); fire(bt.commit(), 'Löschen'); toast(L.length + ' gelöscht');
   }
+});
+
+/* ---------- Einheitliche Abfragen statt Browser-Fenster (confirm/prompt) ---------- */
+let dlgResolve = null;
+function dlgShow(o) {
+  return new Promise(res => {
+    if (dlgResolve) dlgResolve(o.input ? null : false);
+    dlgResolve = res;
+    const msg = String(o.msg || ''), danger = o.danger != null ? o.danger : /löschen\?|entfernen\?|sperren\?|ablehnen\?|zurückziehen\?|ALLE/.test(msg);
+    const okL = o.ok || (/löschen\?/.test(msg) ? 'Löschen' : /entfernen\?/.test(msg) ? 'Entfernen' : /sperren\?/.test(msg) ? 'Sperren' : /ablehnen\?/.test(msg) ? 'Ablehnen' : /zurückziehen\?/.test(msg) ? 'Zurückziehen' : 'OK');
+    $('dlgBody').innerHTML = (o.title ? '<h3>' + esc(o.title) + '</h3>' : '') + '<p>' + esc(msg) + '</p>' + (o.note ? '<small>' + esc(o.note) + '</small>' : '') +
+      (o.input ? '<input id="dlgIn" maxlength="200" enterkeyhint="done" value="' + esc(o.def || '') + '" placeholder="' + esc(o.ph || '') + '">' : '');
+    $('dlgOk').textContent = okL; $('dlgOk').className = 'b ' + (danger ? 'dng solid' : 'pri');
+    $('dlgNo').textContent = o.cancel || 'Abbrechen';
+    $('dlg').hidden = false;
+    setTimeout(() => { const i = $('dlgIn'); if (i) i.focus(); else $('dlgOk').focus({ preventScroll: true }); }, 60);
+  });
+}
+function dlgClose(v) { $('dlg').hidden = true; const r = dlgResolve; dlgResolve = null; if (r) r(v); }
+$('dlgOk').addEventListener('click', () => { const i = $('dlgIn'); dlgClose(i ? i.value : true); });
+$('dlgNo').addEventListener('click', () => dlgClose($('dlgIn') ? null : false));
+$('dlg').addEventListener('click', e => { if (e.target === $('dlg')) dlgClose($('dlgIn') ? null : false); });
+addEventListener('keydown', e => {
+  if ($('dlg').hidden) return;
+  if (e.key === 'Escape') { e.preventDefault(); dlgClose($('dlgIn') ? null : false); }
+  if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); $('dlgOk').click(); }
+}, true);
+const ask = (msg, o) => dlgShow(Object.assign({ msg }, o || {}));
+const askText = (msg, def, o) => dlgShow(Object.assign({ msg, def, input: true, ok: 'OK' }, o || {}));
+
+/* ---------- Tippen: Enter springt ins nächste Feld, Zahlen mit −/+ ---------- */
+const textLike = el => el && ((el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'file', 'hidden', 'date', 'time'].includes(el.type)) || el.tagName === 'TEXTAREA');
+const visible = el => !!(el.offsetParent || el.getClientRects().length) && !el.disabled && !el.readOnly;
+function fieldScope(t) { return t.closest('.grid2') || t.closest('.modal-in, .sheet-in, section, #authSec') || document.body; }
+function nextField(t) {
+  const scope = fieldScope(t), L = [...scope.querySelectorAll('input,textarea')].filter(x => textLike(x) && visible(x));
+  const i = L.indexOf(t); return i >= 0 ? L[i + 1] || null : null;
+}
+const PRIMARY = { authSec: 'aBtn', nameSec: 'nameBtn', pwSec: 'pwSave' };
+function primaryFor(t) {
+  for (const k in PRIMARY) if (t.closest('#' + k)) return $(PRIMARY[k]);
+  const m = t.closest('.modal-in'); if (m) return m.querySelector('.b.pri:not([disabled])');
+  const sh = t.closest('.sheet-in'); if (sh && t.id === 'qQty') return sh.querySelector('[data-sh=addQty]');
+  return null;
+}
+document.addEventListener('focusin', e => {
+  const t = e.target; if (!textLike(t)) return;
+  if (t.tagName === 'INPUT') t.enterKeyHint = nextField(t) ? 'next' : primaryFor(t) ? (t.closest('#authSec') ? 'go' : 'send') : 'done';
+  if (t.inputMode === 'numeric' || t.inputMode === 'decimal' || t.type === 'number') setTimeout(() => { if (document.activeElement === t) try { t.select(); } catch (err) {} }, 30);
+  if (t.closest('.modal-in, .sheet-in')) setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing || e.shiftKey) return;
+  const t = e.target; if (!textLike(t) || t.tagName === 'TEXTAREA' || t.closest('#dlg')) return;
+  e.preventDefault();
+  const n = nextField(t);
+  if (n) { n.focus(); return; }
+  const p = primaryFor(t);
+  t.blur(); // Änderung übernehmen (change-Ereignis)
+  if (p) p.click();
+});
+// Zahlenfeld mit − und +
+const stepper = (id, val, o) => { o = o || {};
+  return '<div class="stepper"><button type="button" class="b" data-stp="-1" data-for="' + id + '" aria-label="weniger">−</button><input id="' + id + '" type="number" inputmode="numeric" pattern="[0-9]*" min="' + (o.min != null ? o.min : 1) + '"' + (o.max ? ' max="' + o.max + '"' : '') + ' value="' + (val != null ? val : '') + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '><button type="button" class="b" data-stp="1" data-for="' + id + '" aria-label="mehr">+</button></div>'; };
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-stp]'); if (!b) return;
+  const i = $(b.dataset.for); if (!i) return;
+  const min = i.min !== '' ? +i.min : 1, max = i.max !== '' ? +i.max : 9999, v = parseInt(i.value);
+  i.value = Math.max(min, Math.min(max, (isNaN(v) ? (b.dataset.stp > 0 ? 0 : min) : v) + +b.dataset.stp));
+  i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }));
 });
 
 /* ---------- Als App installieren (Android, iPhone) ---------- */
@@ -3931,7 +4018,7 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'activate' && day) { fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag aktivieren'); toast('Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'aktiviert ' + dayLabel(day) + ' zum Scannen', day.id); }
   else if (a === 'close' && day) {
     const open = dayRows(day, S.dayScans).filter(r => r.c == null).length;
-    if (open && !confirm(open + ' Getränken fehlt noch „Übrig“. Trotzdem abschließen?')) return;
+    if (open && !await ask(open + ' Getränken fehlt noch „Übrig“. Trotzdem abschließen?')) return;
     fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen'); toast('Tag abgeschlossen'); logEv('tag', 'schließt ' + dayLabel(day) + ' ab', day.id);
   }
   else if (a === 'reopen' && day) { fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); logEv('tag', 'öffnet ' + dayLabel(day) + ' wieder', day.id); }
@@ -3954,7 +4041,7 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'eggsToggle' && S.isSuper) { const on = !eggsOn(); fire(F.setDoc(dref('meta', 'state'), { eggs: on }, { merge: true }), 'Einstellung'); toast(on ? 'Easter Eggs an' : 'Easter Eggs aus'); logEv('egg', 'schaltet Easter Eggs ' + (on ? 'an' : 'aus')); }
   else if (a === 'recount' && S.isSuper) {
-    if (!confirm('Zähler für Easter Eggs (Gruppe und Personen) aus allen Buchungen neu berechnen? Nötig nach Stornos, Nachträgen oder einem Import.')) return;
+    if (!await ask('Zähler für Easter Eggs (Gruppe und Personen) aus allen Buchungen neu berechnen? Nötig nach Stornos, Nachträgen oder einem Import.')) return;
     try { b.disabled = true; const n = await recomputeCounters(); toast('Zähler neu berechnet: ' + n + ' Buchungen'); logEv('system', 'berechnet die Zähler neu (' + n + ' Buchungen)'); } catch (err) { toast('Neu berechnen fehlgeschlagen – Internet nötig'); }
     b.disabled = false;
   }
@@ -3991,22 +4078,22 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'block' || a === 'unblock') {
     const u = S.users[id]; if (!u) return;
-    if (a === 'block' && !confirm('„' + u.name + '“ sperren? Die Person kann dann nichts mehr buchen.')) return;
+    if (a === 'block' && !await ask('„' + u.name + '“ sperren? Die Person kann dann nichts mehr buchen.')) return;
     fire(F.updateDoc(dref('users', id), { blocked: a === 'block' }), a === 'block' ? 'Sperren' : 'Entsperren');
     logEv('person', (a === 'block' ? 'sperrt ' : 'entsperrt ') + u.name);
     toast(a === 'block' ? u.name + ' gesperrt' : u.name + ' entsperrt');
   }
   else if (a === 'resetPw') {
     const u = S.users[id]; if (!u || !u.email) return;
-    if (!confirm('E-Mail zum Zurücksetzen des Passworts an ' + u.email + ' senden?')) return;
+    if (!await ask('E-Mail zum Zurücksetzen des Passworts an ' + u.email + ' senden?')) return;
     try { await F.sendPasswordResetEmail(auth, u.email); toast('Mail an ' + u.email + ' verschickt'); logEv('person', 'schickt ' + u.name + ' eine Passwort-Mail'); } catch (err) { toast('Senden fehlgeschlagen: ' + err.code); }
   }
   else if (a === 'removeUser') {
     const u = S.users[id]; if (!u) return;
-    if (!confirm('„' + u.name + '“ entfernen? Das Konto wird gesperrt und aus der Liste genommen.')) return;
+    if (!await ask('„' + u.name + '“ entfernen? Das Konto wird gesperrt und aus der Liste genommen.')) return;
     let list = [];
     try { list = (await F.getDocs(F.query(col('scans'), F.where('uid', '==', id)))).docs; } catch (err) { toast('Buchungen konnten nicht geladen werden – Internet nötig'); return; }
-    const delScans = list.length > 0 && confirm('Auch alle ' + list.length + ' Buchungen von „' + u.name + '“ löschen?\n\nOK = Buchungen löschen\nAbbrechen = Buchungen behalten (für die Abrechnung)');
+    const delScans = list.length > 0 && await ask('Auch alle ' + list.length + ' Buchungen von „' + u.name + '“ löschen?', { ok: 'Buchungen löschen', cancel: 'Buchungen behalten', danger: true, note: 'Behalten ist sinnvoll, solange noch abgerechnet werden muss.' });
     try {
       if (delScans) await commitInChunks(list.map(d => ({ ref: d.ref, del: true })));
       await F.updateDoc(dref('users', id), { deleted: true, blocked: true, role: F.deleteField() });
@@ -4017,11 +4104,11 @@ adminBody.addEventListener('click', async e => {
   else if (a === 'restoreUser') { fire(F.updateDoc(dref('users', id), { deleted: false, blocked: false }), 'Wiederherstellen'); toast('Wiederhergestellt'); logEv('person', 'stellt ' + uname(id) + ' wieder her'); }
   else if (a === 'purgeUser') {
     const u = S.users[id]; if (!u) return;
-    if (!confirm('Eintrag „' + u.name + '“ endgültig löschen? Danach könnte sich die Person mit ihrem Login einen neuen Namen geben. Vorher das Login in der Firebase-Konsole löschen.')) return;
+    if (!await ask('Eintrag „' + u.name + '“ endgültig löschen? Danach könnte sich die Person mit ihrem Login einen neuen Namen geben. Vorher das Login in der Firebase-Konsole löschen.')) return;
     fire(F.deleteDoc(dref('users', id)), 'Eintrag löschen'); logEv('person', 'löscht den Eintrag von ' + u.name + ' endgültig');
   }
   else if (a === 'delAv') {
-    const u = S.users[id]; if (!u || !confirm('Profilbild von „' + u.name + '“ entfernen?')) return;
+    const u = S.users[id]; if (!u || !await ask('Profilbild von „' + u.name + '“ entfernen?')) return;
     fire(F.deleteDoc(dref('avatars', id)), 'Profilbild entfernen'); toast('Profilbild entfernt'); logEv('person', 'entfernt das Profilbild von ' + u.name);
   }
   else if (a === 'storno') {
@@ -4030,7 +4117,7 @@ adminBody.addEventListener('click', async e => {
     if (sc) { adjustCounters(sc.uid, sc.day, sc.p, -1); logEv('buchung', 'storniert ' + pname(sc.p) + ' von ' + nameOf(sc) + ' (' + fmtTime(sc.t) + ')', sc.day); }
   }
   else if (a === 'delDay' && day && S.isSuper) {
-    if (!confirm('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
+    if (!await ask('„' + dayLabel(day) + '“ mit allen ' + S.dayScans.length + ' Buchungen löschen?')) return;
     try {
       const sc = (await F.getDocs(F.query(col('scans'), F.where('day', '==', day.id)))).docs;
       await commitInChunks(sc.map(d => ({ ref: d.ref, del: true })).concat([{ ref: dref('days', day.id), del: true }]));
@@ -4052,7 +4139,7 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'delProd') {
     const p = P(id); if (!p) return;
-    if (!confirm('„' + p.name + '“ löschen? Bisherige Buchungen bleiben erhalten und erscheinen als „gelöschtes Getränk“.')) return;
+    if (!await ask('„' + p.name + '“ löschen? Bisherige Buchungen bleiben erhalten und erscheinen als „gelöschtes Getränk“.')) return;
     fire(F.deleteDoc(dref('products', id)), 'Getränk löschen'); logEv('getraenk', 'löscht Getränk „' + p.name + '“');
   }
   else if (a === 'backup') {
@@ -4084,7 +4171,7 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'approve') { const u = S.users[id]; if (!u) return; fire(F.updateDoc(dref('users', id), { pending: false }), 'Freischalten'); toast(u.name + ' freigeschaltet'); logEv('person', 'schaltet ' + u.name + ' frei'); }
   else if (a === 'reject') {
-    const u = S.users[id]; if (!u || !confirm('Anmeldung von „' + u.name + '“ (' + (u.email || '') + ') ablehnen?')) return;
+    const u = S.users[id]; if (!u || !await ask('Anmeldung von „' + u.name + '“ (' + (u.email || '') + ') ablehnen?')) return;
     fire(F.updateDoc(dref('users', id), { pending: false, deleted: true, blocked: true }), 'Ablehnen'); toast('Anmeldung abgelehnt'); logEv('person', 'lehnt die Anmeldung von ' + u.name + ' ab');
   }
   else if (a === 'grAdd') {
@@ -4092,7 +4179,7 @@ adminBody.addEventListener('click', async e => {
     saveGroups(groupsAll().concat([{ id: 'g' + Date.now().toString(36), name }])); logEv('person', 'legt Gruppe „' + name + '“ an');
   }
   else if (a === 'grDel') {
-    const g = groupsAll().find(x => x.id === id); if (!g || !confirm('Gruppe „' + g.name + '“ löschen? Zugeordnete Personen haben danach keine Gruppe mehr.')) return;
+    const g = groupsAll().find(x => x.id === id); if (!g || !await ask('Gruppe „' + g.name + '“ löschen? Zugeordnete Personen haben danach keine Gruppe mehr.')) return;
     saveGroups(groupsAll().filter(x => x.id !== id)); logEv('person', 'löscht Gruppe „' + g.name + '“');
     Object.keys(S.users).filter(k => S.users[k].grp === id).forEach(k => fire(F.updateDoc(dref('users', k), { grp: F.deleteField() }), 'Gruppe'));
   }
@@ -4112,11 +4199,11 @@ adminBody.addEventListener('click', async e => {
   }
   else if (a === 'erDel') {
     const r = allRules().find(x => x.id === id); if (!r) return;
-    if (!confirm('Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ löschen?')) return;
+    if (!await ask('Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ löschen?')) return;
     saveRules(allRules().filter(x => x.id !== id), DEFAULT_RULES.some(x => x.id === id) ? (S.eggRemoved || []).filter(x => x !== id).concat([id]) : null); logEv('egg', 'löscht Easter Egg „' + ((r.texts[0] || {}).t || '') + '“ (' + describeRule(r) + ')');
   }
   else if (a === 'erReset') {
-    if (!confirm('Die mitgelieferten Easter Eggs auf den Standard zurücksetzen und gelöschte zurückholen? Deine eigenen Easter Eggs bleiben erhalten.')) return;
+    if (!await ask('Die mitgelieferten Easter Eggs auf den Standard zurücksetzen und gelöschte zurückholen? Deine eigenen Easter Eggs bleiben erhalten.')) return;
     const own = allRules().filter(r => !DEFAULT_RULES.some(x => x.id === r.id));
     saveRules(JSON.parse(JSON.stringify(DEFAULT_RULES)).concat(own), []); logEv('egg', 'holt die Standard-Easter-Eggs zurück (' + own.length + ' eigene bleiben)');
   }
@@ -4125,7 +4212,7 @@ adminBody.addEventListener('click', async e => {
     const pw = $('rsPw').value, withData = $('rsData').checked;
     if (!pw) { toast('Bitte dein Passwort eingeben'); return; }
     if (!navigator.onLine) { toast('Dafür wird Internet benötigt'); return; }
-    if (withData && !confirm('Wirklich ALLE Buchungen und Tage löschen? Das lässt sich nicht rückgängig machen.')) return;
+    if (withData && !await ask('Wirklich ALLE Buchungen und Tage löschen? Das lässt sich nicht rückgängig machen.')) return;
     b.disabled = true;
     try { await F.reauthenticateWithCredential(auth.currentUser, F.EmailAuthProvider.credential(auth.currentUser.email, pw)); }
     catch (err) { b.disabled = false; toast('Passwort falsch'); return; }
@@ -4142,7 +4229,7 @@ $('fileIn').addEventListener('change', async e => {
   let d;
   try { d = JSON.parse(await f.text()); if (!Array.isArray(d.products) || !Array.isArray(d.days) || !Array.isArray(d.scans)) throw 0; }
   catch (err) { toast('Die Datei ist kein gültiges Backup'); return; }
-  if (!confirm('Backup mit ' + d.products.length + ' Getränken, ' + d.days.length + ' Tagen und ' + d.scans.length + ' Buchungen importieren? Gleiche Einträge werden überschrieben, andere bleiben erhalten.')) return;
+  if (!await ask('Backup mit ' + d.products.length + ' Getränken, ' + d.days.length + ' Tagen und ' + d.scans.length + ' Buchungen importieren? Gleiche Einträge werden überschrieben, andere bleiben erhalten.')) return;
   const clean = (o, keys) => { const r = {}; keys.forEach(k => { if (o[k] !== undefined) r[k] = o[k]; }); return r; };
   const ops = [];
   d.products.forEach(p => ops.push({ ref: dref('products', String(p.id)), data: Object.assign({ codes: [], price: 0, packs: [] }, clean(p, ['name', 'codes', 'price', 'packs'])) }));
