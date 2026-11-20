@@ -230,7 +230,34 @@ html.party .egg-in{animation:partyHue 5s linear infinite}
 .partychip[hidden]{display:none}
 @keyframes chipFlow{to{background-position:300% 0}}
 body.sheet-open .partychip{visibility:hidden}
-@media (prefers-reduced-motion:reduce){.partyfx i,.partyfx b,html.party .top,html.party .b.pri,html.party .tag.act,html.party .egg-in,.partychip{animation:none}}
+.partyfx:not(.fx-glow) i,.partyfx:not(.fx-spots) b{display:none}
+.partyfx .fxl{position:absolute;inset:0;overflow:hidden}
+.partyfx .fxl span{position:absolute;display:block;will-change:transform,opacity}
+/* Konfetti und Emoji-Regen */
+.fx-cf span{top:0;left:var(--x);width:8px;height:14px;border-radius:2px;background:var(--c);opacity:.85;animation:fxFall var(--d) linear var(--dl) infinite}
+.fx-em span{top:0;left:var(--x);font-size:var(--s);line-height:1;opacity:.9;animation:fxFall var(--d) linear var(--dl) infinite}
+@keyframes fxFall{0%{transform:translate3d(0,-12vh,0) rotate(0)}100%{transform:translate3d(var(--dx),112vh,0) rotate(var(--r))}}
+/* Seifenblasen */
+.fx-bb span{bottom:0;left:var(--x);width:var(--s);height:var(--s);border-radius:50%;border:1.5px solid rgba(255,255,255,.55);background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.7),rgba(255,255,255,.08) 45%,rgba(120,200,255,.12) 70%,rgba(255,120,220,.2));animation:fxRise var(--d) ease-in var(--dl) infinite}
+@keyframes fxRise{0%{transform:translate3d(0,12vh,0);opacity:0}10%{opacity:.9}50%{transform:translate3d(var(--dx),-50vh,0)}100%{transform:translate3d(0,-112vh,0);opacity:.7}}
+/* Funkeln */
+.fx-sp span{left:var(--x);top:var(--y);font-size:var(--s);color:var(--c);text-shadow:0 0 8px var(--c);opacity:0;animation:fxTw var(--d) ease-in-out var(--dl) infinite}
+@keyframes fxTw{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:.95;transform:scale(1) rotate(45deg)}}
+/* Laser */
+.fx-lz span{top:-6%;left:var(--x);width:3px;height:150%;background:linear-gradient(var(--c),transparent 85%);box-shadow:0 0 10px var(--c);transform-origin:50% 0;opacity:.5;animation:fxSwing var(--d) ease-in-out var(--dl) infinite alternate}
+@keyframes fxSwing{from{transform:rotate(var(--a))}to{transform:rotate(calc(var(--a) * -1))}}
+/* Discokugel mit wandernden Lichtpunkten */
+.fx-db .dots{inset:-60%;background:radial-gradient(circle,rgba(255,255,255,.75) 0 2px,transparent 3.5px) 0 0/46px 46px,radial-gradient(circle,rgba(255,200,240,.6) 0 1.5px,transparent 3px) 23px 23px/46px 46px;opacity:.35;animation:partySpin 26s linear infinite}
+.fx-db .ball{left:59%;top:-8px;font-size:46px;line-height:1;transform-origin:50% 0;animation:fxBall 3s ease-in-out infinite alternate;filter:drop-shadow(0 0 14px rgba(255,255,255,.8))}
+@keyframes fxBall{from{transform:translateX(-50%) rotate(-8deg)}to{transform:translateX(-50%) rotate(8deg)}}
+/* Leuchtende Knöpfe */
+html.party.fx-beat .b{animation:fxBeat 1s ease-in-out infinite}
+html.party.fx-beat .b:nth-child(2n){animation-delay:.5s}
+html.party.fx-beat .b.pri{animation:partyHue 3s linear infinite,fxBeat 1s ease-in-out infinite}
+@keyframes fxBeat{0%,100%{box-shadow:0 0 0 0 rgba(255,45,200,0)}50%{box-shadow:0 0 14px 3px rgba(255,45,200,.6)}}
+.pfxgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin:4px 0 8px}
+.pfxgrid .chk{font-size:.92rem}
+@media (prefers-reduced-motion:reduce){.partyfx i,.partyfx b,.partyfx .fxl,.partyfx .fxl span,html.party .top,html.party .b,html.party .tag.act,html.party .egg-in,.partychip{animation:none}.partyfx .fxl{display:none}}
 .dlg{position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.72);display:flex;align-items:center;justify-content:center;padding:16px}
 .dlg[hidden]{display:none}
 .dlg-in{width:100%;max-width:420px;background:var(--white);color:var(--ink);border:2px solid var(--ink);border-radius:18px;padding:20px 18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.5);animation:dlgIn .18s ease-out;border-top:6px solid var(--wy)}
@@ -569,7 +596,7 @@ body.noauth main{display:none!important}
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
       </div>
-      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="partyFxBtn" hidden>🎛 Effekte</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
       <div class="note" id="youthNote" hidden style="margin-top:10px"><b>Jugendschutz:</b> Bier, Radler, Wein/Sekt und Schnaps sind für dich gesperrt.</div>
       <div class="note" id="drvNote" hidden style="margin-top:10px"><b>Du fährst heute.</b> Beim Scannen von Alkohol fragt die App nach. Gute Heimfahrt!</div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--white)">
@@ -691,7 +718,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '48';
+const APP_VERSION = '49';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2758,7 +2785,7 @@ function renderScan() {
   $('meGrp').textContent = gname(myGroup());
   $('youthNote').hidden = !isMinor();
   $('drvNote').hidden = !S.driver;
-  { const pb = $('partyBtn'), po = partyOn(); pb.hidden = !(S.isAdmin && partyAllowed()); pb.textContent = po ? '🪩 Party beenden' : '🪩 Party starten'; pb.classList.toggle('on', po); }
+  { const pb = $('partyBtn'), po = partyOn(); pb.hidden = !(S.isAdmin && partyAllowed()); pb.textContent = po ? '🪩 Party beenden' : '🪩 Party starten'; pb.classList.toggle('on', po); $('partyFxBtn').hidden = !(S.isAdmin && partyAllowed() && po); }
   { const b = $('eggPrefBtn'), on = !eggsOff(); b.hidden = !canSee('eggs'); b.textContent = 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
   $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor() || !show;
   if (!show) {
@@ -3814,10 +3841,62 @@ const partyOn = () => !!(S.party && S.party.on && (!S.party.until || Date.now() 
 const partyKey = () => 'strichliste_party_' + (S.user ? S.user.uid : '') + '_' + ((S.party && S.party.t) || 0);
 const partyChoice = () => { try { return localStorage.getItem(partyKey()); } catch (e) { return null; } };
 let partyAsking = false;
+// Effekte: Admins schalten sie an und aus (config/party.fx), auch während die Party läuft
+const PARTY_FX = [['glow', 'Farbwirbel'], ['spots', 'Lichtspots'], ['ball', 'Discokugel'], ['laser', 'Laser'], ['confetti', 'Konfetti'], ['emoji', 'Emoji-Regen'], ['bubbles', 'Seifenblasen'], ['sparkle', 'Funkeln'], ['beat', 'Leuchtende Knöpfe']];
+const PARTY_FX_DEFAULT = ['glow', 'spots', 'ball', 'confetti'];
+const partyFxList = () => Array.isArray(S.party && S.party.fx) ? S.party.fx.filter(k => PARTY_FX.some(x => x[0] === k)) : PARTY_FX_DEFAULT.slice();
+let partyFxKey = '';
+function buildPartyFx(join) {
+  const fx = join ? partyFxList() : [], key = fx.join(','), box = $('partyFx');
+  document.documentElement.classList.toggle('fx-beat', fx.includes('beat'));
+  PARTY_FX.forEach(([k]) => box.classList.toggle('fx-' + k, fx.includes(k)));
+  if (key === partyFxKey) return;
+  partyFxKey = key;
+  box.querySelectorAll('.fxl').forEach(n => n.remove());
+  const R = (a, b) => a + Math.random() * (b - a), pick = L => L[Math.floor(Math.random() * L.length)];
+  const COL = ['#ff2d55', '#ff9500', '#f5c000', '#34c759', '#00c7ff', '#5856d6', '#ff2dc8'];
+  const layer = (cls, n, fn) => { const d = document.createElement('div'); d.className = 'fxl ' + cls; for (let i = 0; i < n; i++) { const sp = document.createElement('span'); fn(sp, i); d.appendChild(sp); } box.appendChild(d); };
+  const st = (sp, o) => Object.keys(o).forEach(k => sp.style.setProperty('--' + k, o[k]));
+  if (fx.includes('ball')) {
+    const d = document.createElement('div'); d.className = 'fxl fx-db';
+    d.innerHTML = '<span class="dots" style="position:absolute"></span><span class="ball">🪩</span>'; box.appendChild(d);
+  }
+  if (fx.includes('laser')) layer('fx-lz', 5, (sp, i) => st(sp, { x: (8 + i * 21) + '%', c: pick(COL), d: R(2.4, 4.2).toFixed(2) + 's', dl: (-R(0, 4)).toFixed(2) + 's', a: (i % 2 ? '' : '-') + R(18, 38).toFixed(0) + 'deg' }));
+  if (fx.includes('confetti')) layer('fx-cf', 28, sp => st(sp, { x: R(0, 100).toFixed(1) + '%', c: pick(COL), d: R(4, 8).toFixed(2) + 's', dl: (-R(0, 8)).toFixed(2) + 's', dx: R(-60, 60).toFixed(0) + 'px', r: R(360, 900).toFixed(0) + 'deg' }));
+  if (fx.includes('emoji')) layer('fx-em', 14, sp => { sp.textContent = pick(['🍺', '🎉', '🪩', '🥳', '🎊', '🍻', '✨', '🐝']); st(sp, { x: R(0, 95).toFixed(1) + '%', s: R(20, 34).toFixed(0) + 'px', d: R(6, 11).toFixed(2) + 's', dl: (-R(0, 11)).toFixed(2) + 's', dx: R(-40, 40).toFixed(0) + 'px', r: R(-90, 90).toFixed(0) + 'deg' }); });
+  if (fx.includes('bubbles')) layer('fx-bb', 12, sp => st(sp, { x: R(0, 92).toFixed(1) + '%', s: R(16, 46).toFixed(0) + 'px', d: R(7, 13).toFixed(2) + 's', dl: (-R(0, 13)).toFixed(2) + 's', dx: R(-50, 50).toFixed(0) + 'px' }));
+  if (fx.includes('sparkle')) layer('fx-sp', 18, sp => { sp.textContent = '✦'; st(sp, { x: R(2, 94).toFixed(1) + '%', y: R(2, 94).toFixed(1) + '%', s: R(12, 26).toFixed(0) + 'px', c: pick(['#fff', '#ffe27a', '#ffc0f0', '#a8ecff']), d: R(1.8, 3.6).toFixed(2) + 's', dl: (-R(0, 3.6)).toFixed(2) + 's' }); });
+}
+function partyFxChecks() {
+  const fx = partyFxList();
+  return '<div class="pfxgrid">' + PARTY_FX.map(([k, l]) => '<label class="chk"><input type="checkbox" data-pfx="' + k + '"' + (fx.includes(k) ? ' checked' : '') + '> ' + l + '</label>').join('') + '</div>' +
+    '<div class="row" style="margin-top:0"><button class="b sm" data-pfxall="1">Alle an</button><button class="b sm" data-pfxall="calm">Ruhig</button><button class="b sm" data-pfxall="def">Standard</button></div>';
+}
+function setPartyFx(fx) {
+  if (!S.isAdmin || !partyAllowed()) return;
+  S.party = Object.assign({}, S.party || { on: false }, { fx, fxBy: S.me || '' });
+  fire(F.setDoc(dref('config', 'party'), { fx, fxBy: S.me || '' }, { merge: true }), 'Party-Effekte');
+  renderParty(); if (!$('modal').hidden && $('modalBody').querySelector('[data-pfx]')) $('modalBody').querySelector('.pfxwrap').innerHTML = partyFxChecks();
+  if (S.isAdmin) renderAdmin();
+}
+document.addEventListener('change', e => {
+  const t = e.target; if (!t.dataset || !t.dataset.pfx) return;
+  const set = new Set(partyFxList()); t.checked ? set.add(t.dataset.pfx) : set.delete(t.dataset.pfx);
+  setPartyFx(PARTY_FX.map(x => x[0]).filter(k => set.has(k)));
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-pfxall]'); if (!b) return;
+  const v = b.dataset.pfxall;
+  setPartyFx(v === '1' ? PARTY_FX.map(x => x[0]) : v === 'calm' ? ['glow', 'spots', 'sparkle'] : PARTY_FX_DEFAULT.slice());
+});
+function openPartyFx() {
+  openModal('<h2>🎛 Party-Effekte</h2><p style="font-size:.9rem;color:var(--mu);margin:4px 0 8px">Gilt sofort für alle, die beim Partymodus mitmachen.</p><div class="pfxwrap">' + partyFxChecks() + '</div>');
+}
 async function renderParty() {
   const on = partyOn(), mine = on ? partyChoice() : null, join = on && mine === '1';
   document.documentElement.classList.toggle('party', join);
   $('partyFx').hidden = !join;
+  buildPartyFx(join);
   $('partyChip').hidden = !on || !S.user;
   if (on) $('partyChip').textContent = join ? '🪩 Party: dabei' : '🪩 Party: aus';
   if (on && mine == null && S.user && S.me && !isPending() && !partyAsking && $('dlg').hidden) {
@@ -3840,7 +3919,7 @@ setInterval(() => { if (S.party && S.party.on) renderParty(); }, 60000);
 // Partymodus: nur wenn der Super-Admin ihn erlaubt (config/features.partyOk); starten/beenden Admins und Super-Admin
 const partyAllowed = () => !!(S.features && S.features.partyOk);
 function partyStart(h) {
-  const t = Date.now(), pv = { on: true, t, until: h ? t + h * 3600000 : 0, by: S.user.uid, byName: S.me || contactName() };
+  const t = Date.now(), pv = { on: true, t, until: h ? t + h * 3600000 : 0, by: S.user.uid, byName: S.me || contactName(), fx: partyFxList() };
   S.party = pv; fire(F.setDoc(dref('config', 'party'), pv), 'Partymodus'); logEv('system', 'startet den Partymodus' + (h ? ' für ' + h + ' h' : ''));
   try { localStorage.setItem(partyKey(), '1'); } catch (e) {} toast('Partymodus läuft 🪩'); renderParty(); renderAdmin(); renderScan();
 }
@@ -3855,6 +3934,7 @@ async function partyToggleAsk() {
   partyStart(+h);
 }
 $('partyBtn').addEventListener('click', partyToggleAsk);
+$('partyFxBtn').addEventListener('click', openPartyFx);
 $('adminBody').addEventListener('click', e => {
   const b = e.target.closest('[data-set^="party"]'); if (!b || !S.isAdmin) return;
   if (b.dataset.set === 'partyStart' && partyAllowed()) partyStart(+$('partyDur').value);
@@ -3872,6 +3952,7 @@ function partyAdmin() {
   if (S.isSuper) h += '<label class="chk" style="margin-bottom:6px"><input type="checkbox" id="partyOk"' + (ok ? ' checked' : '') + '> Partymodus erlauben – Admins und du können ihn dann auf der Startseite mit „🪩 Party starten“ starten</label>';
   if (!ok) return h + '<div style="font-size:.82rem;color:var(--mu)">Zurzeit ausgeschaltet' + (S.isSuper ? '.' : ' – der Super-Admin kann ihn erlauben.') + '</div>';
   return h + '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Alle bekommen ein Fenster mit Triggerwarnung und entscheiden selbst, ob sie mitmachen.</div>' +
+    '<div style="font-size:.86rem;font-weight:700;margin:6px 0 2px">Effekte' + (on ? ' (ändern sich sofort für alle)' : '') + '</div><div class="pfxwrap">' + partyFxChecks() + '</div>' +
     (on ? '<div class="note ok" style="margin-bottom:6px"><b>Läuft</b>' + (until ? ' bis ' + new Date(until).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' : ' (ohne Ende)') + '.</div><div class="row" style="margin-top:0"><button class="b dng" data-set="partyOff">Partymodus beenden</button></div>'
       : '<div class="row" style="margin-top:0;align-items:end"><label class="f" style="flex:1">Dauer<select id="partyDur"><option value="1">1 Stunde</option><option value="3" selected>3 Stunden</option><option value="6">6 Stunden</option><option value="0">bis ich ihn beende</option></select></label><button class="b pri" data-set="partyStart">Partymodus starten</button></div>');
 }
