@@ -98,6 +98,7 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 - Oben neben „Strichliste“ steht der Netzstatus. „offline · 3 warten“ heißt: 3 Buchungen sind gespeichert und werden gesendet, sobald Netz da ist. In dieser Zeit nicht abmelden; die App warnt davor.
 
 - **Ich fahre heute:** In der Scan-Ansicht auf das Auto tippen. Dann fragt die App bei jedem alkoholischen Getränk nach („Du fährst heute – trotzdem buchen?“). Admins sehen in der Tagesübersicht, wer heute fährt. Gilt nur für den einen Tag.
+- **Ich fahre heute** zeigt beim Einschalten kurz ein Lenkrad mit „Gute Fahrt!“.
 - **Easter Eggs für sich einstellen:** Wer Easter Eggs sehen darf, hat neben „Ich fahre heute“ den Knopf „Easter Eggs: an“. Dort wählt man *An*, *An, ohne Ton* (nur dieses Handy) oder *Aus* (für das Konto auf allen Handys: keine Popups, kein Verlauf, keine Sammelalbum-Meldungen; gezählt wird trotzdem).
 - **Nachtmodus:** Oben rechts zwischen *Auto*, *Hell* und *Nacht* umschalten. *Auto* wird dunkel, wenn das Handy dunkel eingestellt ist oder zwischen 19 und 7 Uhr.
 
@@ -167,6 +168,21 @@ Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Of
 - Der **Super-Admin** legt unter Admin → **Gruppen** die Gruppen an (z. B. Wilde Wefzg, Hofgoischd), Admins ordnen Personen unter Admin → Personen zu.
 - Die Gruppe steht neben dem Namen, in der Bestenliste und im Rückblick.
 - Gruppen-Easter-Eggs: „30 Getränke für die Gruppe“ und „Gruppe bleibt vernünftig“ (10 alkoholfreie). Sie erscheinen auf allen Handys.
+
+## Kontakt, Fehler melden, Feedback (Posteingang)
+
+- **Mitglieder** schreiben über **„Kontakt & Feedback“** (unten auf jeder Seite), über die Hilfe (**?**) oder über „Nachricht an …“ (z. B. beim Warten auf Freischaltung). Drei Arten: *Nachricht*, *Fehler melden* (auf Wunsch mit Geräte-Infos: App-Version, Handy, Browser, Bildschirm, online/offline) und *Feedback / Idee*.
+- **Name und E-Mail** des Absenders kommen automatisch aus dem Konto – die Firebase-Regeln lassen keinen anderen Namen zu. Auch wartende oder gesperrte Konten können schreiben.
+- **Super-Admin:** ganz oben im Admin **Posteingang (ungelesen)** mit Filtern *Offen / Fehler / Feedback / Alle*. Aufklappen markiert als gelesen; **Antworten** (erscheint beim Mitglied in der App, mit Hinweis), **Erledigt**, **Ungelesen**, **Löschen**, „Alle erledigten löschen“. Neue Nachrichten melden sich mit einem Hinweis.
+- Mitglieder sehen unter „Meine Nachrichten“ ihre Nachrichten und Antworten; im Fußbereich steht „1 neu“, wenn eine Antwort da ist.
+- WhatsApp als Kontaktweg ist entfallen; die Telefonnummer (falls eingetragen) bleibt als „Anrufen“.
+
+## Zu viel gescannt
+
+- Pro Getränk unter Admin → Getränke: **„Darf mehr gebucht werden (Flaschen)“**. Leer = 0.
+- Werden an einem Tag mehr Flaschen gebucht als *mitgenommen + dieser Wert*, bekommen **alle Admin-Handys** oben eine rot-schwarze Meldung mit Ton: welches Getränk, wie viele zu viel und **wer** die Buchungen über der Grenze gemacht hat. „Ansehen“ öffnet im Admin den Bereich **„Zu viel gescannt“** mit Uhrzeit und Person jeder überzähligen Buchung.
+- Getränke, die an dem Tag gar nicht mitgenommen wurden und keinen Wert haben, lösen keine Meldung aus (dafür gibt es den Hinweis „nicht mitgenommen“).
+- Wie bei „Getränke gehen zu Ende“: Die Meldung kommt nur, solange die App auf dem Admin-Handy offen ist (mit erlaubten Benachrichtigungen auch im Hintergrund).
 
 ## Korrektur- und Nachbuchungsanträge
 
@@ -312,13 +328,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 28**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 28 auf 29):
-- in `index.html`: `const APP_VERSION = '28';`
-- in `sw.js`: `const VERSION = 'strichliste-v28';`
+Aktuell ist **Version 30**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 30 auf 31):
+- in `index.html`: `const APP_VERSION = '30';`
+- in `sw.js`: `const VERSION = 'strichliste-v30';`
 
-Version 28 bringt neue Regeln (Anträge löschen nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 30 bringt neue Regeln (Posteingang; Anträge löschen nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 28“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 30“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

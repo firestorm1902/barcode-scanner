@@ -202,6 +202,22 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Posteingang: Nachrichten, Fehlermeldungen und Feedback an den Super-Admin.
+    // Absendername und E-Mail kommen aus dem Konto (kein Fremdname möglich). Auch wartende oder gesperrte Konten dürfen schreiben.
+    match /msgs/{id} {
+      allow read: if isSuper() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && hasProfile()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'kind', 'text', 'info', 't', 'read', 'status'])
+        && request.resource.data.name == profile().get('name', '')
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.kind in ['msg', 'bug', 'idea']
+        && request.resource.data.text is string && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 1000
+        && request.resource.data.info is string && request.resource.data.info.size() <= 600
+        && request.resource.data.read == false && request.resource.data.status == 'open';
+      allow update, delete: if isSuper();
+    }
+
     // Korrektur- und Nachbuchungsanträge: Mitglieder stellen, Admins entscheiden
     match /reqs/{id} {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);

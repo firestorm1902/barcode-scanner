@@ -195,6 +195,40 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.drive{position:fixed;inset:0;z-index:92;display:flex;align-items:center;justify-content:center;background:rgba(20,20,20,.82);cursor:pointer}
+.drive[hidden]{display:none}
+.drive-in{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;text-align:center;padding:20px}
+.drive-in b{font:700 2.4rem/1.05 "Oswald","Arial Narrow",sans-serif;color:var(--wy)}
+.drive-in span{font-size:1.05rem}
+.drive .wheel{filter:drop-shadow(0 8px 18px rgba(0,0,0,.5))}
+.drive.go .wheel{animation:steer 2.4s cubic-bezier(.45,0,.3,1) both}
+.drive.go .drive-in{animation:driveIn .5s ease-out}
+.road{width:220px;height:14px;border-radius:7px;background:#2b2b2b;overflow:hidden;position:relative;margin-top:6px}
+.road i{position:absolute;inset:5px 0;background:repeating-linear-gradient(90deg,#fff 0 22px,transparent 22px 40px);animation:roadMove .5s linear infinite}
+@keyframes steer{0%{transform:rotate(-200deg) scale(.4);opacity:0}25%{transform:rotate(40deg) scale(1.05);opacity:1}45%{transform:rotate(-35deg)}65%{transform:rotate(25deg)}82%{transform:rotate(-10deg)}100%{transform:rotate(0)}}
+@keyframes roadMove{from{transform:translateX(0)}to{transform:translateX(-40px)}}
+@keyframes driveIn{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.drive.go .wheel,.road i,.drive.go .drive-in{animation:none}}
+.overbar{position:fixed;left:0;right:0;top:0;z-index:81;padding:calc(10px + env(safe-area-inset-top)) 12px 12px;background:#141414;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.4);border-bottom:6px solid transparent;border-image:repeating-linear-gradient(-45deg,var(--pen) 0 10px,#141414 10px 20px) 6}
+.overbar[hidden]{display:none}
+.overbar-in{max-width:640px;margin:0 auto;display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.overbar b{color:#ff8a7a}
+#overList{font-size:.88rem;margin-top:4px;display:flex;flex-direction:column;gap:4px}
+#overList small{color:#d9d2bd}
+.overbar .b{background:#232323;color:#fff;border-color:#555}
+.oversec h2{color:var(--pen)}
+.overrow{padding:8px 0;border-bottom:1px solid var(--line)}
+.overrow ul{margin:4px 0 0;padding-left:20px;font-size:.88rem}
+.msg.unread summary b{color:var(--wy)}
+.msg.unread{border-left:4px solid var(--wy)}
+.msg .snip{color:var(--mu);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52vw}
+.msgbody p{margin:4px 0 6px;white-space:normal}
+.minfo{font-size:.76rem;color:var(--mu);background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:6px 8px;margin:6px 0}
+.reply{border-left:3px solid var(--pet);padding:4px 0 4px 10px;margin:8px 0}
+.reply p{margin:2px 0}
+.tag.bug{color:var(--pen)}
+.msgi{padding:10px 0;border-bottom:1px solid var(--line)}.msgi p{margin:6px 0}
+.nbadge{background:var(--wy);color:#141414;border-radius:99px;padding:0 6px;font-size:.72rem}
 .reqbox{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:12px;font-size:.88rem;color:var(--mu)}
 .reqbox>span{flex:1 1 100%}
 .rq{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -517,6 +551,24 @@ body.noauth main{display:none!important}
 <input type="file" id="fileIn" accept="application/json,.json" hidden />
 <input type="file" id="avIn" accept="image/*" hidden />
 <div class="toast" id="toast" role="status"></div>
+<div class="drive" id="drive" hidden role="status" aria-live="polite">
+  <div class="drive-in">
+    <svg class="wheel" viewBox="0 0 200 200" width="190" height="190" aria-hidden="true">
+      <circle cx="100" cy="100" r="88" fill="none" stroke="#f5c000" stroke-width="16"/>
+      <circle cx="100" cy="100" r="88" fill="none" stroke="#141414" stroke-width="3" stroke-dasharray="10 14"/>
+      <circle cx="100" cy="100" r="24" fill="#141414" stroke="#f5c000" stroke-width="6"/>
+      <path d="M24 92 L76 92 M124 92 L176 92 M100 124 L100 184" stroke="#f5c000" stroke-width="14" stroke-linecap="round"/>
+      <path d="M86 96 q14 -12 28 0" stroke="#f5c000" stroke-width="4" fill="none" stroke-linecap="round"/>
+    </svg>
+    <b>Gute Fahrt!</b>
+    <span>Fahrer-Modus an – heute alkoholfrei. 🚗</span>
+    <div class="road" aria-hidden="true"><i></i></div>
+  </div>
+</div>
+<div class="overbar" id="overBar" hidden role="alert">
+  <div class="overbar-in"><div><b>Zu viel gescannt</b><div id="overList"></div></div>
+  <div class="lowbar-btns"><button class="b sm" id="overOpen">Ansehen</button><button class="b sm" id="overOk">OK</button></div></div>
+</div>
 <div class="lowbar" id="lowBar" hidden role="alert">
   <div class="lowbar-in">
     <div><b id="lowTitle">Getränke gehen zu Ende</b><div id="lowList"></div></div>
@@ -566,7 +618,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '28';
+const APP_VERSION = '31';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -617,7 +669,7 @@ function keepState(container, html) {
   const act = document.activeElement, inside = act && container.contains(act);
   const fk = inside ? fieldKey(act) : null;
   const typed = {}, open = new Set();
-  container.querySelectorAll('input[id],select[id]').forEach(el => { typed[el.id] = el.type === 'checkbox' ? el.checked : el.value; });
+  container.querySelectorAll('input[id],select[id],textarea[id]').forEach(el => { typed[el.id] = el.type === 'checkbox' ? el.checked : el.value; });
   container.querySelectorAll('details[open]').forEach(el => open.add(fieldKey(el)));
   let fv = null, s0 = null, s1 = null;
   if (fk && 'value' in act) { fv = act.value; try { s0 = act.selectionStart; s1 = act.selectionEnd; } catch (e) {} }
@@ -733,7 +785,7 @@ function startUserListeners() {
       const want = !p.cat ? guessCat(p.name) : (p.cat === 'radler' && guessCat(p.name) === 'alkfrei' ? 'alkfrei' : null);
       if (want) fire(F.updateDoc(dref('products', p.id), { cat: want }), 'Sorte speichern');
     });
-    renderAll(); checkLowStock();
+    renderAll(); checkLowStock(); checkOverScan();
   }, fail('products'));
   stop('ustats'); stop('live'); S.ustats = null;
   unsub.ustats = F.onSnapshot(dref('ustats', u.uid), snap => { S.ustats = snap.exists() ? snap.data() : { all: 0, beer: 0 }; }, err => console.warn('ustats', err));
@@ -744,7 +796,7 @@ function startUserListeners() {
   }, err => console.warn('groups', err));
   unsub.album = F.onSnapshot(dref('album', u.uid), snap => { S.album = snap.exists() ? (snap.data().r || {}) : {}; if (extraTab === 'album') renderExtra(); }, err => console.warn('album', err));
   ['cfgFeat', 'cfgContact', 'cfgBest'].forEach(stop);
-  listenMyReqs();
+  listenMyReqs(); listenMyMsgs();
   unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
   unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
@@ -787,7 +839,7 @@ function listenActiveDay() {
   }, err => console.warn('ueggs', err));
   unsub.activeDay = F.onSnapshot(dref('days', S.active), snap => {
     S.activeDay = snap.exists() ? Object.assign({ id: snap.id, load: {}, count: {} }, snap.data()) : null;
-    S.activeLoaded = true; renderAll(); checkLowStock();
+    S.activeLoaded = true; renderAll(); checkLowStock(); checkOverScan();
   }, fail('activeDay'));
   const q = F.query(col('scans'), F.where('uid', '==', S.user.uid), F.where('day', '==', S.active));
   unsub.mine = F.onSnapshot(q, { includeMetadataChanges: true }, snap => {
@@ -847,12 +899,13 @@ async function refreshRole(u) {
   if ((S.isAdmin || S.isBoard) && !unsub.days) startAdminListeners();
   if (S.isAdmin) listenActiveScans();
   if (S.isAdmin && !unsub.reqsAll) listenAdminReqs();
+  if (S.isSuper && !unsub.inbox) listenInbox();
   autoApproveSelf();
   if (!S.isAdmin && !S.isBoard) stopAdminListeners();
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'album', 'drv', 'myReqs'].forEach(stop); S.myReqs = [];
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -862,10 +915,10 @@ function listenActiveScans() {
   if (!S.active) return;
   const dayId = S.active;
   unsub.activeScans = F.onSnapshot(F.query(col('scans'), F.where('day', '==', dayId)), snap => {
-    S.activeScans = snap.docs.map(d => d.data()); checkLowStock();
+    S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan();
   }, err => console.warn('activeScans', err));
 }
-function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
   stop('dayScans'); stop('dayDrv'); S.dayScans = []; S.dayDrivers = []; S.dayScansFor = S.selDay;
@@ -1112,9 +1165,24 @@ $('drvBtn').addEventListener('click', () => {
   if (!S.user || !S.activeDay) return;
   const id = S.user.uid + '_' + S.activeDay.id;
   if (S.driver) { fire(F.deleteDoc(dref('drv', id)), 'Fahrer'); toast('Fahrer-Modus aus'); }
-  else { fire(F.setDoc(dref('drv', id), { uid: S.user.uid, day: S.activeDay.id, t: Date.now(), name: S.me }), 'Fahrer'); toast('Fahrer-Modus an – gute Heimfahrt!'); }
+  else { fire(F.setDoc(dref('drv', id), { uid: S.user.uid, day: S.activeDay.id, t: Date.now(), name: S.me }), 'Fahrer'); driveAnim(); }
   S.driver = !S.driver; renderScan();
 });
+// Animation: Lenkrad dreht sich, Straße zieht vorbei
+let driveTimer = null;
+function driveAnim() {
+  const el = $('drive'); el.hidden = false; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+  if (navigator.vibrate) navigator.vibrate([40, 60, 40, 60, 120]);
+  if (!soundOff()) try {
+    const A = window.AudioContext || window.webkitAudioContext; if (!beep.c) beep.c = new A();
+    const c = beep.c, t0 = c.currentTime + .05;
+    [[392, 0], [392, .18]].forEach(([f, d]) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(.0001, t0 + d); g.gain.exponentialRampToValueAtTime(.06, t0 + d + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + d + .14);
+      o.connect(g); g.connect(c.destination); o.start(t0 + d); o.stop(t0 + d + .16); });
+  } catch (e) {}
+  clearTimeout(driveTimer); driveTimer = setTimeout(() => { el.hidden = true; }, 3200);
+}
+$('drive').addEventListener('click', () => { clearTimeout(driveTimer); $('drive').hidden = true; });
 $('dayInfo').addEventListener('click', e => { if (e.target.closest('[data-logout]')) logout(); });
 
 /* ---------- eigenes Passwort ändern ---------- */
@@ -1860,6 +1928,64 @@ function checkLowStock() {
     }
   } catch (e) {}
 }
+/* ---------- Zu viel gescannt ----------
+   Pro Getränk legt ein Admin fest, wie viele Flaschen mehr als mitgenommen gebucht werden dürfen (p.over).
+   Wird darüber hinaus gebucht, bekommen alle Admin-Handys eine Meldung, wer die überzähligen Buchungen gemacht hat. */
+function overRows(day, scans) {
+  const out = [];
+  if (!day) return out;
+  S.products.forEach(p => {
+    const L = (day.load || {})[p.id] || 0, hasOver = p.over != null && p.over !== '';
+    if (!L && !hasOver) return; // nicht mitgenommen und keine Regel: dafür gibt es schon den Hinweis „nicht mitgenommen“
+    const limit = L + (hasOver ? +p.over : 0);
+    const list = scans.filter(s => s.p === p.id).sort((a, b) => (a.t || 0) - (b.t || 0));
+    if (list.length <= limit) return;
+    const extra = list.slice(limit), who = {};
+    extra.forEach(s => { const n = nameOf(s); who[n] = (who[n] || 0) + 1; });
+    out.push({ p, L, over: hasOver ? +p.over : 0, n: list.length, x: extra.length, extra, who });
+  });
+  return out;
+}
+const overWho = o => Object.keys(o.who).map(n => n + (o.who[n] > 1 ? ' ' + o.who[n] + '×' : '')).join(', ');
+const overText = o => o.p.name + ': ' + o.x + ' zu viel (' + o.n + ' gebucht, erlaubt ' + (o.L + o.over) + ') – ' + overWho(o);
+let overPending = [];
+function checkOverScan() {
+  if (!S.isAdmin || !S.activeDay || !S.activeScans || !S.products.length) return;
+  const day = S.activeDay, fresh = [];
+  overRows(day, S.activeScans).forEach(o => {
+    const neu = o.extra.filter(s => { const k = 'strichliste_over_' + day.id + '_' + (s.id || s.t); try { if (localStorage.getItem(k)) return false; localStorage.setItem(k, '1'); } catch (e) { return false; } return true; });
+    if (neu.length) fresh.push(o);
+  });
+  if (!fresh.length) return;
+  fresh.forEach(o => { overPending = overPending.filter(x => x.p.id !== o.p.id); overPending.push(o); });
+  $('overList').innerHTML = overPending.map(o => '<div><b>' + esc(o.p.name) + ':</b> ' + o.x + ' zu viel (' + o.n + ' von ' + (o.L + o.over) + ')<br><small>' + esc(overWho(o)) + '</small></div>').join('');
+  $('overBar').hidden = false;
+  if (navigator.vibrate) navigator.vibrate([150, 80, 150, 80, 300]);
+  lowSound();
+  try {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      const body = fresh.map(overText).join('\n');
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.ready.then(reg => reg.showNotification('Zu viel gescannt', { body, tag: 'over-' + day.id }));
+      else new Notification('Zu viel gescannt', { body, tag: 'over-' + day.id });
+    }
+  } catch (e) {}
+}
+$('overOk').addEventListener('click', () => { overPending = []; $('overBar').hidden = true; });
+$('overOpen').addEventListener('click', () => {
+  overPending = []; $('overBar').hidden = true;
+  if (S.active) S.selDay = S.active;
+  setView('admin'); listenDayScans(); renderAdmin();
+  setTimeout(() => { const el = document.querySelector('#adminBody section.oversec'); if (el) { el.classList.remove('closed'); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, 300);
+});
+// Admin-Ansicht: Übersicht „Zu viel gescannt“ für den gewählten Tag
+function overSection(day, scans) {
+  const L = overRows(day, scans);
+  if (!L.length) return '';
+  return '<section class="oversec"><h2>Zu viel gescannt (' + L.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Mehr gebucht als mitgenommen plus erlaubter Spielraum. Aufgeführt sind die Buchungen über der Grenze (in der Reihenfolge, in der gebucht wurde).</div>' +
+    L.map(o => '<div class="overrow"><b>' + esc(o.p.name) + '</b> <span class="tag" style="color:var(--pen)">+' + o.x + '</span><br><small>' + o.n + ' gebucht · mitgenommen ' + o.L + (o.over ? ' + ' + o.over + ' erlaubt' : '') + '</small>' +
+      '<ul>' + o.extra.map(s => '<li>' + fmtTime(s.t) + ' – ' + esc(nameOf(s)) + (s.src === 'nachgetragen' ? ' (nachgetragen)' : s.src === 'manuell' ? ' (ohne Scan)' : '') + '</li>').join('') + '</ul></div>').join('') + '</section>';
+}
+
 const lowText = r => r.lvl === 'leer' ? r.p.name + ': leer' : r.p.name + ': noch ' + r.s + ' (Limit ' + r.p.low + ')';
 function showLowBar() {
   if (!lowPending.length) { $('lowBar').hidden = true; return; }
@@ -2117,7 +2243,8 @@ $('helpBtn').addEventListener('click', () => {
     '<h3 class="sub3">Als App installieren</h3><p>' + (window.__isStandalone ? 'Du nutzt die Strichliste schon als App. 👍' : 'Am bequemsten startest du die Strichliste wie eine App vom Startbildschirm. <button class="linkbtn" id="installHelp" style="font-size:inherit">So geht’s</button>') + '</p>' +
     '<h3 class="sub3">Tipps</h3><ul><li>Passwort vergessen? Beim Anmelden „Passwort vergessen?“ tippen.</li><li>Neues Handy? Einfach mit derselben E-Mail anmelden – alles ist wieder da.</li></ul>' +
     '<p><button class="linkbtn" style="font-size:inherit" onclick="document.getElementById(\'dsLink\').click()">Datenschutzhinweis lesen</button></p>' +
-    '<h3 class="sub3">Fragen?</h3><p>Wende dich an <b>' + esc(contactName(1)) + '</b>.</p>' + contactHTML());
+    '<h3 class="sub3">Fragen, Fehler, Ideen?</h3><p>Schreib ' + esc(contactName(1) === 'den Vorstand' ? 'dem Vorstand' : contactName(1)) + ' direkt hier in der App – die Antwort kommt auch hier.</p>' +
+    (S.user && S.meDoc ? '<div class="row"><button class="b sm" data-msg="new">Nachricht schreiben</button><button class="b sm" data-msg="bug">Fehler melden</button><button class="b sm" data-msg="idea">Feedback geben</button></div>' : '') + contactHTML());
 });
 
 /* ---------- Datenschutz ---------- */
@@ -2654,6 +2781,7 @@ function renderAdmin() {
     h += newRegsSection() + dsSection();
   }
   const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== S.user.uid);
+  if (S.isSuper) h += inboxSection();
   if (!RO) h += reqSection();
   if (pend.length && !RO) h += '<section><h2>Neue Anmeldungen (' + pend.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erst nach dem Freischalten kann die Person buchen.</div>' +
     pend.map(k => { const u = S.users[k]; return '<div class="rw" style="align-items:center"><span style="display:flex;gap:8px;align-items:center">' + avatarHTML(k, u.name, 32) + '</span><span>' + esc(u.name) + '<br><small>' + esc(u.email || '') + (u.t ? ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</small></span><button class="b sm pri" data-act="approve" data-id="' + k + '">Freischalten</button><button class="b sm dng" data-act="reject" data-id="' + k + '">Ablehnen</button></div>'; }).join('') + '</section>';
@@ -2680,6 +2808,7 @@ function renderAdmin() {
   if (day) {
     const rows = dayRows(day, scans);
     h += summary(rows);
+    h += overSection(day, scans);
     if ((S.dayDrivers || []).length) h += '<div class="note">Fahrer heute: <b>' + S.dayDrivers.map(x => esc(uname(x.uid) !== '(Person)' ? uname(x.uid) : x.name || '')).join(', ') + '</b></div>';
     if (!RO && canSee('eggs')) h += eggPreview(day, scans);
     if (!RO) h += '<section><h2>Mitnehmen und zurückzählen</h2><div class="row" style="margin-top:0">' +
@@ -2732,6 +2861,7 @@ function renderAdmin() {
     '<label class="f">Gebinde<input data-p="packs" data-id="' + p.id + '" value="' + esc(packsText(p.packs)) + '" placeholder="Kasten 20; Sixpack 6"></label>' +
     '<label class="f">Sorte (für die Easter Eggs)' + catSelect('data-p="cat" data-id="' + p.id + '"', p.cat, p.name) + '</label>' +
     '<label class="f">Warnen ab Rest (Flaschen)<input data-p="low" data-id="' + p.id + '" value="' + (p.low || '') + '" inputmode="numeric" placeholder="z. B. 6"></label>' +
+    '<label class="f">Darf mehr gebucht werden (Flaschen)<input data-p="over" data-id="' + p.id + '" value="' + (p.over != null ? p.over : '') + '" inputmode="numeric" placeholder="leer = 0"></label><div class="f" style="font-size:.78rem;color:var(--mu);align-self:end">Mehr gebucht als mitgenommen + dieser Wert → Meldung an alle Admins, wer zu viel gescannt hat.</div>' +
     '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="' + p.id + '">Barcode scannen</button><button class="b sm dng" data-act="delProd" data-id="' + p.id + '">Löschen</button></div></div></details>').join('') +
     (showNewProd ? '<div class="grid2" style="margin-top:10px"><label class="f full">Neues Getränk<input data-n="name" value="' + esc(newDraft.name) + '" placeholder="z. B. Apfelschorle 0,5 l"></label>' +
       '<label class="f full">Barcode<input data-n="codes" value="' + esc(newDraft.codes) + '" inputmode="numeric" placeholder="eintippen oder scannen"></label>' +
@@ -2739,6 +2869,7 @@ function renderAdmin() {
       '<label class="f">Gebinde<input data-n="packs" value="' + esc(newDraft.packs) + '"></label>' +
       '<label class="f">Sorte' + catSelect('data-n="cat"', newDraft.cat || '', newDraft.name) + '</label>' +
       '<label class="f">Warnen ab Rest<input data-n="low" value="' + esc(newDraft.low || '') + '" inputmode="numeric" placeholder="z. B. 6"></label>' +
+      '<label class="f">Darf mehr gebucht werden<input data-n="over" value="' + esc(newDraft.over || '') + '" inputmode="numeric" placeholder="leer = 0"></label>' +
       '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="new">Barcode scannen</button><button class="b pri sm" data-act="addProd">Hinzufügen</button><button class="b sm" data-act="toggleNewProd">Abbrechen</button></div></div>'
       : '<div class="row"><button class="b" data-act="toggleNewProd">Getränk ohne Scan anlegen</button></div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';
@@ -2967,9 +3098,9 @@ function waLink(v) {
   return d ? 'https://wa.me/' + d : '';
 }
 function contactHTML() {
-  const c = S.contact || {}, wa = waLink(c.wa), tel = String(c.tel || '').trim();
-  if (!wa && !tel) return '';
-  return '<div class="row contact">' + (wa ? '<a class="b sm" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp an ' + esc(contactName()) + '</a>' : '') + (tel ? '<a class="b sm" href="tel:' + esc(tel.replace(/[^\d+]/g, '')) + '">Anrufen: ' + esc(tel) + '</a>' : '') + '</div>';
+  const c = S.contact || {}, tel = String(c.tel || '').trim(), canMsg = !!(S.user && S.meDoc);
+  if (!canMsg && !tel) return '';
+  return '<div class="row contact">' + (canMsg ? '<button class="b sm" data-msg="new">Nachricht an ' + esc(contactName()) + '</button>' : '') + (tel ? '<a class="b sm" href="tel:' + esc(tel.replace(/[^\d+]/g, '')) + '">Anrufen: ' + esc(tel) + '</a>' : '') + '</div>';
 }
 // Sichtbarkeit der Extras: none = nur Super-Admin, admins = Admins und Vorstand, all = alle, list = ausgewählte Personen
 const FEATURES = [['eggs', 'Easter Eggs (Popups und Verlauf)'], ['best', 'Bestenliste'], ['album', 'Sammelalbum'], ['wrap', 'Saison-Rückblick']];
@@ -2993,7 +3124,7 @@ function settingsSection() {
   let h = '<section><h2>Einstellungen (Super-Admin)</h2>';
   h += '<h3 class="sub3">Kontakt</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erscheint bei „Konto wartet auf Freischaltung“, „gesperrt“, „keine Rechte“ und in der Hilfe.</div>' +
     '<div class="grid2"><label class="f full">Name<input id="ctName" value="' + esc(c.name || S.me || '') + '"></label>' +
-    '<label class="f">WhatsApp (Nummer oder Link)<input id="ctWa" value="' + esc(c.wa || '') + '" placeholder="0171 1234567 oder https://wa.me/…" inputmode="tel"></label>' +
+    '<div class="f" style="font-size:.82rem;color:var(--mu);align-self:end">Mitglieder schreiben dir über den Posteingang in der App.</div>' +
     '<label class="f">Telefon<input id="ctTel" value="' + esc(c.tel || '') + '" placeholder="0171 1234567" inputmode="tel"></label>' +
     '<label class="f full">Weiterleitung, wenn Mitglieder 5× auf den Titel tippen (leer = nichts passiert)<input id="ctNoAdmin" value="' + esc(c.noAdmin || '') + '" placeholder="https://wexhainer.de/" inputmode="url" autocapitalize="off"></label>' +
     '<div class="full"><button class="b pri sm" data-set="contactSave">Kontakt speichern</button></div></div>';
@@ -3024,7 +3155,7 @@ $('adminBody').addEventListener('click', e => {
   if (b.dataset.set === 'contactSave') {
     const na = $('ctNoAdmin').value.trim().slice(0, 300);
     if (na && !/^https?:\/\/[^\s]+\.[^\s]+/i.test(na)) { toast('Weiterleitung: bitte einen Link mit https:// eintragen'); return; }
-    const c = { name: $('ctName').value.trim().slice(0, 40), wa: $('ctWa').value.trim().slice(0, 120), tel: $('ctTel').value.trim().slice(0, 30), noAdmin: na, t: Date.now() };
+    const c = { name: $('ctName').value.trim().slice(0, 40), tel: $('ctTel').value.trim().slice(0, 30), noAdmin: na, t: Date.now() };
     S.contact = c; fire(F.setDoc(dref('config', 'contact'), c), 'Kontakt speichern'); logEv('system', 'ändert den Kontakt: ' + c.name); toast('Kontakt gespeichert'); renderAll();
   }
   if (b.dataset.set === 'privacySave') {
@@ -3078,10 +3209,12 @@ function renderReqBox() {
     ((S.myReqs || []).length ? '<button class="linkbtn" data-req="mine">Meine Anträge' + (open ? ' (' + open + ' offen)' : '') + (fresh ? ' · ' + fresh + ' neu entschieden' : '') + '</button>' : '');
 }
 async function reqForm() {
-  if (!reqDays) {
-    try { reqDays = (await F.getDocs(F.query(col('days'), F.orderBy('date', 'desc'), F.limit(12)))).docs.map(d => Object.assign({ id: d.id }, d.data())).filter(d => d.date <= todayISO()); }
-    catch (e) { reqDays = S.activeDay ? [S.activeDay] : []; }
-  }
+  // bei jedem Öffnen neu laden (sonst bleibt eine leere Liste hängen, wenn es beim ersten Mal noch keinen Tag gab)
+  let list = [];
+  try { list = (await F.getDocs(F.query(col('days'), F.orderBy('date', 'desc'), F.limit(12)))).docs.map(d => Object.assign({ id: d.id }, d.data())).filter(d => d.date <= todayISO() || d.id === S.active); }
+  catch (e) { list = reqDays || []; }
+  if (S.activeDay && !list.some(d => d.id === S.activeDay.id)) list.unshift(S.activeDay);
+  reqDays = list;
   if (!reqDays.length) { toast('Noch keine Tage vorhanden'); return; }
   const minor = isMinor(), prods = S.products.filter(p => !(minor && isAlc(catOf(p))));
   openModal('<h2>Korrektur beantragen</h2><p style="font-size:.88rem;color:var(--mu)">Ein Admin prüft deinen Antrag und genehmigt oder lehnt ihn ab. Du bekommst Bescheid.</p><div class="grid2">' +
@@ -3180,6 +3313,120 @@ $('adminBody').addEventListener('click', async e => {
   fin('ok'); logEv('buchung', 'genehmigt Antrag: ' + reqTxt(r) + ' für ' + r.name + ' (' + dayName(r.day) + ')', r.day); toast('Genehmigt: ' + reqTxt(r) + ' für ' + r.name);
 });
 
+/* ---------- Posteingang: Nachrichten, Fehlermeldungen und Feedback an den Super-Admin ----------
+   Der Name kommt automatisch aus dem Konto (die Regeln prüfen das). */
+const MSG_KINDS = [['msg', 'Nachricht'], ['bug', 'Fehler melden'], ['idea', 'Feedback / Idee']];
+const MSG_LABEL = { msg: 'Nachricht', bug: 'Fehler', idea: 'Feedback' };
+const msgSeen = () => { try { return +localStorage.getItem('strichliste_msgseen') || 0; } catch (e) { return 0; } };
+const myName = () => (S.meDoc && S.meDoc.name) || S.me || '';
+function deviceInfo() {
+  const ua = navigator.userAgent || '';
+  const os = /iPhone|iPad|iPod/.test(ua) ? 'iOS ' + ((ua.match(/OS (\d+[_\d]*)/) || [])[1] || '').replace(/_/g, '.') : /Android/.test(ua) ? 'Android ' + ((ua.match(/Android ([\d.]+)/) || [])[1] || '') : (navigator.platform || '');
+  const br = /CriOS|Chrome\//.test(ua) ? 'Chrome ' + ((ua.match(/(?:CriOS|Chrome)\/(\d+)/) || [])[1] || '') : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  return ['Version ' + APP_VERSION, os, br, screen.width + '×' + screen.height, window.__isStandalone ? 'installierte App' : 'im Browser', navigator.onLine ? 'online' : 'offline',
+    'Ansicht ' + ($('v-admin').hidden ? 'Scannen' : 'Admin'), S.isSuper ? 'Super-Admin' : S.isAdmin ? 'Getränke-Admin' : S.isBoard ? 'Vorstand' : 'Mitglied'].filter(Boolean).join(' · ').slice(0, 600);
+}
+function msgForm(kind) {
+  if (!S.user || !S.meDoc) { toast('Bitte zuerst anmelden'); return; }
+  kind = kind || 'msg';
+  const mine = (S.myMsgs || []).length;
+  openModal('<h2>Kontakt & Feedback</h2><p style="font-size:.88rem;color:var(--mu)">Deine Nachricht geht an <b>' + esc(contactName()) + '</b>. Absender: <b>' + esc(myName()) + '</b>. Die Antwort kommt hier in der App.</p>' +
+    '<div class="mode" id="msgKind" style="display:flex;margin:8px 0">' + MSG_KINDS.map(([k, l]) => '<button data-mk="' + k + '" class="' + (k === kind ? 'on' : '') + '" style="flex:1;padding:9px 4px">' + l + '</button>').join('') + '</div>' +
+    '<label class="f full"><span id="msgHint">' + msgHint(kind) + '</span><textarea id="msgText" rows="6" maxlength="1000" class="ta"></textarea></label>' +
+    '<label class="chk" id="msgInfoWrap"' + (kind === 'bug' ? '' : ' hidden') + ' style="margin-top:6px"><input type="checkbox" id="msgInfo" checked> Geräte-Infos mitsenden (App-Version, Handy, Browser)</label>' +
+    '<div class="row"><button class="b pri" data-msg="send" style="flex:1">Senden</button></div>' +
+    (mine ? '<div style="margin-top:8px"><button class="linkbtn" data-msg="mine">Meine Nachrichten (' + mine + ')</button></div>' : ''));
+  setTimeout(() => { const t = $('msgText'); if (t) t.focus(); }, 50);
+}
+const msgHint = k => k === 'bug' ? 'Was ist passiert? Was hast du davor gemacht?' : k === 'idea' ? 'Was können wir besser machen?' : 'Deine Nachricht';
+function msgMine() {
+  const L = S.myMsgs || [];
+  try { localStorage.setItem('strichliste_msgseen', String(Date.now())); } catch (e) {}
+  openModal('<h2>Meine Nachrichten</h2>' + (L.length ? L.map(m => '<div class="msgi"><div><span class="tag cls">' + MSG_LABEL[m.kind] + '</span> <small>' + new Date(m.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small>' +
+    (m.status === 'done' ? ' <span class="tag act">erledigt</span>' : '') + '</div><p>' + esc(m.text).replace(/\n/g, '<br>') + '</p>' +
+    (m.reply ? '<div class="reply"><b>' + esc(m.replyBy || contactName()) + '</b> <small>' + new Date(m.replyAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small><p>' + esc(m.reply).replace(/\n/g, '<br>') + '</p></div>' : '<small style="color:var(--mu)">' + (m.read ? 'gelesen' : 'noch nicht gelesen') + '</small>') + '</div>').join('') : '<div class="empty">Noch keine Nachrichten.</div>') +
+    '<div class="row"><button class="b sm" data-msg="new">Neue Nachricht</button></div>');
+  renderVersion();
+}
+document.addEventListener('click', e => {
+  const k = e.target.closest('[data-mk]');
+  if (k) { document.querySelectorAll('#msgKind [data-mk]').forEach(b => b.classList.toggle('on', b === k)); $('msgHint').textContent = msgHint(k.dataset.mk); $('msgInfoWrap').hidden = k.dataset.mk !== 'bug'; return; }
+  const b = e.target.closest('[data-msg]'); if (!b) return;
+  const a = b.dataset.msg;
+  if (a === 'new' || a === 'bug' || a === 'idea') msgForm(a === 'new' ? 'msg' : a);
+  if (a === 'mine') msgMine();
+  if (a === 'send') {
+    const kind = (document.querySelector('#msgKind .on') || {}).dataset.mk || 'msg', text = $('msgText').value.trim().slice(0, 1000);
+    if (text.length < 3) { toast('Bitte etwas schreiben'); return; }
+    const m = { uid: S.user.uid, name: myName(), email: (S.user.email || '').toLowerCase(), kind, text, info: kind === 'bug' && $('msgInfo').checked ? deviceInfo() : '', t: Date.now(), read: false, status: 'open' };
+    fire(F.setDoc(dref('msgs', newId('msgs')), m), 'Nachricht senden');
+    closeModal(); toast(kind === 'bug' ? 'Danke für die Meldung!' : kind === 'idea' ? 'Danke für dein Feedback!' : 'Nachricht gesendet');
+  }
+});
+function listenMyMsgs() {
+  stop('myMsgs'); S.myMsgs = [];
+  if (!S.user) return;
+  let first = true;
+  unsub.myMsgs = F.onSnapshot(F.query(col('msgs'), F.where('uid', '==', S.user.uid)), snap => {
+    const old = {}; (S.myMsgs || []).forEach(m => { old[m.id] = m.replyAt || 0; });
+    S.myMsgs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
+    if (!first) S.myMsgs.forEach(m => { if (m.replyAt && m.replyAt !== old[m.id]) { toast('Neue Antwort von ' + (m.replyBy || contactName()) + ' – unten „Kontakt & Feedback“'); if (navigator.vibrate) navigator.vibrate(120); } });
+    first = false; renderVersion();
+  }, err => console.warn('msgs', err));
+}
+const unreadReplies = () => (S.myMsgs || []).filter(m => m.replyAt && m.replyAt > msgSeen()).length;
+// Super-Admin: Posteingang
+let inboxFilter = 'open';
+function listenInbox() {
+  stop('inbox'); S.inbox = [];
+  let known = null;
+  unsub.inbox = F.onSnapshot(F.query(col('msgs'), F.orderBy('t', 'desc'), F.limit(150)), snap => {
+    S.inbox = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    const ids = S.inbox.filter(m => !m.read).map(m => m.id);
+    if (known && ids.some(id => !known.includes(id))) { toast('Neue Nachricht im Posteingang'); if (navigator.vibrate) navigator.vibrate(120); }
+    known = ids; renderAdmin();
+  }, err => console.warn('inbox', err));
+}
+function inboxSection() {
+  const L = S.inbox || []; if (!L.length) return '<section><h2>Posteingang (0)</h2><div class="empty">Noch keine Nachrichten. Mitglieder schreiben dir über „Kontakt & Feedback“ (unten auf jeder Seite und in der Hilfe).</div></section>';
+  const unread = L.filter(m => !m.read).length;
+  const F_ = { open: m => m.status !== 'done', bug: m => m.kind === 'bug', idea: m => m.kind === 'idea', all: () => true };
+  const show = L.filter(F_[inboxFilter] || F_.open);
+  const cnt = f => L.filter(F_[f]).length;
+  return '<section><h2>Posteingang (' + unread + ')</h2>' +
+    '<div class="mode" style="display:flex;margin-bottom:8px">' + [['open', 'Offen'], ['bug', 'Fehler'], ['idea', 'Feedback'], ['all', 'Alle']].map(([f, l]) => '<button data-ibf="' + f + '" class="' + (inboxFilter === f ? 'on' : '') + '" style="flex:1;padding:8px 2px">' + l + ' (' + cnt(f) + ')</button>').join('') + '</div>' +
+    (show.length ? show.map(m => '<details class="pc msg' + (m.read ? '' : ' unread') + '" data-k="m' + m.id + '" data-mid="' + m.id + '"><summary><span style="display:flex;align-items:center;min-width:0">' + avatarHTML(m.uid, m.name, 32) +
+      '<span style="min-width:0"><b>' + esc(m.name || '') + '</b> <span class="tag ' + (m.kind === 'bug' ? 'bug' : 'cls') + '">' + MSG_LABEL[m.kind] + '</span><br><small class="snip">' + esc(m.text.slice(0, 70)) + (m.text.length > 70 ? ' …' : '') + '</small></span></span>' +
+      '<span style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><small>' + new Date(m.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small>' + (m.status === 'done' ? '<span class="tag act">erledigt</span>' : m.reply ? '<span class="tag cls">beantwortet</span>' : '') + '</span></summary>' +
+      '<div class="msgbody"><p>' + esc(m.text).replace(/\n/g, '<br>') + '</p>' + (m.email ? '<small>' + esc(m.email) + '</small>' : '') + (m.info ? '<div class="minfo">' + esc(m.info) + '</div>' : '') +
+      (m.reply ? '<div class="reply"><b>Deine Antwort</b> <small>' + new Date(m.replyAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small><p>' + esc(m.reply).replace(/\n/g, '<br>') + '</p></div>' : '') +
+      '<label class="f full">' + (m.reply ? 'Antwort ändern' : 'Antworten (erscheint beim Mitglied in der App)') + '<textarea id="rp_' + m.id + '" rows="3" maxlength="1000" class="ta"></textarea></label>' +
+      '<div class="row"><button class="b sm pri" data-ib="reply" data-id="' + m.id + '">Antwort senden</button>' + (m.status === 'done' ? '<button class="b sm" data-ib="reopen" data-id="' + m.id + '">Wieder öffnen</button>' : '<button class="b sm" data-ib="done" data-id="' + m.id + '">Erledigt</button>') +
+      (m.read ? '<button class="b sm" data-ib="unread" data-id="' + m.id + '">Ungelesen</button>' : '') + '<button class="b sm dng" data-ib="del" data-id="' + m.id + '">Löschen</button></div></div></details>').join('') : '<div class="empty">Nichts in dieser Ansicht.</div>') +
+    (L.some(m => m.status === 'done') ? '<div class="row"><button class="b sm dng" data-ib="delDone">Alle erledigten löschen</button></div>' : '') + '</section>';
+}
+$('adminBody').addEventListener('click', e => {
+  if (!S.isSuper) return;
+  const f = e.target.closest('[data-ibf]'); if (f) { inboxFilter = f.dataset.ibf; renderAdmin(); return; }
+  const sm = e.target.closest('details[data-mid] > summary');
+  if (sm) { const id = sm.parentElement.dataset.mid, m = (S.inbox || []).find(x => x.id === id); if (m && !m.read) fire(F.updateDoc(dref('msgs', id), { read: true }), 'Gelesen'); return; }
+  const b = e.target.closest('[data-ib]'); if (!b) return;
+  const a = b.dataset.ib, id = b.dataset.id, m = (S.inbox || []).find(x => x.id === id);
+  if (a === 'reply' && m) {
+    const t = ($('rp_' + id).value || '').trim().slice(0, 1000); if (!t) { toast('Bitte eine Antwort schreiben'); return; }
+    fire(F.updateDoc(dref('msgs', id), { reply: t, replyAt: Date.now(), replyBy: S.me || contactName(), read: true }), 'Antworten'); toast('Antwort gesendet an ' + m.name); logEv('person', 'antwortet ' + m.name + ' im Posteingang');
+  }
+  if (a === 'done' && m) fire(F.updateDoc(dref('msgs', id), { status: 'done', read: true }), 'Erledigt');
+  if (a === 'reopen' && m) fire(F.updateDoc(dref('msgs', id), { status: 'open' }), 'Öffnen');
+  if (a === 'unread' && m) fire(F.updateDoc(dref('msgs', id), { read: false }), 'Ungelesen');
+  if (a === 'del' && m && confirm('Nachricht von ' + m.name + ' löschen?')) fire(F.deleteDoc(dref('msgs', id)), 'Löschen');
+  if (a === 'delDone') {
+    const L = (S.inbox || []).filter(x => x.status === 'done');
+    if (!confirm(L.length + ' erledigte Nachrichten löschen?')) return;
+    const bt = F.writeBatch(db); L.forEach(x => bt.delete(dref('msgs', x.id))); fire(bt.commit(), 'Löschen'); toast(L.length + ' gelöscht');
+  }
+});
+
 /* ---------- Als App installieren (Android, iPhone) ---------- */
 const UA = navigator.userAgent || '';
 const isIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3230,7 +3477,7 @@ let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || 
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
 function admSet(k, v) { admState[k] = v; try { localStorage.setItem(ADM_KEY, JSON.stringify(admState)); } catch (e) {} }
-const ADM_SHORT = { 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
+const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang', 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
 function adminNav(el, navX) {
   const secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
   if (secs.length < 3) return;
@@ -3563,8 +3810,9 @@ adminBody.addEventListener('change', e => {
     if (f === 'packs') upd.packs = parsePacks(t.value);
     if (f === 'cat') upd.cat = t.value ? t.value : F.deleteField();
     if (f === 'low') { const v = parseInt(t.value); upd.low = v > 0 ? v : F.deleteField(); }
+    if (f === 'over') { const v = parseInt(t.value); upd.over = v >= 0 ? Math.min(v, 999) : F.deleteField(); }
     fire(F.updateDoc(dref('products', p.id), upd), 'Getränk speichern');
-    const FL = { name: 'Name', codes: 'Barcodes', price: 'Preis', packs: 'Gebinde', cat: 'Sorte', low: 'Warnen ab' };
+    const FL = { name: 'Name', codes: 'Barcodes', price: 'Preis', packs: 'Gebinde', cat: 'Sorte', low: 'Warnen ab', over: 'Darf mehr gebucht werden' };
     logEv('getraenk', p.name + ': ' + FL[f] + ' → ' + (t.value.trim() || 'leer'));
   }
 });
@@ -3708,6 +3956,7 @@ adminBody.addEventListener('click', async e => {
     const nd = { name, codes: list, price: Math.max(0, num(newDraft.price) || 0), packs: parsePacks(newDraft.packs) };
     nd.cat = newDraft.cat || guessCat(name);
     if (parseInt(newDraft.low) > 0) nd.low = parseInt(newDraft.low);
+    if (parseInt(newDraft.over) >= 0) nd.over = parseInt(newDraft.over);
     fire(F.setDoc(dref('products', newId('products')), nd), 'Getränk anlegen'); logEv('getraenk', 'legt Getränk „' + name + '“ an');
     newDraft = { name: '', codes: '', price: '', packs: 'Kasten 20; Kasten 24' }; showNewProd = false; toast('Getränk angelegt');
   }
@@ -3821,7 +4070,8 @@ $('fileIn').addEventListener('change', async e => {
 function renderVersion() {
   let txt = 'Version ' + APP_VERSION;
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) txt += ' · offline verfügbar';
-  $('ver').innerHTML = esc(txt) + ' · <button class="linkbtn" id="dsLink">Datenschutz</button>';
+  const nr = typeof unreadReplies === 'function' ? unreadReplies() : 0;
+  $('ver').innerHTML = esc(txt) + ' · <button class="linkbtn" id="dsLink">Datenschutz</button>' + (S.user && S.meDoc ? ' · <button class="linkbtn" data-msg="' + (nr ? 'mine' : 'new') + '">Kontakt & Feedback' + (nr ? ' <b class="nbadge">' + nr + ' neu</b>' : '') + '</button>' : '');
   $('dsLink').onclick = () => openModal(privacyHTML());
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
