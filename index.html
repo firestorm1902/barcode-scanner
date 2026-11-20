@@ -718,7 +718,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '51';
+const APP_VERSION = '52';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2932,6 +2932,49 @@ function renderScan() {
    ========================================================= */
 const sh = { mode: 'load', dayId: null, pid: null, unknown: null, assignTo: null, minus: false, last: null };
 const selDayObj = () => S.days.find(d => d.id === S.selDay) || null;
+/* ---------- Übersicht: Tage, an denen zu wenig gebucht wurde ----------
+   Pro Tag und Getränk: mitgenommen − gebucht − übrig. Fehlen Flaschen, wurde zu wenig gebucht.
+   Gezählt wird per Zählabfrage (kostet kaum Lesevorgänge), nur Tage mit eingetragenem „Übrig“. */
+let missInfo = null, missBusy = false;
+async function checkMissing() {
+  if (missBusy) return; missBusy = true; renderAdmin();
+  try {
+    const list = [];
+    for (const d of S.days) {
+      const cnt = d.count || {}, load = d.load || {}, ids = Object.keys(cnt).filter(k => cnt[k] != null);
+      if (!ids.length) continue;
+      const items = [];
+      await Promise.all(ids.map(async pid => {
+        const u = d.id === S.selDay && S.dayScansFor === S.selDay ? S.dayScans.filter(x => x.p === pid).length
+          : (await F.getCountFromServer(F.query(col('scans'), F.where('day', '==', d.id), F.where('p', '==', pid)))).data().count;
+        const diff = cnt[pid] - ((load[pid] || 0) - u);
+        if (diff) items.push({ pid, l: load[pid] || 0, u, c: cnt[pid], diff });
+      }));
+      if (!items.length) continue;
+      const miss = items.filter(x => x.diff < 0);
+      list.push({ day: d, items: items.sort((a, b) => a.diff - b.diff), miss: miss.reduce((a, x) => a - x.diff, 0), over: items.filter(x => x.diff > 0).reduce((a, x) => a + x.diff, 0),
+        val: miss.reduce((a, x) => a - x.diff * ((P(x.pid) || {}).price || 0), 0), all: ids.length >= Object.keys(load).filter(k => load[k] > 0).length });
+    }
+    missInfo = { t: Date.now(), list, n: S.days.filter(d => Object.keys(d.count || {}).some(k => d.count[k] != null)).length };
+  } catch (err) { console.warn('miss', err); toast('Prüfen braucht Internet'); }
+  missBusy = false; renderAdmin();
+}
+function missSection() {
+  let h = '<section class="daylist"><h2>Zu wenig gebucht' + (missInfo ? ' (' + missInfo.list.filter(x => x.miss).length + ')' : '') + '</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Tage, an denen nach dem Zurückzählen Flaschen fehlen: mitgenommen − gebucht − übrig. Berücksichtigt werden Tage, an denen „Übrig“ eingetragen ist.</div>';
+  h += '<div class="row" style="margin-top:0"><button class="b sm' + (missInfo ? '' : ' pri') + '" data-act="missCheck"' + (missBusy ? ' disabled' : '') + '>' + (missBusy ? 'Prüfe …' : missInfo ? 'Neu prüfen' : 'Tage prüfen') + '</button>' + (missInfo ? '<small style="align-self:center;color:var(--mu)">Stand ' + fmtTime(missInfo.t) + ' Uhr · ' + missInfo.n + ' Tage geprüft</small>' : '') + '</div>';
+  if (!missInfo) return h + '</section>';
+  const L = missInfo.list.slice().sort((a, b) => (b.day.date || '').localeCompare(a.day.date || ''));
+  const bad = L.filter(x => x.miss), sumN = bad.reduce((a, x) => a + x.miss, 0), sumV = bad.reduce((a, x) => a + x.val, 0);
+  if (!L.length) return h + '<div class="note ok" style="margin-top:8px">An allen geprüften Tagen passt der Abgleich. 👍</div></section>';
+  if (bad.length) h += '<div class="note bad" style="margin:8px 0">' + bad.length + (bad.length === 1 ? ' Tag' : ' Tage') + ' mit fehlenden Flaschen: insgesamt <b>' + sumN + '</b>' + (sumV ? ' (' + money(sumV) + ')' : '') + '.</div>';
+  else h += '<div class="note ok" style="margin:8px 0">Nirgends fehlt etwas – nur zu viel gebucht (siehe unten).</div>';
+  h += L.map(x => '<details class="pc" data-k="miss' + x.day.id + '"><summary><span><b>' + esc(fmtDate(x.day.date)) + '</b><br><small>' + esc(x.day.place || '') + (x.all ? '' : ' · „Übrig“ nicht überall eingetragen') + '</small></span><small style="text-align:right">' +
+    (x.miss ? '<b style="color:var(--pen)">fehlt ' + x.miss + '</b>' + (x.val ? '<br>' + money(x.val) : '') : '') + (x.over ? (x.miss ? '<br>' : '') + '<span style="color:var(--amb)">' + x.over + ' zu viel gebucht</span>' : '') + '</small></summary>' +
+    x.items.map(i => '<div class="rw"><span></span><span>' + esc(pname(i.pid)) + '</span><small>mit ' + i.l + ' · gebucht ' + i.u + ' · übrig ' + i.c + '</small><small style="min-width:70px;text-align:right;font-weight:700;color:' + (i.diff < 0 ? 'var(--pen)">fehlt ' + (-i.diff) : 'var(--amb)">' + i.diff + ' zu viel') + '</small></div>').join('') +
+    '<div class="row"><button class="b sm" data-act="pickDay" data-id="' + x.day.id + '">Tag öffnen</button>' + (x.miss && S.isAdmin ? '<button class="b sm" data-act="missFix" data-id="' + x.day.id + '">Nachtragen auf diesen Tag</button>' : '') + '</div></details>').join('');
+  return h + '</section>';
+}
+
 
 async function openSheet(opts) {
   Object.assign(sh, { mode: 'load', pid: null, unknown: null, assignTo: null, minus: false, last: null }, opts);
@@ -3211,7 +3254,10 @@ function renderAdmin() {
 
     const people = Object.keys(S.users).filter(uid => !S.users[uid].deleted).map(uid => ({ uid, name: S.users[uid].name || '' })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
     if (people.length && S.products.length && !RO) {
-      h += '<section><h2>Buchung nachtragen</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Für jemanden, der vergessen hat zu scannen.</div><div class="grid2">' +
+      const dd = selDayObj(), dShort = dd ? fmtDate(dd.date).replace(/^\S+ /, '').replace(/\d{4}$/, '') : '';
+      h += '<section><h2>Buchung nachtragen</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Für jemanden, der vergessen hat zu scannen – auch für frühere Tage.</div><div class="grid2">' +
+        '<label class="f full">Nachtragen auf Tag<select data-sel="day">' + S.days.map(d => '<option value="' + d.id + '"' + (d.id === S.selDay ? ' selected' : '') + '>' + esc(dayLabel(d)) + (d.id === S.active && !d.closed ? ' (freigegeben)' : '') + (d.closed ? ' (abgeschlossen)' : '') + '</option>').join('') + '</select></label>' +
+        (dd && dd.closed ? '<div class="full" style="font-size:.8rem;color:var(--amb)">Der Tag ist abgeschlossen – der Nachtrag zählt trotzdem für ihn und ändert seinen Abgleich.</div>' : dd && dd.id !== S.active ? '<div class="full" style="font-size:.8rem;color:var(--mu)">Nicht der gerade freigegebene Tag.</div>' : '') +
         '<label class="f full">Person<select id="nbWho"><option value="">Wählen …</option>' + people.map(x => '<option value="' + x.uid + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
         '<label class="f">Getränk<select id="nbP"><option value="">Wählen …</option>' + S.products.map(x => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</select></label>' +
         '<label class="f">Anzahl' + stepper('nbN', 1, { max: 100 }) + '</label>' +
@@ -3219,11 +3265,11 @@ function renderAdmin() {
       if (nbSel && S.users[nbSel]) {
         const ps = scans.filter(x => x.uid === nbSel), byP = {};
         ps.forEach(x => { byP[x.p] = (byP[x.p] || 0) + 1; });
-        h += '<h2 style="margin-top:14px;font-size:1.05rem">Heute gebucht von ' + esc(uname(nbSel)) + ' (' + ps.length + ')</h2>' +
+        h += '<h2 style="margin-top:14px;font-size:1.05rem">Am ' + esc(dShort) + ' gebucht von ' + esc(uname(nbSel)) + ' (' + ps.length + ')</h2>' +
           (ps.length ? Object.keys(byP).sort((x, y) => pname(x).localeCompare(pname(y), 'de')).map(pid => '<div class="rw"><span></span><span>' + esc(pname(pid)) + '</span><small>' + byP[pid] + '×</small><button class="b sm dng" data-act="nbMinus" data-id="' + pid + '">−1 stornieren</button></div>').join('') +
             '<details class="pc" data-k="nbList"><summary><b>Einzelne Buchungen</b><small>' + ps.length + '</small></summary>' +
             ps.slice().reverse().map(x => '<div class="rw"><span>' + fmtTime(x.t) + '</span><span>' + esc(pname(x.p)) + '</span><small>' + (x.src === 'nachgetragen' ? 'nachgetragen' : x.src === 'manuell' ? 'ohne Scan' : 'Scan') + '</small><button class="b sm" data-act="storno" data-id="' + x.id + '">Stornieren</button></div>').join('') + '</details>'
-            : '<div class="empty">Heute noch nichts gebucht.</div>');
+            : '<div class="empty">An diesem Tag noch nichts gebucht.</div>');
       }
       h += '</section>';
     }
@@ -3255,6 +3301,7 @@ function renderAdmin() {
 
   if (!RO && S.products.length) h += shopSection();
   if (S.days.length > 1 && !RO) {
+    h += missSection();
     h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
       const o = overview && overview[d.id];
       return '<div class="rw"><span>' + fmtDate(d.date) + '</span><span>' + esc(d.place || '–') + '</span><small>' + (o == null ? '' : o + ' gebucht') + '</small>' + (d.id === S.active && !d.closed ? '<span class="tag act">freigegeben</span>' : d.closed ? '<span class="tag cls">fertig</span>' : '') + '<button class="b sm" data-act="pickDay" data-id="' + d.id + '">Öffnen</button></div>';
@@ -3400,7 +3447,7 @@ $('adminBody').addEventListener('change', e => {
 
 const ROLE_LABEL = { '': 'Mitglied', admin: 'Getränke-Admin', vorstand: 'Vorstand' };
 // Vorstand: alles nur lesen – Eingaben werden zu Text, Knöpfe außer Excel verschwinden
-const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo'];
+const RO_ACTS = ['xlAll', 'xlMonth', 'xlDay', 'xlGo', 'missCheck', 'pickDay'];
 function readOnly(el) {
   el.querySelectorAll('button').forEach(b => { if (!RO_ACTS.includes(b.dataset.act)) b.remove(); });
   el.querySelectorAll('input,select,textarea').forEach(x => {
@@ -4171,7 +4218,7 @@ let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || 
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
 function admSet(k, v) { admState[k] = v; try { localStorage.setItem(ADM_KEY, JSON.stringify(admState)); } catch (e) {} }
-const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang', 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Fasnets-Titel (Rückblick)': 'Titel', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
+const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang', 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Zu wenig gebucht': 'Zu wenig', 'Fasnets-Titel (Rückblick)': 'Titel', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
 function adminNav(el, navX) {
   const secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
   if (secs.length < 3) return;
@@ -4532,6 +4579,13 @@ adminBody.addEventListener('click', async e => {
     logEv('tag', 'legt Tag an: ' + fmtDate(date) + (place ? ' – ' + place : '') + (carry && pv ? ' (Rest vom Vortag übernommen)' : ''), nid);
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
+  else if (a === 'missCheck') checkMissing();
+  else if (a === 'missFix') {
+    S.selDay = id; listenDayScans(); renderAdmin();
+    const sec = [...$('adminBody').querySelectorAll('section')].find(x => /^Buchung nachtragen/.test(((x.querySelector('h2') || {}).textContent || '').trim()));
+    if (sec) { sec.classList.remove('closed'); const y = sec.getBoundingClientRect().top + window.scrollY - 120; window.scrollTo({ top: y, behavior: 'auto' }); }
+    toast('Nachtragen auf ' + dayLabel(selDayObj() || {}));
+  }
   else if (a === 'activate' && day) {
     if (day.closed) { if (!await ask('„' + dayLabel(day) + '“ ist abgeschlossen. Wieder öffnen und zum Scannen freigeben?', { ok: 'Freigeben' })) return; fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); }
     fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag freigeben'); toast('Freigegeben – Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'gibt ' + dayLabel(day) + ' zum Scannen frei', day.id);
@@ -4590,7 +4644,7 @@ adminBody.addEventListener('click', async e => {
     const name = (S.users[uid] || {}).name || '';
     const b2 = F.writeBatch(db);
     for (let i = 0; i < n; i++) b2.set(dref('scans', newId('scans')), { uid, day: day.id, p: pid, src: 'nachgetragen', t: Date.now() + i, at: F.serverTimestamp(), who: name });
-    fire(b2.commit(), 'Nachtragen'); toast(n + '× ' + (P(pid) || {}).name + ' für ' + name + ' nachgetragen');
+    fire(b2.commit(), 'Nachtragen'); toast(n + '× ' + (P(pid) || {}).name + ' für ' + name + ' nachgetragen (' + dayLabel(day) + ')');
     adjustCounters(uid, day.id, pid, n);
     logEv('buchung', 'trägt nach: ' + n + '× ' + pname(pid) + ' für ' + name, day.id);
     nbSel = uid;
