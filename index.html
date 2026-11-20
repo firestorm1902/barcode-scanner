@@ -718,7 +718,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '49';
+const APP_VERSION = '51';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -903,6 +903,7 @@ function startUserListeners() {
   stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
+  stop('cfgTitles'); unsub.cfgTitles = F.onSnapshot(dref('config', 'titles'), snap => { S.titles = snap.exists() ? snap.data() : null; if (extraTab === 'wrap') renderExtra(); if (S.isSuper) renderAdmin(); }, err => console.warn('titles', err));
   unsub.cfgBest = F.onSnapshot(dref('config', 'best'), snap => { S.best = snap.exists() ? snap.data() : null; if (extraTab === 'best') renderExtra(); }, err => console.warn('best', err));
   stop('cfg');
   unsub.cfg = F.onSnapshot(dref('config', 'eggs'), snap => {
@@ -942,6 +943,10 @@ function listenActiveDay() {
   }, err => console.warn('ueggs', err));
   unsub.activeDay = F.onSnapshot(dref('days', S.active), snap => {
     S.activeDay = snap.exists() ? Object.assign({ id: snap.id, load: {}, count: {} }, snap.data()) : null;
+    if (S.activeDay && S.activeDay.closed) { // abgeschlossene Tage sind nie zum Scannen freigegeben
+      if (S.isAdmin && navigator.onLine) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden');
+      S.activeDay = null;
+    }
     S.activeLoaded = true; renderAll(); checkLowStock(); checkOverScan();
   }, fail('activeDay'));
   const q = F.query(col('scans'), F.where('uid', '==', S.user.uid), F.where('day', '==', S.active));
@@ -1008,7 +1013,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -2359,6 +2364,7 @@ $('extra').addEventListener('click', e => {
   if (a === 'kRefresh') { S.myAll = null; loadMine(); }
   if (a === 'kExcel') kontoExcel();
   if (a === 'wShare') wrapShare();
+  if (a === 'wTitles') openModal(titlesInfoHTML(wrapData()));
 });
 $('wrapBanner').addEventListener('click', e => { if (e.target.closest('[data-wrap]')) { extraTab = 'wrap'; loadMine(); loadBoard(); renderExtra(); } });
 
@@ -2616,10 +2622,118 @@ function kontoExcel() {
   ]));
 }
 
+/* ---------- Fasnets-Titel im Rückblick ----------
+   Liste von Titeln mit je einer Bedingung; von oben nach unten gilt der erste, der passt.
+   Der Super-Admin bearbeitet sie (config/titles). Ausgeschaltete Titel werden übersprungen. */
+const TITLE_CONDS = [
+  ['none', 'keine Buchung in der Saison', ''], ['drinks', 'Getränke mindestens', ''], ['drinksmax', 'Getränke höchstens', ''],
+  ['days', 'Tage dabei mindestens', ''], ['share_na', 'Anteil alkoholfrei mindestens', '%'], ['beer', 'Bier mindestens', ''],
+  ['cat', 'Getränke einer Sorte mindestens', ''], ['favcat', 'Lieblingssorte ist', ''], ['topday', 'am stärksten Tag mindestens', 'Getränke'],
+  ['eggs', 'Easter Eggs gesammelt mindestens', ''], ['grouprank', 'Gruppe in der Gesamtwertung Platz höchstens', ''], ['cost', 'Strichliste mindestens', '€'],
+  ['always', 'immer (Auffang-Titel)', '']
+];
+const TITLE_NONUM = ['none', 'always', 'favcat'];
+const TITLES_DEFAULT = [
+  { id: 't_none', title: 'Noch ohne Strich', cond: 'none', on: true },
+  { id: 't_vern', title: 'Vernunft-Wefzg', cond: 'share_na', n: 60, on: true },
+  { id: 't_wasser', title: 'Wasserratte', cond: 'favcat', cat: 'wasser', on: false },
+  { id: 't_treu', title: 'Treue Fasnetsseele', cond: 'days', n: 8, on: true },
+  { id: 't_stamm', title: 'Stammgast der Strichliste', cond: 'drinks', n: 40, on: true },
+  { id: 't_durch', title: 'Durchhalte-Wefzg', cond: 'topday', n: 12, on: false },
+  { id: 't_champ', title: 'Gruppen-Champion', cond: 'grouprank', n: 1, on: false },
+  { id: 't_egg', title: 'Easter-Egg-Jäger', cond: 'eggs', n: 15, on: false },
+  { id: 't_selten', title: 'Seltener Gast', cond: 'drinksmax', n: 5, on: false },
+  { id: 't_gmiat', title: 'Gmiatliche Wefzg', cond: 'always', on: true }
+];
+const titlesAll = () => (S.titles && Array.isArray(S.titles.list) ? S.titles.list : TITLES_DEFAULT).map(x => Object.assign({}, x));
+const catLabel = c => (CATS.find(x => x[0] === c) || [c, c])[1];
+function titleCondText(r) {
+  const c = TITLE_CONDS.find(x => x[0] === r.cond) || TITLE_CONDS[0];
+  if (r.cond === 'none' || r.cond === 'always') return c[1];
+  if (r.cond === 'favcat') return 'Lieblingssorte ist ' + catLabel(r.cat || 'wasser');
+  if (r.cond === 'cat') return catLabel(r.cat || 'bier') + ': mindestens ' + (r.n || 0);
+  return c[1] + ' ' + (r.n || 0) + (c[2] ? ' ' + c[2] : '');
+}
+function titleMatch(r, W) {
+  const n = +r.n || 0;
+  switch (r.cond) {
+    case 'none': return !W.L.length;
+    case 'always': return true;
+    case 'drinks': return W.L.length >= n;
+    case 'drinksmax': return W.L.length > 0 && W.L.length <= n;
+    case 'days': return W.days >= n;
+    case 'share_na': return W.L.length > 0 && W.share * 100 >= n;
+    case 'beer': return (W.byCat.bier || 0) >= n;
+    case 'cat': return (W.byCat[r.cat || 'bier'] || 0) >= n;
+    case 'favcat': return !!W.favCat && W.favCat === (r.cat || 'wasser');
+    case 'topday': return W.topN >= n;
+    case 'eggs': return W.eggs >= n;
+    case 'grouprank': return !!W.rank && W.rank <= n;
+    case 'cost': return W.cost >= n;
+  }
+  return false;
+}
+function pickTitle(W) {
+  const r = titlesAll().find(x => x.on !== false && (x.title || '').trim() && titleMatch(x, W));
+  return r ? { title: r.title, why: r.cond === 'always' ? '' : titleCondText(r), id: r.id } : { title: W.L.length ? 'Gmiatliche Wefzg' : 'Noch ohne Strich', why: '', id: '' };
+}
+function titlesInfoHTML(W) {
+  const cur = pickTitle(W).id, L = titlesAll().filter(x => x.on !== false && (x.title || '').trim());
+  return '<h2>Fasnets-Titel</h2><p style="font-size:.9rem;color:var(--mu);margin:4px 0 8px">Von oben nach unten: Du bekommst den ersten Titel, dessen Bedingung passt. Gezählt wird die laufende Saison.</p>' +
+    L.map((x, i) => '<div class="rw"' + (x.id === cur ? ' style="background:var(--wy2);border-radius:8px;padding-left:6px"' : '') + '><span>' + (i + 1) + '.</span><span>' + esc(x.title) + (x.id === cur ? ' ⭐' : '') + '</span><small>' + esc(titleCondText(x)) + '</small></div>').join('');
+}
+function titlesEditor() {
+  const L = titlesAll(), sel = (L2, cur, attr) => '<select ' + attr + '>' + L2.map(x => '<option value="' + x[0] + '"' + (x[0] === cur ? ' selected' : '') + '>' + esc(x[1]) + '</option>').join('') + '</select>';
+  let mine = ''; try { if (S.myAll) mine = pickTitle(wrapData()).title; } catch (e) {}
+  return '<section><h2>Fasnets-Titel (Rückblick)</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Von oben nach unten gilt der erste Titel, dessen Bedingung passt (gezählt wird die Saison 11.11. bis Aschermittwoch). Ganz unten sollte ein Auffang-Titel mit „immer“ stehen. Mitglieder sehen die Liste im Rückblick.' + (mine ? ' Dein Titel gerade: <b>' + esc(mine) + '</b>.' : '') + '</div>' +
+    L.map((r, i) => {
+      const k = ' data-ti="' + i + '"';
+      return '<div class="pc" style="padding:8px 0"><div class="rw" style="border:0;padding:0;gap:6px"><input type="checkbox" data-ttf="on"' + k + (r.on !== false ? ' checked' : '') + ' aria-label="an" style="width:auto">' +
+        '<input data-ttf="title"' + k + ' value="' + esc(r.title || '') + '" maxlength="40" style="flex:1;padding:6px 8px" aria-label="Titel">' +
+        '<button class="b sm" data-tt="up"' + k + (i ? '' : ' disabled') + ' aria-label="nach oben">↑</button><button class="b sm" data-tt="down"' + k + (i < L.length - 1 ? '' : ' disabled') + ' aria-label="nach unten">↓</button><button class="b sm dng" data-tt="del"' + k + ' aria-label="löschen">✕</button></div>' +
+        '<div class="row" style="margin-top:6px;gap:6px;align-items:center">' + sel(TITLE_CONDS, r.cond, 'data-ttf="cond"' + k + ' style="flex:1;min-width:180px"') +
+        (r.cond === 'cat' || r.cond === 'favcat' ? sel(CATS, r.cat || (r.cond === 'cat' ? 'bier' : 'wasser'), 'data-ttf="cat"' + k + ' style="flex:1;min-width:120px"') : '') +
+        (TITLE_NONUM.includes(r.cond) ? '' : '<input class="n" data-ttf="n"' + k + ' inputmode="numeric" value="' + (+r.n || 0) + '" aria-label="Zahl" style="width:64px">') + '</div></div>';
+    }).join('') +
+    '<div class="row"><button class="b pri sm" data-tt="add">Neuer Titel</button><button class="b sm" data-tt="restore">Standard-Titel zurückholen</button><button class="b sm" data-tt="preview">Vorschau für Mitglieder</button></div></section>';
+}
+function saveTitles(list) {
+  S.titles = { list, t: Date.now() };
+  fire(F.setDoc(dref('config', 'titles'), S.titles), 'Titel speichern');
+  renderAdmin(); if (extraTab === 'wrap') renderExtra();
+}
+$('adminBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-tt]'); if (!b || !S.isSuper) return;
+  const L = titlesAll(), i = +b.dataset.ti, a = b.dataset.tt;
+  if (a === 'up' && i > 0) { [L[i - 1], L[i]] = [L[i], L[i - 1]]; saveTitles(L); }
+  else if (a === 'down' && i < L.length - 1) { [L[i + 1], L[i]] = [L[i], L[i + 1]]; saveTitles(L); }
+  else if (a === 'del') { if (!await ask('Titel „' + (L[i].title || '') + '“ löschen?', { ok: 'Löschen', danger: true })) return; L.splice(i, 1); saveTitles(L); logEv('system', 'löscht den Fasnets-Titel ' + (b.closest('.pc').querySelector('[data-ttf=title]') || {}).value); }
+  else if (a === 'add') { const k = L.findIndex(x => x.cond === 'always'); L.splice(k < 0 ? L.length : k, 0, { id: 't_' + Date.now().toString(36), title: 'Neuer Titel', cond: 'drinks', n: 10, on: true }); saveTitles(L); toast('Neuer Titel über dem Auffang-Titel eingefügt'); }
+  else if (a === 'restore') {
+    const have = new Set(L.map(x => x.id)), miss = TITLES_DEFAULT.filter(x => !have.has(x.id));
+    if (!miss.length) { toast('Alle Standard-Titel sind schon da'); return; }
+    miss.forEach(m => { const k = L.findIndex(x => x.cond === 'always'); L.splice(m.cond === 'always' || k < 0 ? L.length : k, 0, Object.assign({}, m)); });
+    saveTitles(L); toast(miss.length + ' Standard-Titel zurückgeholt (eigene bleiben)'); logEv('system', 'holt Standard-Fasnets-Titel zurück');
+  }
+  else if (a === 'preview') { if (!S.myAll) await loadMine(); openModal(titlesInfoHTML(wrapData())); }
+});
+$('adminBody').addEventListener('change', e => {
+  const t = e.target, f = t.dataset && t.dataset.ttf; if (!f || !S.isSuper) return;
+  const L = titlesAll(), r = L[+t.dataset.ti]; if (!r) return;
+  if (f === 'on') r.on = t.checked;
+  else if (f === 'title') { const v = t.value.trim().slice(0, 40); if (!v) { toast('Titel darf nicht leer sein'); renderAdmin(); return; } r.title = v; }
+  else if (f === 'cond') { r.cond = t.value; if (TITLE_NONUM.includes(r.cond)) delete r.n; else if (!(r.n >= 0)) r.n = r.cond === 'share_na' ? 50 : r.cond === 'grouprank' ? 1 : 10; if (r.cond === 'cat' || r.cond === 'favcat') r.cat = r.cat || (r.cond === 'cat' ? 'bier' : 'wasser'); else delete r.cat; }
+  else if (f === 'cat') r.cat = t.value;
+  else if (f === 'n') { const v = parseFloat(String(t.value).replace(',', '.')); if (!(v >= 0) || v > 100000) { toast('Bitte eine Zahl ab 0'); renderAdmin(); return; } r.n = r.cond === 'share_na' ? Math.min(100, v) : v; }
+  saveTitles(L);
+  if (f !== 'title') logEv('system', 'Fasnets-Titel „' + r.title + '“: ' + titleCondText(r) + (r.on === false ? ' (aus)' : ''));
+});
+
 function wrapData() {
   const se = season(), L = mineIn('season'), minor = isMinor(), price = id => (P(id) || {}).price || 0;
-  const byP = {}, byDay = {};
-  L.forEach(s => { byP[s.p] = (byP[s.p] || 0) + 1; byDay[s.day] = (byDay[s.day] || 0) + 1; });
+  const byP = {}, byDay = {}, byCat = {};
+  L.forEach(s => { byP[s.p] = (byP[s.p] || 0) + 1; byDay[s.day] = (byDay[s.day] || 0) + 1; const c = catOf(P(s.p)); byCat[c] = (byCat[c] || 0) + 1; });
+  const favCat = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a])[0] || '';
   const fav = Object.keys(byP).sort((a, b) => byP[b] - byP[a])[0];
   const topDay = Object.keys(byDay).sort((a, b) => byDay[b] - byDay[a])[0];
   const na = L.filter(s => NONALC.includes(catOf(P(s.p)))).length, days = Object.keys(byDay).length;
@@ -2627,8 +2741,9 @@ function wrapData() {
   let rank = null;
   if (S.board && myGroup()) { const G = Object.keys(S.board.total.g || {}).sort((a, b) => (S.board.total.g[b].all || 0) - (S.board.total.g[a].all || 0)); const i = G.indexOf(myGroup()); if (i >= 0) rank = i + 1; }
   const share = L.length ? na / L.length : 0;
-  const title = !L.length ? 'Noch ohne Strich' : share >= .6 ? 'Vernunft-Wefzg' : days >= 8 ? 'Treue Fasnetsseele' : L.length >= 40 ? 'Stammgast der Strichliste' : 'Gmiatliche Wefzg';
-  return { se, L, fav, favN: fav ? byP[fav] : 0, topDay, topN: topDay ? byDay[topDay] : 0, na, share, days, eggs, rank, title, cost: L.reduce((a, s) => a + price(s.p), 0), minor };
+  const W = { se, L, fav, favN: fav ? byP[fav] : 0, topDay, topN: topDay ? byDay[topDay] : 0, na, share, days, eggs, rank, cost: L.reduce((a, s) => a + price(s.p), 0), minor, byCat, favCat };
+  const T = pickTitle(W); W.title = T.title; W.titleWhy = T.why;
+  return W;
 }
 function renderWrap() {
   if (!S.myAll) return '<div class="empty">' + (S.mineLoading ? 'Lade deinen Rückblick …' : 'Konnte nicht geladen werden.') + '</div>';
@@ -2639,7 +2754,7 @@ function renderWrap() {
     stat(W.fav ? esc(pname(W.fav)).slice(0, 18) : '–', 'Lieblingsgetränk' + (W.fav ? ' (' + W.favN + '×)' : '')) + stat(Math.round(W.share * 100) + ' %', 'alkoholfrei') +
     stat(W.topDay ? W.topN : '–', 'am stärksten Tag' + (di.date ? ': ' + fmtDate(di.date).replace(/^\w+\., /, '') : '')) + stat(W.eggs, 'Easter Eggs gesammelt') +
     (W.rank ? stat(W.rank + '.', 'Platz deiner Gruppe') : '') + stat(money(W.cost), 'Strichliste') + '</div>' +
-    '<div class="wtitle"><small>Dein Fasnets-Titel</small><b>' + esc(W.title) + '</b></div></div>' +
+    '<div class="wtitle"><small>Dein Fasnets-Titel</small><b>' + esc(W.title) + '</b>' + (W.titleWhy ? '<small style="margin-top:4px">' + esc(W.titleWhy) + '</small>' : '') + '<button class="linkbtn" data-xa="wTitles" style="font-size:.8rem;color:inherit;opacity:.85;margin-top:4px">Alle Titel ansehen</button></div></div>' +
     '<div class="row"><button class="b pri" data-xa="wShare">Als Bild teilen</button></div><div style="font-size:.78rem;color:var(--mu);margin-top:6px">Saison ' + fmtDate(W.se.from) + ' bis Aschermittwoch ' + fmtDate(W.se.to) + '.</div>';
 }
 async function wrapShare() {
@@ -2790,7 +2905,7 @@ function renderScan() {
   $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor() || !show;
   if (!show) {
     if (cam.box === boxMain) camStop();
-    info.innerHTML = '<div class="note"><b>Kein Tag aktiv.</b> Der Admin muss einen Tag anlegen und für das Scannen aktivieren.</div>';
+    info.innerHTML = '<div class="note"><b>Gerade kein Tag zum Scannen freigegeben.</b> Ein Admin gibt den Tag frei, sobald es losgeht.</div>';
     $('last').hidden = true; setMainButtons(); renderExtra(); return;
   }
   const day = S.activeDay, isToday = day.date === todayISO();
@@ -3049,7 +3164,7 @@ function renderAdmin() {
 
   h += '<section><h2>Tag</h2>';
   if (S.days.length) {
-    h += '<div class="row" style="margin-top:0"><select data-sel="day" style="flex:1">' + S.days.map(d => '<option value="' + d.id + '"' + (d.id === S.selDay ? ' selected' : '') + '>' + esc(dayLabel(d)) + (d.id === S.active ? ' (aktiv)' : '') + (d.closed ? ' (abgeschlossen)' : '') + '</option>').join('') + '</select>' +
+    h += '<div class="row" style="margin-top:0"><select data-sel="day" style="flex:1">' + S.days.map(d => '<option value="' + d.id + '"' + (d.id === S.selDay ? ' selected' : '') + '>' + esc(dayLabel(d)) + (d.id === S.active && !d.closed ? ' (freigegeben)' : '') + (d.closed ? ' (abgeschlossen)' : '') + '</option>').join('') + '</select>' +
       '<button class="b" data-act="toggleNewDay">Neuer Tag</button></div>';
   }
   if ((showNewDay || !S.days.length) && !RO) {
@@ -3057,12 +3172,15 @@ function renderAdmin() {
     h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" id="ndDate" value="' + todayISO() + '"></label>' +
       '<label class="f">Ziel / Ort<input id="ndPlace" placeholder="z. B. Turnier Rottenburg"></label>' +
       (pv ? '<label class="chk full"><input type="checkbox" id="ndCarry"> Rest vom ' + esc(dayLabel(pv)) + ' als mitgenommen übernehmen</label>' : '') +
-      '<div class="full row" style="margin-top:0"><button class="b pri grow" data-act="createDay">Tag anlegen und aktivieren</button>' + (S.days.length ? '<button class="b" data-act="toggleNewDay">Abbrechen</button>' : '') + '</div></div>';
+      '<div class="full row" style="margin-top:0"><button class="b pri grow" data-act="createDay">Tag anlegen und freigeben</button>' + (S.days.length ? '<button class="b" data-act="toggleNewDay">Abbrechen</button>' : '') + '</div></div>';
   }
   if (day) {
     h += '<div class="grid2" style="margin-top:10px"><label class="f">Datum<input type="date" data-day="date" value="' + esc(day.date) + '"></label><label class="f">Ziel / Ort<input data-day="place" value="' + esc(day.place) + '"></label></div>' +
-      '<div class="row">' + (day.id === S.active ? '<span class="tag act" style="align-self:center">Wird gerade gescannt</span>' : '<button class="b pri" data-act="activate">Für Scannen aktivieren</button>') +
-      (day.closed ? '<button class="b" data-act="reopen">Wieder öffnen</button>' : '<button class="b" data-act="close">Tag abschließen</button>') + '</div>';
+      '<div class="row">' + (day.id === S.active && !day.closed
+        ? '<span class="tag act" style="align-self:center">Zum Scannen freigegeben</span><button class="b" data-act="deactivate">Scannen beenden</button>'
+        : '<button class="b pri" data-act="activate">' + (day.closed ? 'Wieder öffnen und zum Scannen freigeben' : 'Zum Scannen freigeben') + '</button>') +
+      (day.closed ? (day.id === S.active ? '' : '<button class="b" data-act="reopen">Wieder öffnen</button>') : '<button class="b" data-act="close">Tag abschließen</button>') + '</div>' +
+      '<div style="font-size:.8rem;color:var(--mu);margin-top:6px">' + (day.id === S.active && !day.closed ? 'Mitglieder buchen beim Scannen auf diesen Tag.' : S.active && S.active !== day.id ? 'Freigegeben ist gerade ein anderer Tag. Beim Freigeben wird dieser beendet.' : 'Gerade ist kein Tag zum Scannen freigegeben – Mitglieder können nicht buchen.') + '</div>';
   }
   h += '</section>';
 
@@ -3139,7 +3257,7 @@ function renderAdmin() {
   if (S.days.length > 1 && !RO) {
     h += '<section class="daylist"><h2>Alle Tage</h2>' + S.days.map(d => {
       const o = overview && overview[d.id];
-      return '<div class="rw"><span>' + fmtDate(d.date) + '</span><span>' + esc(d.place || '–') + '</span><small>' + (o == null ? '' : o + ' gebucht') + '</small>' + (d.id === S.active ? '<span class="tag act">aktiv</span>' : d.closed ? '<span class="tag cls">fertig</span>' : '') + '<button class="b sm" data-act="pickDay" data-id="' + d.id + '">Öffnen</button></div>';
+      return '<div class="rw"><span>' + fmtDate(d.date) + '</span><span>' + esc(d.place || '–') + '</span><small>' + (o == null ? '' : o + ' gebucht') + '</small>' + (d.id === S.active && !d.closed ? '<span class="tag act">freigegeben</span>' : d.closed ? '<span class="tag cls">fertig</span>' : '') + '<button class="b sm" data-act="pickDay" data-id="' + d.id + '">Öffnen</button></div>';
     }).join('') + (overview ? '' : '<div class="row"><button class="b sm" data-act="overview">Anzahl Buchungen laden</button></div>') + '</section>';
   }
 
@@ -3175,7 +3293,7 @@ function renderAdmin() {
       (S.isSuper ? '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Entfernen sperrt das Konto in der App. Das Login selbst (E-Mail und Passwort) löschst du in der <a href="' + consoleUrl + '" target="_blank" rel="noopener">Firebase-Konsole → Authentication → Nutzer</a> über das Menü „⋮“ der Person.</div>' : '') +
       '</section>';
   }
-  if (S.isSuper) h += settingsSection() + groupsEditor() + rulesEditor() + historySection();
+  if (S.isSuper) h += settingsSection() + groupsEditor() + titlesEditor() + rulesEditor() + historySection();
   else if (S.isAdmin && partyAllowed()) h += '<section><h2>Partymodus</h2>' + partyAdmin() + '</section>';
   if (S.days.length) {
     const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
@@ -4053,7 +4171,7 @@ let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || 
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
 function admSet(k, v) { admState[k] = v; try { localStorage.setItem(ADM_KEY, JSON.stringify(admState)); } catch (e) {} }
-const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang', 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
+const ADM_SHORT = { 'Zu viel gescannt': 'Zu viel', 'Posteingang': 'Posteingang', 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Fasnets-Titel (Rückblick)': 'Titel', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
 function adminNav(el, navX) {
   const secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
   if (secs.length < 3) return;
@@ -4414,11 +4532,21 @@ adminBody.addEventListener('click', async e => {
     logEv('tag', 'legt Tag an: ' + fmtDate(date) + (place ? ' – ' + place : '') + (carry && pv ? ' (Rest vom Vortag übernommen)' : ''), nid);
   }
   else if (a === 'pickDay') { S.selDay = id; listenDayScans(); renderAdmin(); window.scrollTo(0, 0); }
-  else if (a === 'activate' && day) { fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag aktivieren'); toast('Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'aktiviert ' + dayLabel(day) + ' zum Scannen', day.id); }
+  else if (a === 'activate' && day) {
+    if (day.closed) { if (!await ask('„' + dayLabel(day) + '“ ist abgeschlossen. Wieder öffnen und zum Scannen freigeben?', { ok: 'Freigeben' })) return; fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); }
+    fire(F.setDoc(dref('meta', 'state'), { active: day.id }, { merge: true }), 'Tag freigeben'); toast('Freigegeben – Scannen bucht jetzt auf diesen Tag'); logEv('tag', 'gibt ' + dayLabel(day) + ' zum Scannen frei', day.id);
+  }
+  else if (a === 'deactivate' && day) {
+    if (!await ask('Scannen für „' + dayLabel(day) + '“ beenden? Danach kann niemand mehr buchen, bis wieder ein Tag freigegeben ist.', { ok: 'Scannen beenden' })) return;
+    fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden'); toast('Scannen beendet'); logEv('tag', 'beendet das Scannen für ' + dayLabel(day), day.id);
+  }
   else if (a === 'close' && day) {
-    const open = dayRows(day, S.dayScans).filter(r => r.c == null).length;
-    if (open && !await ask(open + ' Getränken fehlt noch „Übrig“. Trotzdem abschließen?')) return;
-    fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen'); toast('Tag abgeschlossen'); logEv('tag', 'schließt ' + dayLabel(day) + ' ab', day.id);
+    const open = dayRows(day, S.dayScans).filter(r => r.c == null).length, act = day.id === S.active;
+    if (open && !await ask(open + ' Getränken fehlt noch „Übrig“. Trotzdem abschließen?' + (act ? ' Das Scannen wird damit beendet.' : ''))) return;
+    if (!open && act && !await ask('Tag abschließen? Das Scannen wird damit beendet.', { ok: 'Abschließen' })) return;
+    fire(F.updateDoc(dref('days', day.id), { closed: true }), 'Tag abschließen');
+    if (act) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden');
+    toast('Tag abgeschlossen' + (act ? ', Scannen beendet' : '')); logEv('tag', 'schließt ' + dayLabel(day) + ' ab', day.id);
   }
   else if (a === 'reopen' && day) { fire(F.updateDoc(dref('days', day.id), { closed: false }), 'Tag öffnen'); logEv('tag', 'öffnet ' + dayLabel(day) + ' wieder', day.id); }
   else if (a === 'sheetLoad' && day) openSheet({ mode: 'load', dayId: day.id });
