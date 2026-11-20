@@ -538,6 +538,7 @@ body.noauth main{display:none!important}
       <div class="full"><button class="b pri" id="nameBtn">Namen festlegen</button></div></div>
     </section>
     <section style="border-top:0;padding-top:0" id="scanSec" hidden>
+      <div id="camBox">
       <div class="vp">
         <div class="cam" id="camMain"></div>
         <div class="frame" id="frameMain" hidden></div>
@@ -546,6 +547,7 @@ body.noauth main{display:none!important}
       <div class="row">
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
+      </div>
       </div>
       <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
       <div class="note" id="youthNote" hidden style="margin-top:10px"><b>Jugendschutz:</b> Bier, Radler, Wein/Sekt und Schnaps sind für dich gesperrt.</div>
@@ -668,7 +670,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '40';
+const APP_VERSION = '41';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2595,7 +2597,8 @@ function renderScan() {
   const info = $('dayInfo');
   $('histSec').hidden = true; $('extraSec').hidden = true;
   const show = !!S.activeDay;
-  $('scanSec').hidden = !show; $('listSec').hidden = !show;
+  // Konto-Zeile (Profilbild, Passwort ändern, Abmelden …) immer zeigen; Kamera und Liste nur mit aktivem Tag
+  $('scanSec').hidden = false; $('camBox').hidden = !show; $('listSec').hidden = !show;
   if (!configured) {
     info.innerHTML = '<div class="setup"><b>Noch nicht eingerichtet</b><span>In <code>index.html</code> fehlen die Firebase-Zugangsdaten (<code>firebaseConfig</code>). Die Schritte stehen in der <code>README.md</code>.</span></div>';
     return;
@@ -2628,7 +2631,7 @@ function renderScan() {
   $('drvNote').hidden = !S.driver;
   { const pb = $('partyBtn'), po = partyOn(); pb.hidden = !(S.isAdmin && partyAllowed()); pb.textContent = po ? '🪩 Party beenden' : '🪩 Party starten'; pb.classList.toggle('on', po); }
   { const b = $('eggPrefBtn'), on = !eggsOff(); b.hidden = !canSee('eggs'); b.textContent = 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
-  $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor();
+  $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor() || !show;
   if (!show) {
     if (cam.box === boxMain) camStop();
     info.innerHTML = '<div class="note"><b>Kein Tag aktiv.</b> Der Admin muss einen Tag anlegen und für das Scannen aktivieren.</div>';
