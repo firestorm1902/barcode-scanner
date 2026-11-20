@@ -176,7 +176,7 @@ Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Of
 
 ## Admin-Bereich öffnen
 
-Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den Titel** oben tippen (innerhalb von zwei Sekunden), dann öffnet sich der Admin-Bereich. Zurück geht es über „Zurück zum Scannen“ oben rechts. Oben steht eine **Navigation** mit allen Bereichen (antippen springt hin). Jeder Bereich lässt sich über seine Überschrift **ein- und ausklappen**, „Alle auf“ / „Alle zu“ schaltet alle; das Handy merkt sich die Auswahl. Das ist nur ein Sichtschutz – die eigentlichen Rechte prüfen die Firebase-Regeln. Wer kein Admin ist, sieht dort nur „Keine Admin-Rechte“.
+Es gibt keinen sichtbaren Admin-Knopf. **Fünfmal schnell hintereinander auf den Titel** oben tippen (innerhalb von zwei Sekunden), dann öffnet sich der Admin-Bereich. Zurück geht es über „Zurück zum Scannen“ oben rechts. Oben steht eine **Navigation** mit allen Bereichen (antippen springt hin). Jeder Bereich lässt sich über seine Überschrift **ein- und ausklappen**, „Alle auf“ / „Alle zu“ schaltet alle; das Handy merkt sich die Auswahl. Das ist nur ein Sichtschutz – die eigentlichen Rechte prüfen die Firebase-Regeln. Wer kein Admin und nicht Vorstand ist, bleibt einfach in der normalen Ansicht – oder wird auf die Seite weitergeleitet, die der Super-Admin unter Einstellungen → Kontakt bei „Weiterleitung“ einträgt (z. B. https://wexhainer.de/). Die Einrichtungs-Ansicht mit der eigenen Nutzer-ID (für `superUids` in `firestore.rules`) erreicht man nur noch über die Adresse mit **`?setup=1`** am Ende, z. B. `…/index.html?setup=1`, dann 5× auf den Titel tippen.
 
 ## Excel-Auswertung (Admins)
 
@@ -311,13 +311,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 26**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 26 auf 27):
-- in `index.html`: `const APP_VERSION = '26';`
-- in `sw.js`: `const VERSION = 'strichliste-v26';`
+Aktuell ist **Version 27**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 27 auf 28):
+- in `index.html`: `const APP_VERSION = '27';`
+- in `sw.js`: `const VERSION = 'strichliste-v27';`
 
-Version 26 bringt neue Regeln (Korrekturanträge): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Seit Version 26 gelten neue Regeln (Korrekturanträge). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 26“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 27“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

@@ -565,7 +565,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '26';
+const APP_VERSION = '27';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2580,8 +2580,20 @@ function setView(v) {
 let titleTaps = 0, titleTimer = null;
 $('title').addEventListener('click', () => {
   titleTaps++; clearTimeout(titleTimer); titleTimer = setTimeout(() => { titleTaps = 0; }, 2000);
-  if (titleTaps >= 5) { titleTaps = 0; if (S.user && $('v-admin').hidden) { setMsg(''); setView('admin'); } }
+  if (titleTaps >= 5) {
+    titleTaps = 0; if (!S.user || !$('v-admin').hidden) return;
+    if (S.adminChecked && !S.isAdmin && !S.isBoard && !SETUP_MODE) { noAdminGo(); return; }
+    setMsg(''); setView('admin');
+  }
 });
+// Mitglieder ohne Admin-Rechte: still bleiben oder auf die vom Super-Admin festgelegte Seite weiterleiten.
+// Die Einrichtungs-Ansicht (Nutzer-ID) gibt es nur noch mit ?setup=1 in der Adresse.
+const SETUP_MODE = /[?&]setup=1/.test(location.search);
+function noAdminGo() {
+  setView('scan');
+  const url = String((S.contact || {}).noAdmin || '').trim();
+  if (/^https?:\/\//i.test(url)) location.href = url;
+}
 $('backBtn').addEventListener('click', () => setView('scan'));
 // Nachtmodus umschalten: Auto → Hell → Dunkel
 const THEME_LABEL = { auto: 'Auto', light: 'Hell', dark: 'Nacht' };
@@ -2625,6 +2637,7 @@ function renderAdmin() {
   if (!configured) { el.innerHTML = '<div class="setup"><b>Firebase ist noch nicht eingerichtet.</b><span>Trage die Zugangsdaten in <code>index.html</code> ein (siehe <code>README.md</code>).</span></div>'; return; }
   if (!S.user) { el.innerHTML = ''; return; }
   if (!S.adminChecked) { el.innerHTML = '<div class="empty">Prüfe Rechte …</div>'; return; }
+  if (S.adminChecked && !S.isAdmin && !S.isBoard && !SETUP_MODE) { noAdminGo(); return; }
   if (S.adminChecked && !S.isAdmin && !S.isBoard) {
     el.innerHTML = '<section><h2>Keine Admin-Rechte</h2><p style="font-size:.9rem;margin-bottom:10px">Du bist als <b>' + esc(S.user.email) + '</b> angemeldet. Der Admin-Bereich ist nur für Admins und den Vorstand. Rechte vergibt ' + contactName() + '.</p>' + contactHTML() +
       '<details class="setup"><summary style="cursor:pointer">Für die Einrichtung: Nutzer-ID</summary><span style="font-size:.86rem">Admins ernennt der Super-Admin unter „Personen“. Soll dieses Konto Super-Admin sein, diese ID in <code>firestore.rules</code> bei <code>superUids</code> eintragen und die Regeln veröffentlichen.</span><div class="uid">' + esc(S.user.uid) + '</div></details></section>';
@@ -2981,6 +2994,7 @@ function settingsSection() {
     '<div class="grid2"><label class="f full">Name<input id="ctName" value="' + esc(c.name || S.me || '') + '"></label>' +
     '<label class="f">WhatsApp (Nummer oder Link)<input id="ctWa" value="' + esc(c.wa || '') + '" placeholder="0171 1234567 oder https://wa.me/…" inputmode="tel"></label>' +
     '<label class="f">Telefon<input id="ctTel" value="' + esc(c.tel || '') + '" placeholder="0171 1234567" inputmode="tel"></label>' +
+    '<label class="f full">Weiterleitung, wenn Mitglieder 5× auf den Titel tippen (leer = nichts passiert)<input id="ctNoAdmin" value="' + esc(c.noAdmin || '') + '" placeholder="https://wexhainer.de/" inputmode="url" autocapitalize="off"></label>' +
     '<div class="full"><button class="b pri sm" data-set="contactSave">Kontakt speichern</button></div></div>';
   const pv = privCfg();
   h += '<h3 class="sub3">Datenschutzhinweis</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Steht bei der Registrierung und unten auf jeder Seite. Bitte vom Vorstand bzw. Datenschutz-Verantwortlichen prüfen lassen. <button class="linkbtn" data-set="privacyShow">Vorschau</button></div>' +
@@ -3007,7 +3021,9 @@ function settingsSection() {
 $('adminBody').addEventListener('click', e => {
   const b = e.target.closest('[data-set]'); if (!b || !S.isSuper) return;
   if (b.dataset.set === 'contactSave') {
-    const c = { name: $('ctName').value.trim().slice(0, 40), wa: $('ctWa').value.trim().slice(0, 120), tel: $('ctTel').value.trim().slice(0, 30), t: Date.now() };
+    const na = $('ctNoAdmin').value.trim().slice(0, 300);
+    if (na && !/^https?:\/\/[^\s]+\.[^\s]+/i.test(na)) { toast('Weiterleitung: bitte einen Link mit https:// eintragen'); return; }
+    const c = { name: $('ctName').value.trim().slice(0, 40), wa: $('ctWa').value.trim().slice(0, 120), tel: $('ctTel').value.trim().slice(0, 30), noAdmin: na, t: Date.now() };
     S.contact = c; fire(F.setDoc(dref('config', 'contact'), c), 'Kontakt speichern'); logEv('system', 'ändert den Kontakt: ' + c.name); toast('Kontakt gespeichert'); renderAll();
   }
   if (b.dataset.set === 'privacySave') {
