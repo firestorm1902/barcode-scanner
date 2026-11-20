@@ -195,6 +195,23 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+/* Partymodus */
+.partyfx{position:fixed;inset:0;z-index:79;pointer-events:none;overflow:hidden}
+.partyfx[hidden]{display:none}
+.partyfx i{position:absolute;inset:-60%;background:conic-gradient(from 0deg,#ff2d55,#ff9500,#f5c000,#34c759,#00c7ff,#5856d6,#ff2dc8,#ff2d55);opacity:.22;animation:partySpin 7s linear infinite,partyPulse 1.4s ease-in-out infinite alternate;filter:blur(30px)}
+.partyfx b{position:absolute;inset:0;background:radial-gradient(circle at 20% 30%,rgba(255,255,255,.35),transparent 18%),radial-gradient(circle at 80% 60%,rgba(255,255,255,.28),transparent 16%),radial-gradient(circle at 45% 85%,rgba(255,255,255,.25),transparent 14%);animation:partySpots 3.2s ease-in-out infinite alternate;mix-blend-mode:overlay}
+html.party .top{animation:partyHue 4s linear infinite}
+html.party .b.pri,html.party .tag.act{animation:partyHue 3s linear infinite}
+html.party .egg-in{animation:partyHue 5s linear infinite}
+@keyframes partySpin{to{transform:rotate(360deg)}}
+@keyframes partyPulse{from{opacity:.12}to{opacity:.32}}
+@keyframes partySpots{0%{transform:translate(0,0)}50%{transform:translate(8%,-6%)}100%{transform:translate(-6%,8%)}}
+@keyframes partyHue{to{filter:hue-rotate(360deg)}}
+.partychip{position:fixed;left:14px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:86;border:2px solid #141414;border-radius:999px;padding:9px 14px;font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;color:#141414;background:linear-gradient(90deg,#ff2d55,#ff9500,#f5c000,#34c759,#00c7ff,#5856d6,#ff2dc8);background-size:300% 100%;animation:chipFlow 4s linear infinite;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.partychip[hidden]{display:none}
+@keyframes chipFlow{to{background-position:300% 0}}
+body.sheet-open .partychip{visibility:hidden}
+@media (prefers-reduced-motion:reduce){.partyfx i,.partyfx b,html.party .top,html.party .b.pri,html.party .tag.act,html.party .egg-in,.partychip{animation:none}}
 .dlg{position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.72);display:flex;align-items:center;justify-content:center;padding:16px}
 .dlg[hidden]{display:none}
 .dlg-in{width:100%;max-width:420px;background:var(--white);color:var(--ink);border:2px solid var(--ink);border-radius:18px;padding:20px 18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.5);animation:dlgIn .18s ease-out;border-top:6px solid var(--wy)}
@@ -203,6 +220,9 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .dlg-in small{display:block;color:var(--mu);margin-bottom:8px}
 .dlg-in input{width:100%;margin:4px 0 6px}
 .dlg-btns{display:flex;gap:10px;margin-top:12px}
+.dlg-warn{display:flex;flex-direction:column;gap:3px;margin:4px 0 10px;padding:10px 12px;border-radius:10px;background:#fff1ee;border:2px solid var(--pen);color:#5a1a12;font-size:.9rem;line-height:1.4}
+.dlg-warn b{color:var(--pen)}
+[data-theme=dark] .dlg-warn{background:#3a1d1b;color:#ffd9d3}
 .dlg-btns .b{flex:1;padding:12px 10px;font-size:1rem}
 .b.dng.solid{background:var(--pen);color:#fff;border-color:var(--pen)}
 @keyframes dlgIn{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
@@ -625,6 +645,8 @@ body.noauth main{display:none!important}
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-in"><button class="modal-x" id="modalX" aria-label="Schließen">×</button><div id="modalBody"></div></div></div>
 <div class="updbar" id="updBar" hidden role="status"><span><b>Neue Version da.</b> Kurz neu laden, um sie zu nutzen.</span><button class="b sm pri" id="updGo">Neu laden</button></div>
 <div class="dlg" id="dlg" hidden role="alertdialog" aria-modal="true"><div class="dlg-in"><div id="dlgBody"></div><div class="dlg-btns"><button class="b" id="dlgNo">Abbrechen</button><button class="b pri" id="dlgOk">OK</button></div></div></div>
+<div class="partyfx" id="partyFx" hidden aria-hidden="true"><i></i><b></b></div>
+<button class="partychip" id="partyChip" hidden>🪩 Party</button>
 <footer id="ver" style="max-width:640px;margin:28px auto 0;text-align:center;font-size:.75rem;color:var(--mu)"></footer>
 
 <script type="module">
@@ -644,7 +666,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '36';
+const APP_VERSION = '39';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -803,7 +825,7 @@ function startUserListeners() {
     if (lastRoleKey !== null && key !== lastRoleKey && S.user === u) refreshRole(u);
     lastRoleKey = key;
     autoApproveSelf();
-    renderScan(); renderDs();
+    renderScan(); renderDs(); if (S.party) renderParty();
   }, fail('me'));
   unsub.products = F.onSnapshot(col('products'), snap => {
     S.products = snap.docs.map(d => Object.assign({ id: d.id, codes: [], packs: [], price: 0 }, d.data())).sort((a, b) => a.name.localeCompare(b.name, 'de'));
@@ -825,6 +847,7 @@ function startUserListeners() {
   listenMyReqs(); listenMyMsgs();
   unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
   unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
+  stop('cfgParty'); unsub.cfgParty = F.onSnapshot(dref('config', 'party'), snap => { S.party = snap.exists() ? snap.data() : null; renderParty(); if (S.isAdmin) renderAdmin(); }, err => console.warn('party', err));
   stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   unsub.cfgBest = F.onSnapshot(dref('config', 'best'), snap => { S.best = snap.exists() ? snap.data() : null; if (extraTab === 'best') renderExtra(); }, err => console.warn('best', err));
@@ -932,7 +955,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -2980,6 +3003,7 @@ function renderAdmin() {
       '</section>';
   }
   if (S.isSuper) h += settingsSection() + groupsEditor() + rulesEditor() + historySection();
+  else if (S.isAdmin) h += '<section><h2>Partymodus</h2>' + partyAdmin() + '</section>';
   if (S.days.length) {
     const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
     if (!xlFrom) xlFrom = first; if (!xlTo) xlTo = lastD > todayISO() ? lastD : todayISO();
@@ -3199,6 +3223,7 @@ function settingsSection() {
     '<label class="f full">Wie lange werden Daten aufbewahrt?<textarea id="pvKeep" rows="3" class="ta">' + esc(pv.keep) + '</textarea></label>' +
     '<label class="f full">Zusätzlicher Text (optional)<textarea id="pvExtra" rows="2" class="ta">' + esc(pv.extra) + '</textarea></label>' +
     '<div class="full"><button class="b pri sm" data-set="privacySave">Datenschutz speichern</button></div></div>';
+  h += partyAdmin();
   h += '<h3 class="sub3">Wer sieht was?</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Standard: ausgeblendet. Gezählt wird trotzdem – beim Einschalten sind die Daten da. „Mein Konto“ sehen immer alle.</div>' +
     FEATURES.map(([f, label]) => {
       const fc = (S.features || {})[f] || {}, m = fc.mode || 'none', uids = fc.uids || [];
@@ -3216,7 +3241,7 @@ function settingsSection() {
   return h + '</section>';
 }
 $('adminBody').addEventListener('click', e => {
-  const b = e.target.closest('[data-set]'); if (!b || !S.isSuper) return;
+  const b = e.target.closest('[data-set]'); if (!b || !S.isSuper || /^party/.test(b.dataset.set)) return;
   if (b.dataset.set === 'contactSave') {
     const na = $('ctNoAdmin').value.trim().slice(0, 300);
     if (na && !/^https?:\/\/[^\s]+\.[^\s]+/i.test(na)) { toast('Weiterleitung: bitte einen Link mit https:// eintragen'); return; }
@@ -3228,6 +3253,7 @@ $('adminBody').addEventListener('click', e => {
     S.privacy = pv; fire(F.setDoc(dref('config', 'privacy'), pv), 'Datenschutz speichern'); logEv('system', 'ändert den Datenschutzhinweis'); toast('Datenschutzhinweis gespeichert');
   }
   if (b.dataset.set === 'privacyShow') openModal(privacyHTML());
+
   if (b.dataset.set === 'regSeen') { try { localStorage.setItem('strichliste_regseen', String(Date.now())); } catch (e) {} renderAdmin(); }
 });
 $('adminBody').addEventListener('change', e => {
@@ -3542,7 +3568,7 @@ function dlgShow(o) {
     dlgResolve = res;
     const msg = String(o.msg || ''), danger = o.danger != null ? o.danger : /löschen\?|entfernen\?|sperren\?|ablehnen\?|zurückziehen\?|ALLE/.test(msg);
     const okL = o.ok || (/löschen\?/.test(msg) ? 'Löschen' : /entfernen\?/.test(msg) ? 'Entfernen' : /sperren\?/.test(msg) ? 'Sperren' : /ablehnen\?/.test(msg) ? 'Ablehnen' : /zurückziehen\?/.test(msg) ? 'Zurückziehen' : 'OK');
-    $('dlgBody').innerHTML = (o.title ? '<h3>' + esc(o.title) + '</h3>' : '') + '<p>' + esc(msg) + '</p>' + (o.note ? '<small>' + esc(o.note) + '</small>' : '') +
+    $('dlgBody').innerHTML = (o.title ? '<h3>' + esc(o.title) + '</h3>' : '') + '<p>' + esc(msg) + '</p>' + (o.warn ? '<div class="dlg-warn" role="note"><b>⚠️ ' + esc(o.warn.t) + '</b><span>' + esc(o.warn.s) + '</span></div>' : '') + (o.note ? '<small>' + esc(o.note) + '</small>' : '') +
       (o.input ? '<input id="dlgIn" maxlength="200" enterkeyhint="done" value="' + esc(o.def || '') + '" placeholder="' + esc(o.ph || '') + '">' : '');
     $('dlgOk').textContent = okL; $('dlgOk').className = 'b ' + (danger ? 'dng solid' : 'pri');
     $('dlgNo').textContent = o.cancel || 'Abbrechen';
@@ -3603,6 +3629,55 @@ document.addEventListener('click', e => {
   i.value = Math.max(min, Math.min(max, (isNaN(v) ? (b.dataset.stp > 0 ? 0 : min) : v) + +b.dataset.stp));
   i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }));
 });
+
+/* ---------- Partymodus ----------
+   Der Super-Admin startet ihn (config/party). Jede Person entscheidet per Fenster, ob sie mitmacht.
+   Bewusst sanftes Farbwechseln (unter 3 Wechseln pro Sekunde) – schonender bei Lichtempfindlichkeit. */
+const PARTY_WARN = { t: 'Triggerwarnung', s: 'Der Partymodus zeigt wechselnde, bunte Farben und Bewegung über den ganzen Bildschirm. Bei Lichtempfindlichkeit, Epilepsie, Migräne oder wenn dir dabei unwohl wird, bitte nicht mitmachen.' };
+const partyOn = () => !!(S.party && S.party.on && (!S.party.until || Date.now() < S.party.until));
+const partyKey = () => 'strichliste_party_' + (S.user ? S.user.uid : '') + '_' + ((S.party && S.party.t) || 0);
+const partyChoice = () => { try { return localStorage.getItem(partyKey()); } catch (e) { return null; } };
+let partyAsking = false;
+async function renderParty() {
+  const on = partyOn(), mine = on ? partyChoice() : null, join = on && mine === '1';
+  document.documentElement.classList.toggle('party', join);
+  $('partyFx').hidden = !join;
+  $('partyChip').hidden = !on || !S.user;
+  if (on) $('partyChip').textContent = join ? '🪩 Party: dabei' : '🪩 Party: aus';
+  if (on && mine == null && S.user && S.me && !isPending() && !partyAsking && $('dlg').hidden) {
+    partyAsking = true;
+    const yes = await ask((S.party.byName || contactName()) + ' hat den Partymodus gestartet' + (S.party.until ? ' (bis ' + new Date(S.party.until).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr)' : '') + '. Willst du mitmachen?',
+      { title: '🎉 Partymodus!', ok: 'Mitmachen', cancel: 'Nein danke', danger: false, warn: PARTY_WARN, note: 'Der Bildschirm wird bunt und wechselt die Farben. Du kannst jederzeit unten links über „Party“ aussteigen oder wieder einsteigen.' });
+    try { localStorage.setItem(partyKey(), yes ? '1' : '0'); } catch (e) {}
+    partyAsking = false; if (yes) toast('Wefzg, dreh durch! 🪩'); renderParty();
+  }
+}
+$('partyChip').addEventListener('click', async () => {
+  if (!partyOn()) return;
+  const join = partyChoice() === '1';
+  const yes = await ask(join ? 'Aus dem Partymodus aussteigen?' : 'Beim Partymodus mitmachen?', { title: '🪩 Partymodus', ok: join ? 'Aussteigen' : 'Mitmachen', cancel: 'Abbrechen', danger: false, warn: join ? null : PARTY_WARN });
+  if (!yes) return;
+  try { localStorage.setItem(partyKey(), join ? '0' : '1'); } catch (e) {}
+  renderParty();
+});
+setInterval(() => { if (S.party && S.party.on) renderParty(); }, 60000);
+// Partymodus starten/beenden: Super-Admin und Getränke-Admins
+$('adminBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-set^="party"]'); if (!b || !S.isAdmin) return;
+  if (b.dataset.set === 'partyStart') {
+    const h = +$('partyDur').value, t = Date.now(), pv = { on: true, t, until: h ? t + h * 3600000 : 0, by: S.user.uid, byName: S.me || contactName() };
+    S.party = pv; fire(F.setDoc(dref('config', 'party'), pv), 'Partymodus'); logEv('system', 'startet den Partymodus' + (h ? ' für ' + h + ' h' : ''));
+    try { localStorage.setItem(partyKey(), '1'); } catch (e) {} toast('Partymodus läuft 🪩'); renderParty(); renderAdmin();
+  }
+  if (b.dataset.set === 'partyOff') {
+    S.party = Object.assign({}, S.party, { on: false }); fire(F.setDoc(dref('config', 'party'), S.party), 'Partymodus'); logEv('system', 'beendet den Partymodus'); toast('Partymodus beendet'); renderParty(); renderAdmin();
+  }});
+function partyAdmin() {
+  const on = partyOn(), until = S.party && S.party.until;
+  return '<h3 class="sub3">Partymodus 🪩</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Alle bekommen ein Fenster und entscheiden selbst, ob sie mitmachen. Der Bildschirm wird dann bunt.</div>' +
+    (on ? '<div class="note ok" style="margin-bottom:6px"><b>Läuft</b>' + (until ? ' bis ' + new Date(until).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' : ' (ohne Ende)') + '.</div><div class="row" style="margin-top:0"><button class="b dng" data-set="partyOff">Partymodus beenden</button></div>'
+      : '<div class="row" style="margin-top:0;align-items:end"><label class="f" style="flex:1">Dauer<select id="partyDur"><option value="1">1 Stunde</option><option value="3" selected>3 Stunden</option><option value="6">6 Stunden</option><option value="0">bis ich ihn beende</option></select></label><button class="b pri" data-set="partyStart">Partymodus starten</button></div>');
+}
 
 /* ---------- Als App installieren (Android, iPhone) ---------- */
 const UA = navigator.userAgent || '';
@@ -4253,7 +4328,7 @@ function renderVersion() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
 function renderAll() {
-  renderVersion(); renderDs(); renderInstall(); renderReqBox();
+  renderVersion(); renderDs(); renderInstall(); renderReqBox(); if (typeof renderParty === 'function' && S.party) renderParty();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
   document.body.classList.toggle('noauth', noauth);

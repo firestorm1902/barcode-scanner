@@ -102,6 +102,20 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 - **Easter Eggs für sich einstellen:** Wer Easter Eggs sehen darf, hat neben „Ich fahre heute“ den Knopf „Easter Eggs: an“. Dort wählt man *An*, *An, ohne Ton* (nur dieses Handy) oder *Aus* (für das Konto auf allen Handys: keine Popups, kein Verlauf, keine Sammelalbum-Meldungen; gezählt wird trotzdem).
 - **Nachtmodus:** Oben rechts zwischen *Auto*, *Hell* und *Nacht* umschalten. *Auto* wird dunkel, wenn das Handy dunkel eingestellt ist oder zwischen 19 und 7 Uhr.
 
+## Bedienung
+
+- **Abfragen** („Wirklich löschen?“, „Du fährst heute – trotzdem buchen?“ usw.) erscheinen als eigene Fenster im Stil der App statt als Browser-Fenster. Löschen/Entfernen/Sperren hat einen roten Knopf.
+- **Tippen:** Die Enter-Taste der Handy-Tastatur springt ins nächste Feld („Weiter“); im letzten Feld schickt sie ab (Anmelden, Antrag senden, Passwort speichern …) bzw. übernimmt die Eingabe. Zahlenfelder markieren beim Antippen ihren Inhalt, sodass man direkt überschreiben kann.
+- **Anzahl** (Korrekturantrag, Nachtragen, Einladen per Scan) hat **− / +** Knöpfe – meist braucht man die Tastatur gar nicht.
+- Auf Android verkleinert die Tastatur die Seite, sodass Fenster und Eingabefelder sichtbar bleiben.
+
+## Partymodus 🪩
+
+- **Super-Admin und Getränke-Admins:** Admin → Einstellungen → **Partymodus** (Getränke-Admins: eigener Bereich „Partymodus“ im Admin): Dauer wählen (1, 3, 6 Stunden oder bis zum Beenden) und **Partymodus starten**. Beenden geht dort ebenso.
+- **Alle anderen** bekommen beim Start ein Fenster „🎉 Partymodus! … Willst du mitmachen?“ mit einer roten **Triggerwarnung** (wechselnde Farben und Bewegung; bei Lichtempfindlichkeit, Epilepsie oder Migräne nicht mitmachen) und **Mitmachen** / **Nein danke**. Die Warnung erscheint auch beim späteren Einsteigen. Wer mitmacht, bekommt einen bunten, sich drehenden Farbschleier mit Lichtflecken, Titel und Knöpfe wechseln die Farbe. Die App bleibt normal bedienbar.
+- Unten links erscheint ein Knopf **„🪩 Party: dabei / aus“** zum Aus- und wieder Einsteigen.
+- Die Farbwechsel sind bewusst sanft (kein schnelles Blitzen). Wer am Handy „Bewegung reduzieren“ eingeschaltet hat, bekommt einen ruhigen Farbschleier ohne Animation.
+
 ## Mehr: Bestenliste, Album, Mein Konto, Rückblick
 
 Unter der Liste „Deine Getränke heute“ gibt es bis zu vier Reiter. Welche jemand sieht, legt der Super-Admin unter Einstellungen fest (Standard: nur „Mein Konto“).
@@ -234,6 +248,7 @@ Rollen vergibt der Super-Admin unter Admin → Personen → Rolle.
 | Tage, Getränke, Einladen, Zählen, Abgleich **ändern**, CSV, Backup speichern | | | ✓ | ✓ |
 | Buchungen stornieren und nachtragen, Namen korrigieren | | | ✓ | ✓ |
 | Neue Konten freischalten, unter 18 markieren, Gruppe zuordnen | | | ✓ | ✓ |
+| Partymodus starten und beenden | | | ✓ | ✓ |
 | Einstellungen: Kontakt, wer sieht was, Bestenliste-Regeln | | | | ✓ |
 | Easter Eggs verwalten und an/aus, Zähler neu berechnen, Gruppen anlegen | | | | ✓ |
 | Neu registrierte Mitglieder, Historie, Statistiken zurücksetzen | | | | ✓ |
@@ -332,13 +347,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 34**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 34 auf 35):
-- in `index.html`: `const APP_VERSION = '34';`
-- in `sw.js`: `const VERSION = 'strichliste-v34';`
+Aktuell ist **Version 39**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 39 auf 40):
+- in `index.html`: `const APP_VERSION = '39';`
+- in `sw.js`: `const VERSION = 'strichliste-v39';`
 
-Version 34 bringt neue Regeln (Posteingang; Anträge löschen nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 39 bringt neue Regeln (Partymodus auch für Getränke-Admins): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 34“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 39“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
