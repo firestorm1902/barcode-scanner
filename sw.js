@@ -1,6 +1,6 @@
 /* Service Worker: hält die App offline startbar.
    Firestore selbst puffert Buchungen eigenständig (IndexedDB). */
-const VERSION = 'strichliste-v53';
+const VERSION = 'strichliste-v55';
 const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 const CORE = [
   './',
@@ -70,4 +70,16 @@ self.addEventListener('fetch', event => {
       return cached || net;
     })
   );
+});
+
+// Benachrichtigung antippen: App nach vorne holen und an die passende Stelle springen
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const go = (event.notification.data && event.notification.data.go) || '';
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const c = list.find(x => x.url.startsWith(self.registration.scope));
+    if (c) { if (go) c.postMessage({ go }); return c.focus(); }
+    const map = { admin: 'admin', myreq: 'req', mymsg: 'msg' };
+    return self.clients.openWindow('./' + (map[go] ? '?go=' + map[go] : ''));
+  }));
 });

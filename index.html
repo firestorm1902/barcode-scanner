@@ -442,6 +442,7 @@ section.coll.closed>:not(h2:first-child){display:none!important}
 [data-theme=dark] .note.bad{background:#3a1d1b}
 [data-theme=dark] .setup code,[data-theme=dark] .uid{background:#2b2820}
 [data-theme=dark] .toast{background:#f1ede2;color:#141414}
+.toast{z-index:120}
 [data-theme=dark] .vp,[data-theme=dark] .ph{background:#000}
 [data-theme=dark] .tag.cls{color:var(--mu)}
 [data-theme=dark] .rank.me{background:#3a3215}
@@ -718,7 +719,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '53';
+const APP_VERSION = '55';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3656,7 +3657,7 @@ function listenMyReqs() {
   unsub.myReqs = F.onSnapshot(F.query(col('reqs'), F.where('uid', '==', S.user.uid)), snap => {
     const old = {}; (S.myReqs || []).forEach(r => { old[r.id] = r.status; });
     S.myReqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
-    if (!first) S.myReqs.forEach(r => { if (old[r.id] === 'open' && r.status !== 'open') { toast('Dein Antrag ' + reqTxt(r) + ' wurde ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt')); if (navigator.vibrate) navigator.vibrate(120); } });
+    if (!first) S.myReqs.forEach(r => { if (old[r.id] === 'open' && r.status !== 'open') { toast('Dein Antrag ' + reqTxt(r) + ' wurde ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt')); notifyBg('Antrag ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt'), reqTxt(r) + (r.reason ? ' – ' + r.reason : ''), 'myreq', 'myreq'); if (navigator.vibrate) navigator.vibrate(120); } });
     first = false; renderReqBox(); updateBadge();
   }, err => console.warn('reqs', err));
 }
@@ -3705,7 +3706,7 @@ async function updateRqForm() {
   if (!del) {
     rqAvail = null; info.hidden = true;
     sel.innerHTML = '<option value="">Wählen …</option>' + rqProds.map(p => '<option value="' + p.id + '"' + (p.id === cur ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
-    $('rqN').removeAttribute('max'); return;
+    $('rqN').max = REQ_MAX; if (parseInt($('rqN').value) > REQ_MAX) $('rqN').value = REQ_MAX; return;
   }
   info.hidden = false; info.textContent = 'Lade deine Buchungen …';
   const m = await myDayCounts(day);
@@ -3716,8 +3717,8 @@ async function updateRqForm() {
   if (!ids.length) { sel.innerHTML = '<option value="">–</option>'; info.innerHTML = Object.keys(m).length ? 'Für alles, was du an diesem Tag gebucht hast, ist schon ein Storno beantragt.' : 'An diesem Tag hast du nichts gebucht – es gibt nichts zu stornieren.'; return; }
   sel.innerHTML = '<option value="">Wählen …</option>' + ids.map(id => '<option value="' + id + '"' + (id === cur ? ' selected' : '') + '>' + esc(pname(id)) + ' (' + rqAvail[id] + '×)</option>').join('');
   const p = sel.value;
-  if (p) { $('rqN').max = rqAvail[p]; if (parseInt($('rqN').value) > rqAvail[p]) $('rqN').value = rqAvail[p]; }
-  info.innerHTML = p ? 'Du hast an diesem Tag <b>' + m[p] + '× ' + esc(pname(p)) + '</b> gebucht' + (pendingDel(day, p) ? ', ' + pendingDel(day, p) + ' Storno schon beantragt' : '') + ' – höchstens <b>' + rqAvail[p] + '</b> stornierbar.' : 'Wähle ein Getränk, das du an diesem Tag gebucht hast.';
+  if (p) { const mx = Math.min(rqAvail[p], REQ_MAX); $('rqN').max = mx; if (parseInt($('rqN').value) > mx) $('rqN').value = mx; }
+  info.innerHTML = p ? 'Du hast an diesem Tag <b>' + m[p] + '× ' + esc(pname(p)) + '</b> gebucht' + (pendingDel(day, p) ? ', ' + pendingDel(day, p) + ' Storno schon beantragt' : '') + ' – höchstens <b>' + rqAvail[p] + '</b> stornierbar.' + (rqAvail[p] > REQ_MAX ? ' Pro Antrag gehen höchstens ' + REQ_MAX + ' – für mehr einfach einen zweiten Antrag stellen.' : '') : 'Wähle ein Getränk, das du an diesem Tag gebucht hast.';
 }
 document.addEventListener('change', e => { if (e.target && (e.target.id === 'rqDay' || e.target.id === 'rqP')) updateRqForm(); });
 function reqMine() {
@@ -3740,7 +3741,7 @@ document.addEventListener('click', async e => {
   if (a === 'send') {
     const type = (document.querySelector('#rqType .on') || {}).dataset.rt || 'add', day = $('rqDay').value, p = $('rqP').value, n = parseInt($('rqN').value), note = $('rqNote').value.trim().slice(0, 200);
     if (!p) { toast('Bitte ein Getränk wählen'); return; }
-    if (!(n >= 1 && n <= REQ_MAX)) { toast('Anzahl 1 bis ' + REQ_MAX); return; }
+    if (!(n >= 1 && n <= REQ_MAX)) { toast('Pro Antrag 1 bis ' + REQ_MAX + ' – für mehr einen zweiten Antrag stellen'); $('rqN').value = Math.min(REQ_MAX, Math.max(1, n || 1)); return; }
     if (type === 'add' && isMinor() && isAlc(catOf(P(p)))) { toast('Jugendschutz: nicht möglich'); return; }
     if (type === 'del') {
       const m = await myDayCounts(day);
@@ -3753,6 +3754,7 @@ document.addEventListener('click', async e => {
     fire(F.setDoc(dref('reqs', newId('reqs')), r), 'Antrag senden');
     logEv('buchung', 'beantragt: ' + reqTxt(r) + ' am ' + dayName(day) + (note ? ' („' + note + '“)' : ''), day);
     closeModal(); toast('Antrag gesendet – ein Admin kümmert sich darum');
+    setTimeout(() => offerNotify('über deinen Antrag entschieden ist'), 1200);
   }
 });
 // Admins: offene Anträge
@@ -3762,7 +3764,11 @@ function listenAdminReqs() {
   unsub.reqsAll = F.onSnapshot(F.query(col('reqs'), F.orderBy('t', 'desc'), F.limit(80)), snap => {
     S.reqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const open = S.reqs.filter(r => r.status === 'open').map(r => r.id);
-    if (known && open.some(id => !known.includes(id))) { toast('Neuer Korrekturantrag'); if (navigator.vibrate) navigator.vibrate(120); }
+    if (known && open.some(id => !known.includes(id))) {
+      toast('Neuer Korrekturantrag'); if (navigator.vibrate) navigator.vibrate(120);
+      const nw = S.reqs.filter(r => r.status === 'open' && !known.includes(r.id));
+      notifyBg(nw.length > 1 ? nw.length + ' neue Korrekturanträge' : 'Neuer Korrekturantrag', nw.map(r => (r.name || '') + ': ' + reqTxt(r)).join('\n').slice(0, 200), 'req-new', 'admin');
+    }
     known = open; renderAdmin(); updateBadge();
   }, err => console.warn('reqsAll', err));
 }
@@ -3865,6 +3871,7 @@ document.addEventListener('click', e => {
     const m = { uid: S.user.uid, name: myName(), email: (S.user.email || '').toLowerCase(), kind, text, info: kind === 'bug' && $('msgInfo').checked ? deviceInfo() : '', t: Date.now(), read: false, status: 'open' };
     fire(F.setDoc(dref('msgs', newId('msgs')), m), 'Nachricht senden');
     closeModal(); toast(kind === 'bug' ? 'Danke für die Meldung!' : kind === 'idea' ? 'Danke für dein Feedback!' : 'Nachricht gesendet');
+    setTimeout(() => offerNotify('eine Antwort da ist'), 1200);
   }
 });
 function listenMyMsgs() {
@@ -3874,7 +3881,7 @@ function listenMyMsgs() {
   unsub.myMsgs = F.onSnapshot(F.query(col('msgs'), F.where('uid', '==', S.user.uid)), snap => {
     const old = {}; (S.myMsgs || []).forEach(m => { old[m.id] = m.replyAt || 0; });
     S.myMsgs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
-    if (!first) S.myMsgs.forEach(m => { if (m.replyAt && m.replyAt !== old[m.id]) { toast('Neue Antwort von ' + (m.replyBy || contactName()) + ' – unten „Kontakt & Feedback“'); if (navigator.vibrate) navigator.vibrate(120); } });
+    if (!first) S.myMsgs.forEach(m => { if (m.replyAt && m.replyAt !== old[m.id]) { toast('Neue Antwort von ' + (m.replyBy || contactName()) + ' – unten „Kontakt & Feedback“'); notifyBg('Antwort von ' + (m.replyBy || contactName()), String(m.reply || '').slice(0, 140), 'myreply', 'mymsg'); if (navigator.vibrate) navigator.vibrate(120); } });
     first = false; renderVersion(); updateBadge();
   }, err => console.warn('msgs', err));
 }
@@ -3887,7 +3894,11 @@ function listenInbox() {
   unsub.inbox = F.onSnapshot(F.query(col('msgs'), F.orderBy('t', 'desc'), F.limit(150)), snap => {
     S.inbox = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const ids = S.inbox.filter(m => !m.read).map(m => m.id);
-    if (known && ids.some(id => !known.includes(id))) { toast('Neue Nachricht im Posteingang'); if (navigator.vibrate) navigator.vibrate(120); }
+    if (known && ids.some(id => !known.includes(id))) {
+      toast('Neue Nachricht im Posteingang'); if (navigator.vibrate) navigator.vibrate(120);
+      const nw = S.inbox.filter(m => !m.read && !known.includes(m.id));
+      notifyBg(nw.length > 1 ? nw.length + ' neue Nachrichten' : (nw[0] && nw[0].kind === 'bug' ? 'Fehlermeldung' : nw[0] && nw[0].kind === 'idea' ? 'Feedback' : 'Neue Nachricht') + (nw[0] ? ' von ' + nw[0].name : ''), nw.map(m => String(m.text || '')).join('\n').slice(0, 200), 'msg-new', 'admin');
+    }
     known = ids; renderAdmin(); updateBadge();
   }, err => console.warn('inbox', err));
 }
@@ -4215,6 +4226,38 @@ function badgeCount() {
   return n;
 }
 let lastBadge = -1;
+/* ---------- Handy-Benachrichtigungen (wenn die App im Hintergrund läuft) ----------
+   Auf Android erscheint dadurch auch der Punkt am App-Symbol. Ohne eigenen Server gibt es keine echten
+   Push-Nachrichten: Benachrichtigt wird nur, solange die App im Hintergrund noch läuft. */
+const canNotify = () => 'Notification' in window && Notification.permission === 'granted';
+function notifyBg(title, body, tag, go) {
+  if (!document.hidden || !canNotify()) return;
+  const o = { body, tag, data: { go: go || '' }, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', renotify: true };
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.ready.then(reg => reg.showNotification(title, o)).catch(() => {});
+    else new Notification(title, o);
+  } catch (e) {}
+}
+// beim Öffnen der App die eigenen Benachrichtigungen (und damit den Punkt) entfernen
+const NOTE_TAGS = ['req-new', 'msg-new', 'myreq', 'myreply'];
+function clearNotes() {
+  try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then(reg => { if (reg) NOTE_TAGS.forEach(t => reg.getNotifications({ tag: t }).then(L => L.forEach(n => n.close()))); }); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) clearNotes(); });
+// nach dem Senden eines Antrags oder einer Nachricht einmalig fragen, ob man Bescheid bekommen möchte
+async function offerNotify(what) {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  try { if (localStorage.getItem('strichliste_notifask')) return; localStorage.setItem('strichliste_notifask', '1'); } catch (e) {}
+  if (!await ask('Soll dein Handy Bescheid geben, wenn ' + what + '? Das klappt, solange die App im Hintergrund noch geöffnet ist.', { title: '🔔 Benachrichtigung', ok: 'Ja, gern', cancel: 'Nein danke' })) return;
+  try { const r = await Notification.requestPermission(); toast(r === 'granted' ? 'Du bekommst Bescheid 🔔' : 'Nicht erlaubt – du siehst es beim nächsten Öffnen'); } catch (e) {}
+}
+// Antippen einer Benachrichtigung: der Service Worker schickt, wohin es gehen soll
+if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', e => {
+  const go = e.data && e.data.go; if (!go) return;
+  if (go === 'admin' && (S.isAdmin || S.isBoard)) setView('admin');
+  if (go === 'myreq') { const b = document.querySelector('[data-req=mine]'); if (b) b.click(); }
+  if (go === 'mymsg') { const b = document.querySelector('[data-msg=mine]'); if (b) b.click(); }
+});
 function updateBadge() {
   if (!('setAppBadge' in navigator)) return;
   const n = S.user ? badgeCount() : 0;
