@@ -14,7 +14,20 @@ Alle Handys teilen sich eine Firebase-Datenbank. Scannen funktioniert auch ohne 
 | `index.html` | die App |
 | `sw.js` | hält die App offline startbar |
 | `index_min.js` | Barcode-Erkennung (ZXing) |
+| `manifest.webmanifest` | macht die Seite als App installierbar (Name, Farben, Symbole) |
+| `icons/` | App-Symbole (Ordner mit allen Dateien hochladen) |
 | `firestore.rules` | Sicherheitsregeln – werden in Firebase eingefügt, nicht auf GitHub gebraucht |
+
+## Als App installieren (Android und iPhone)
+
+Die Strichliste ist eine installierbare Web-App (PWA): Nach dem Installieren hat sie ein Wespen-Symbol auf dem Startbildschirm, startet im Vollbild ohne Adressleiste und funktioniert offline. Ein App-Store ist nicht nötig.
+
+- **Android (Chrome):** In der App erscheint „Als App installieren“ → **Installieren**. Oder Menü **⋮** → „App installieren“. Samsung Internet: Menü ☰ → „Seite hinzufügen zu“ → „Startbildschirm“.
+- **iPhone/iPad:** In **Safari** öffnen → **Teilen** → **„Zum Home-Bildschirm“** → „Hinzufügen“. Die App zeigt dafür eine Anleitung („So geht’s“, auch in der Hilfe unter **?**).
+- Wurde der Link aus WhatsApp geöffnet, zuerst „Im Browser öffnen“ wählen – aus dem WhatsApp-Browser heraus lässt sich nicht installieren.
+- **iPhone:** Die installierte App hat einen eigenen Speicher. Man muss sich dort **einmal neu anmelden**. Am besten installieren, bevor man offline bucht.
+- **Updates:** Die installierte App prüft beim Öffnen und alle 30 Minuten auf eine neue Version. Ist eine da, erscheint unten „Neue Version da – Neu laden“.
+- Lange auf das App-Symbol drücken (Android) bietet die Verknüpfung **„Getränk buchen“**, die direkt die Kamera startet.
 
 ## Einrichtung (einmalig, ca. 15 Minuten)
 
@@ -287,13 +300,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 23**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 23 auf 24):
-- in `index.html`: `const APP_VERSION = '23';`
-- in `sw.js`: `const VERSION = 'strichliste-v23';`
+Aktuell ist **Version 24**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 24 auf 25):
+- in `index.html`: `const APP_VERSION = '24';`
+- in `sw.js`: `const VERSION = 'strichliste-v24';`
 
-Version 23 bringt neue Regeln (Easter Eggs pro Person aus/an): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 24 bringt neue Regeln (Easter Eggs pro Person aus/an): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 23“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 24“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

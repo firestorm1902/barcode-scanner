@@ -7,6 +7,13 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Wexhainis" />
 <meta name="theme-color" content="#141414" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="application-name" content="Wexhainis" />
+<meta name="format-detection" content="telephone=no" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+<link rel="icon" href="./icons/favicon-32.png" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap" rel="stylesheet" />
@@ -39,8 +46,20 @@ window.applyTheme = function () {
   const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = '#141414';
 };
 applyTheme();
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+/* Installierte App: Updates erkennen und anbieten */
+window.__isStandalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+if (window.__isStandalone) document.documentElement.classList.add('standalone');
+window.__installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); window.__installEvt = e; window.dispatchEvent(new Event('installable')); });
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    const check = () => reg.update().catch(() => {});
+    setInterval(check, 30 * 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  }).catch(() => {});
+  // neue Version aktiv → Hinweis „Neu laden“ (nicht beim allerersten Start)
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) window.dispatchEvent(new Event('appupdate')); });
 }
 </script>
 <style>
@@ -176,6 +195,18 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.install{display:flex;align-items:center;gap:12px}
+.install img{border-radius:10px;flex:0 0 auto}
+.install>span:nth-child(2){flex:1;min-width:0}
+.install small{color:var(--mu)}
+.ibtns{display:flex;flex-direction:column;align-items:center;gap:4px}
+.steps{margin:6px 0 8px;padding-left:22px}.steps li{margin:6px 0}
+.steps .ico{display:inline-flex;vertical-align:middle;border:1.5px solid currentColor;border-radius:6px;padding:1px 3px}
+.updbar{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:96;max-width:560px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between;background:#141414;color:#fff;border:2px solid var(--wy);border-radius:14px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:.9rem}
+.updbar[hidden]{display:none}
+/* installierte App: Platz für Statusleiste und Home-Balken */
+html.standalone .top{padding-top:env(safe-area-inset-top)}
+html.standalone body{padding-bottom:env(safe-area-inset-bottom);overscroll-behavior-y:none}
 .eggpref button{flex:1;padding:10px 6px}
 /* Einladen / Übrig per Scan: ganzer Bildschirm */
 .sheet{z-index:82;align-items:stretch;background:rgba(11,18,24,.7)}
@@ -436,6 +467,7 @@ body.noauth main{display:none!important}
       </div>
     </section>
     <div class="note" id="msg" hidden></div>
+    <div id="installNote" class="note install" hidden></div>
     <div id="dsNote" class="note" hidden></div>
     <div id="last" hidden></div>
     <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div></section>
@@ -504,6 +536,7 @@ body.noauth main{display:none!important}
   </div>
 </div>
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-in"><button class="modal-x" id="modalX" aria-label="Schließen">×</button><div id="modalBody"></div></div></div>
+<div class="updbar" id="updBar" hidden role="status"><span><b>Neue Version da.</b> Kurz neu laden, um sie zu nutzen.</span><button class="b sm pri" id="updGo">Neu laden</button></div>
 <footer id="ver" style="max-width:640px;margin:28px auto 0;text-align:center;font-size:.75rem;color:var(--mu)"></footer>
 
 <script type="module">
@@ -523,7 +556,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '23';
+const APP_VERSION = '24';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2069,7 +2102,8 @@ $('helpBtn').addEventListener('click', () => {
     '<h3 class="sub3">2. Getränk buchen</h3><ul><li><b>Kamera starten</b> und den Barcode der Flasche in den gelben Rahmen halten – fertig.</li><li>Kein Barcode lesbar? In der Liste „Deine Getränke heute“ beim Getränk auf <b>+1</b> tippen.</li><li>Vertippt? Die Meldung „… gebucht“ bleibt 10 Sekunden stehen – dort auf <b>Rückgängig</b> tippen.</li></ul>' +
     '<h3 class="sub3">3. Was du sonst siehst</h3><ul><li><b>Deine Getränke heute</b> mit Strichen und dem Betrag.</li><li><b>Mein Konto</b>: alle deine Getränke und Kosten der Saison, auch als Excel.</li><li><b>Ich fahre heute</b>: Die App fragt dann bei alkoholischen Getränken nach.</li><li><b>Profilbild</b>: auf den runden Kreis tippen.</li><li><b>Hell / Nacht</b> oben rechts: Farbschema umschalten.</li></ul>' +
     '<h3 class="sub3">Ohne Netz?</h3><p>Kein Problem. Buchungen werden auf dem Handy gespeichert und gesendet, sobald wieder Netz da ist („offline · 3 warten“ oben). Dabei nicht abmelden.</p>' +
-    '<h3 class="sub3">Tipps</h3><ul><li>Zum Startbildschirm hinzufügen – iPhone: Safari → Teilen → „Zum Home-Bildschirm“, Android: Chrome → Menü → „Zum Startbildschirm hinzufügen“.</li><li>Passwort vergessen? Beim Anmelden „Passwort vergessen?“ tippen.</li><li>Neues Handy? Einfach mit derselben E-Mail anmelden – alles ist wieder da.</li></ul>' +
+    '<h3 class="sub3">Als App installieren</h3><p>' + (window.__isStandalone ? 'Du nutzt die Strichliste schon als App. 👍' : 'Am bequemsten startest du die Strichliste wie eine App vom Startbildschirm. <button class="linkbtn" id="installHelp" style="font-size:inherit">So geht’s</button>') + '</p>' +
+    '<h3 class="sub3">Tipps</h3><ul><li>Passwort vergessen? Beim Anmelden „Passwort vergessen?“ tippen.</li><li>Neues Handy? Einfach mit derselben E-Mail anmelden – alles ist wieder da.</li></ul>' +
     '<p><button class="linkbtn" style="font-size:inherit" onclick="document.getElementById(\'dsLink\').click()">Datenschutzhinweis lesen</button></p>' +
     '<h3 class="sub3">Fragen?</h3><p>Wende dich an <b>' + esc(contactName(1)) + '</b>.</p>' + contactHTML());
 });
@@ -2921,6 +2955,49 @@ $('adminBody').addEventListener('change', e => {
   }
 });
 
+/* ---------- Als App installieren (Android, iPhone) ---------- */
+const UA = navigator.userAgent || '';
+const isIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isIOSSafari = isIOS && /Safari/.test(UA) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(UA);
+const isInApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|; wv\)/.test(UA);
+function installHelpHTML() {
+  if (window.__isStandalone) return '<h2>App installiert</h2><p>Du nutzt die Strichliste schon als App. 👍</p>';
+  let h = '<h2>Als App installieren</h2><p>Dann startet die Strichliste wie eine normale App vom Startbildschirm – im Vollbild, schneller und auch offline.</p>';
+  if (isInApp) h += '<div class="note">Du bist gerade in einem App-internen Browser (z. B. aus WhatsApp). Öffne den Link zuerst im richtigen Browser: Menü <b>⋮</b> bzw. <b>…</b> → „Im Browser öffnen“' + (isIOS ? ' (Safari)' : ' (Chrome)') + '.</div>';
+  if (isIOS) h += '<ol class="steps"><li>Seite in <b>Safari</b> öffnen' + (isIOSSafari ? ' ✓' : ' (oder Chrome ab iOS 16.4)') + '.</li><li>Unten (bzw. oben rechts) auf <b>Teilen</b> tippen <span class="ico">' + SHARE_ICO + '</span>.</li><li>Nach unten scrollen: <b>„Zum Home-Bildschirm“</b>.</li><li>Oben rechts <b>„Hinzufügen“</b>.</li></ol><p style="font-size:.84rem;color:var(--mu)">Danach die Strichliste nur noch über das Wespen-Symbol starten. Anmelden musst du dich in der App einmal neu.</p>';
+  else h += (window.__installEvt ? '<div class="row"><button class="b pri" id="installGo">Jetzt installieren</button></div>' : '') +
+    '<ol class="steps"><li>In <b>Chrome</b> oben rechts auf <b>⋮</b> tippen.</li><li><b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b> wählen.</li><li>Mit <b>„Installieren“</b> bestätigen.</li></ol><p style="font-size:.84rem;color:var(--mu)">Samsung Internet: Menü ☰ → „Seite hinzufügen zu“ → „Startbildschirm“.</p>';
+  return h;
+}
+const SHARE_ICO = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 11H5v10h14V11h-1" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>';
+async function doInstall() {
+  const ev = window.__installEvt;
+  if (!ev) { openModal(installHelpHTML()); return; }
+  ev.prompt();
+  try { const r = await ev.userChoice; if (r && r.outcome === 'accepted') { toast('Wird installiert …'); logEv('person', 'installiert die App'); } } catch (e) {}
+  window.__installEvt = null; renderInstall();
+}
+function renderInstall() {
+  const el = $('installNote'); if (!el) return;
+  let off = false; try { off = +localStorage.getItem('strichliste_noinstall') > Date.now(); } catch (e) {}
+  const show = !window.__isStandalone && !off && !!S.user && !!S.me && !$('v-scan').hidden && (!!window.__installEvt || isIOS);
+  el.hidden = !show; if (!show) return;
+  el.innerHTML = '<img src="./icons/icon-192.png" alt="" width="44" height="44"><span><b>Als App installieren</b><br><small>Startet vom Startbildschirm, im Vollbild und offline.</small></span>' +
+    '<span class="ibtns"><button class="b sm pri" data-inst="go">' + (window.__installEvt ? 'Installieren' : 'So geht’s') + '</button><button class="linkbtn" data-inst="later">Später</button></span>';
+}
+$('installNote').addEventListener('click', e => {
+  const b = e.target.closest('[data-inst]'); if (!b) return;
+  if (b.dataset.inst === 'go') doInstall();
+  else { try { localStorage.setItem('strichliste_noinstall', String(Date.now() + 14 * 864e5)); } catch (err) {} renderInstall(); }
+});
+$('modalBody').addEventListener('click', e => { if (e.target.id === 'installGo') { closeModal(); doInstall(); } if (e.target.id === 'installHelp') openModal(installHelpHTML()); });
+addEventListener('installable', renderInstall);
+addEventListener('appinstalled', () => { window.__installEvt = null; toast('App installiert – starte sie vom Startbildschirm'); renderInstall(); });
+addEventListener('appupdate', () => { $('updBar').hidden = false; });
+$('updGo').addEventListener('click', () => location.reload());
+// Schnellstart „Getränk buchen“ (App-Verknüpfung): Kamera direkt starten
+if (/[?&]scan=1/.test(location.search)) setTimeout(() => { if (S.me && !$('startBtn').hidden) $('startBtn').click(); }, 2500);
+
 // Bereiche im Admin: Überschrift antippen klappt ein/aus, Navigation springt hin
 const ADM_KEY = 'strichliste_adm_open';
 const ADM_DEFAULT_CLOSED = ['Einkaufsliste', 'Löschanträge', 'Getränke', 'Personen', 'Alle Tage', 'Buchungen dieses Tages', 'Nach Person', 'Excel-Auswertung', 'Daten', 'Historie', 'Easter Eggs verwalten', 'Gruppen'];
@@ -3524,7 +3601,7 @@ function renderVersion() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
 function renderAll() {
-  renderVersion(); renderDs();
+  renderVersion(); renderDs(); renderInstall();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
   document.body.classList.toggle('noauth', noauth);

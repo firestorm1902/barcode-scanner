@@ -1,11 +1,19 @@
 /* Service Worker: hält die App offline startbar.
    Firestore selbst puffert Buchungen eigenständig (IndexedDB). */
-const VERSION = 'strichliste-v23';
+const VERSION = 'strichliste-v24';
 const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 const CORE = [
   './',
   './index.html',
   './index_min.js',
+  './manifest.webmanifest',
+  './icons/icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/maskable-192.png',
+  './icons/maskable-512.png',
+  './icons/apple-touch-icon.png',
+  './icons/favicon-32.png',
   FB + 'firebase-app.js',
   FB + 'firebase-auth.js',
   FB + 'firebase-firestore.js'
@@ -42,6 +50,7 @@ self.addEventListener('fetch', event => {
       fetch(req)
         .then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); return res; })
         .catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
+        // App-Verknüpfungen wie ./?scan=1 offline ebenfalls auf die gecachte Seite
     );
     return;
   }
