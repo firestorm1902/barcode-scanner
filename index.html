@@ -195,6 +195,14 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.ecat td,.ecat th{text-align:center}.ecat td:first-child,.ecat th:first-child{text-align:left}
+.sw{position:relative;display:inline-block;width:42px;height:24px;cursor:pointer}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw span{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.2s}
+.sw span::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw input:checked+span{background:var(--pet)}
+.sw input:checked+span::after{transform:translateX(18px)}
+.sw input:disabled+span{opacity:.4}
 .rqinfo{font-size:.86rem;background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
 .drive{position:fixed;inset:0;z-index:92;display:flex;align-items:center;justify-content:center;background:rgba(20,20,20,.82);cursor:pointer}
 .drive[hidden]{display:none}
@@ -619,7 +627,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '33';
+const APP_VERSION = '35';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -800,6 +808,7 @@ function startUserListeners() {
   listenMyReqs(); listenMyMsgs();
   unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
   unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
+  stop('cfgCats'); unsub.cfgCats = F.onSnapshot(dref('config', 'eggcats'), snap => { S.eggCats = snap.exists() ? (snap.data().c || {}) : {}; renderAdmin(); if (extraTab === 'album') renderExtra(); }, err => console.warn('eggcats', err));
   stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   unsub.cfgBest = F.onSnapshot(dref('config', 'best'), snap => { S.best = snap.exists() ? snap.data() : null; if (extraTab === 'best') renderExtra(); }, err => console.warn('best', err));
   stop('cfg');
@@ -906,7 +915,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -1271,6 +1280,25 @@ const DEFAULT_RULES = [
   { id: 'd_gk11', who: 'group', kind: 'count', cat: 'schnaps', period: 'day', n: 11, anim: 'schwarm', texts: [T('Elf Kurze!', 'Narrenzahl: der 11. Schnaps heut – {name} hat ausglöst.')] },
   { id: 'd_g100', who: 'group', kind: 'every', cat: 'all', period: 'total', n: 100, anim: 'feuerwerk', texts: [T('Wieder 100 voll!', '{n} Getränke seit Beginn – ausglöst von {name}.')] }
 ];
+// Für jede Getränkesorte derselbe Satz Easter Eggs: 1., 3., 5. und 10. am Tag, 25. und 50. seit Saisonbeginn.
+// Was es schon gibt (gleiche Sorte, Art, Zeitraum und Anzahl), wird nicht doppelt angelegt.
+const CAT_EGG_SET = [['day', 1], ['day', 3], ['day', 5], ['day', 10], ['total', 25], ['total', 50]];
+const CAT_EGG_TXT = {
+  bier:    { t: ['Erschtes Bier!', 'Drei Bier!', 'Fünf Bier!', 'Zehn Bier!', '25 Bier!', '50 Bier!'], s: ['Ozapft is – Wefzg, dreh durch!', 'Jetzt wird’s gmiatlich.', 'A ganze Hand voll.', 'Autoschlüssel abgebe!', 'Seit Saisonbeginn – a halber Kasten mal zwei.', 'A halbs Hundert – Respekt, aber Obacht!'] },
+  radler:  { t: ['Erschtes Radler!', 'Drei Radler!', 'Fünf Radler!', 'Zehn Radler!', '25 Radler!', '50 Radler!'], s: ['Halbe-halbe – für die Unentschlossene.', 'Mit em Radl kommsch heut nemme hoim.', 'Fünfmal halb isch au ganz.', 'Du bisch der Radler-König vom Tag.', 'Seit Saisonbeginn – d’Zitrone lacht.', '50 Radler – Tour de Wexhai!'] },
+  alkfrei: { t: ['Erschtes Alkoholfreies!', 'Drei Alkoholfreie!', 'Fünf Alkoholfreie!', 'Zehn Alkoholfreie!', '25 Alkoholfreie!', '50 Alkoholfreie!'], s: ['Schmeckt wie Bier, fährt wie Wasser.', 'Morge bisch du der Einzige ohne Kopfweh.', 'Vernunft hat an Namen – deiner.', 'Zehn Mal ohne Reue!', 'Seit Saisonbeginn – klarer Kopf, volle Kehle.', '50 Alkoholfreie – Vorbild der Zunft!'] },
+  wein:    { t: ['Erschtes Gläsle!', 'Drei Gläsle!', 'Fünf Gläsle!', 'Zehn Gläsle!', '25 Gläsle!', '50 Gläsle!'], s: ['Prösterle – jetzt wird’s vornehm.', 'Du wirsch heut no zum Sommelier.', 'A Fläschle isch weg.', 'Weinkönigin oder Weinkönig?', 'Seit Saisonbeginn – a ganzes Fässle.', '50 Gläsle – Kellermeister ehrenhalber!'] },
+  wasser:  { t: ['Wasser marsch!', 'Drei Wasser!', 'Fünf Wasser!', 'Zehn Wasser!', '25 Wasser!', '50 Wasser!'], s: ['D’Wefzg trinkt au mol was Gscheits.', 'Gut gegossen isch halb gewonnen.', 'Du bisch jo a richtiger Wasserbüffel.', 'Obacht – du fangsch glei a zum Blubbern.', 'Seit Saisonbeginn – a ganze Badwanne.', '50 Wasser – Brunnenmeister der Zunft!'] },
+  soft:    { t: ['Zischhhh!', 'Drei Softdrinks!', 'Zuckerschock!', 'Zehn Softdrinks!', '25 Softdrinks!', '50 Softdrinks!'], s: ['Dei erschter Softdrink heut – jetzt wird’s spritzig.', 'Es prickelt gewaltig.', 'Meh Zucker im Bluat als a Fasnetsküchle.', 'Du sprudelsch über!', 'Seit Saisonbeginn – Limo-Legende.', '50 Softdrinks – die Wefzg summt vor Zucker!'] },
+  schnaps: { t: ['Kurzer!', 'Drei Kurze!', 'Fünf Kurze!', 'Zehn Kurze!', '25 Kurze!', '50 Kurze!'], s: ['Ex und hopp – d’Wefzg sticht!', 'Jetzt aber langsam, gell?', 'Trink au mol a Wasser dazwischa.', 'Zehn? Heut fährsch aber nemme.', 'Seit Saisonbeginn – Schnapsbrenner ehrenhalber.', '50 Kurze – d’Wefzg zieht den Hut.'] },
+  sonst:   { t: ['Was isch denn des?', 'Drei Exoten!', 'Fünf Exoten!', 'Zehn Exoten!', '25 Exoten!', '50 Exoten!'], s: ['Mol was anders – Abwechslung muss sei.', 'Du probiersch gern Neues.', 'Der Entdecker vom Tag.', 'Zehn Mal was Bsonders!', 'Seit Saisonbeginn – Getränke-Abenteurer.', '50 Exoten – du hesch alles probiert!'] }
+};
+const CAT_EGG_ANIM = { bier: 'regen', radler: 'regen', alkfrei: 'blasen', wein: 'sterne', wasser: 'blasen', soft: 'blasen', schnaps: 'drehdurch', sonst: 'ballons' };
+Object.keys(CAT_EGG_TXT).forEach(cat => CAT_EGG_SET.forEach(([period, n], i) => {
+  if (DEFAULT_RULES.some(r => r.who === 'me' && r.kind === 'count' && r.cat === cat && (r.period || 'day') === period && r.n === n)) return;
+  const tx = CAT_EGG_TXT[cat];
+  DEFAULT_RULES.push({ id: 'd_c_' + cat + '_' + period + n, who: 'me', kind: 'count', cat, period, n, anim: i >= 4 ? 'feuerwerk' : CAT_EGG_ANIM[cat], texts: [T(tx.t[i], tx.s[i])] });
+}));
 // Animationen
 const ANIMS = [['auto', 'automatisch (passend, wechselt)'], ['konfetti', 'Konfetti'], ['blasen', 'Sprudelblasen'], ['regen', 'Getränke-Regen'], ['feuerwerk', 'Feuerwerk'], ['schwarm', 'Wespenschwarm'], ['drehdurch', 'Dreh durch (Karte wirbelt)'], ['ballons', 'Luftballons'], ['sterne', 'Sternenregen'], ['zufall', 'Zufall']];
 const CAT_EMOJI = { bier: ['🍺', '🍻'], radler: ['🍋', '🍺'], alkfrei: ['🍺', '🚗'], wein: ['🍷', '🥂'], wasser: ['💧', '💦'], soft: ['🥤', '🧃'], schnaps: ['🥃', '🐝'], sonst: ['🎉', '🐝'], all: ['🎉', '🐝', '🥳'], na: ['💧', '🥤'] };
@@ -1291,10 +1319,15 @@ const ruleAlc = r => (COUNT_KINDS.includes(r.kind) && isAlc(r.cat)) || (r.kind =
 const DEFAULT_GROUPS = [{ id: 'wefzg', name: 'Wilde Wefzg' }, { id: 'wache', name: 'Wespenwache' }, { id: 'glauer', name: 'Gloggenglauer' }, { id: 'goischd', name: 'Hofgoischd' }, { id: 'hexe', name: 'Taubentalhexe' }];
 const groupsAll = () => S.groups || DEFAULT_GROUPS;
 const gname = id => (groupsAll().find(g => g.id === id) || {}).name || '';
-const activeRules = () => allRules().filter(r => r.on !== false);
+// Pro Getränkesorte: Easter Eggs und Sammelalbum an/aus (config/eggcats, Super-Admin)
+const ruleCats = r => [r.cat, r.cat2].filter(c => c && c !== 'all' && c !== 'na');
+const catEggsOff = r => ruleCats(r).some(c => ((S.eggCats || {})[c] || {}).eggs === false);
+const catAlbumOff = r => catEggsOff(r) || ruleCats(r).some(c => ((S.eggCats || {})[c] || {}).album === false);
+const activeRules = () => allRules().filter(r => r.on !== false && !catEggsOff(r));
+const albumRules = () => activeRules().filter(r => !catAlbumOff(r) && !(isMinor() && ruleAlc(r)));
 
 /* ---------- Getränkesorte ---------- */
-const CATS = [['bier', 'Bier'], ['radler', 'Radler / Mischbier'], ['alkfrei', 'Alkoholfrei (Bier, Sekt …)'], ['wein', 'Wein / Sekt'], ['wasser', 'Wasser'], ['soft', 'Softdrink / Schorle'], ['schnaps', 'Schnaps / Likör'], ['sonst', 'Sonstiges']];
+const CATS = [['bier', 'Bier'], ['radler', 'Radler / Mischbier'], ['alkfrei', 'Alkoholfrei (Bier, Sekt …)'], ['wein', 'Wein / Sekt'], ['wasser', 'Wasser'], ['soft', 'Softdrink'], ['schnaps', 'Schnaps / Likör'], ['sonst', 'Sonstiges']];
 // alkoholische Sorten: für Minderjährige gesperrt
 const ALC = ['bier', 'radler', 'wein', 'schnaps'], NONALC = ['wasser', 'soft', 'alkfrei'];
 const isAlc = cat => ALC.includes(cat);
@@ -1628,7 +1661,7 @@ function albumAdd(rids) {
   if (!S.user || !rids.length) return;
   // neu gesammelt? eigenes Popup (optisch anders) nach dem Easter Egg
   if (canSee('album') && eggsOn() && eggsWanted()) {
-    const minor = isMinor(), rules = activeRules().filter(r => !(minor && ruleAlc(r))), have = new Set(Object.keys(S.album || {}));
+    const rules = albumRules(), have = new Set(Object.keys(S.album || {}));
     rids.filter(Boolean).forEach(id => {
       const r = rules.find(x => x.id === id);
       if (!r || have.has(id) || !eggOnce('alb_' + S.user.uid + '_' + id)) return;
@@ -1721,10 +1754,30 @@ function eggPreview(day, scans) {
 
 /* ---------- Super-Admin: Easter Eggs verwalten ---------- */
 let erNewOpen = null;
+let erCatFilter = '';
+function eggCatsBox() {
+  const C = S.eggCats || {};
+  return '<details class="pc" data-k="eggcats" open><summary><b>Nach Getränkesorte ein-/ausschalten</b><small>' + CATS.filter(([c]) => (C[c] || {}).eggs === false || (C[c] || {}).album === false).length + ' eingeschränkt</small></summary>' +
+    '<div style="font-size:.8rem;color:var(--mu);margin:4px 0 6px">„Easter Eggs“ aus: Für diese Sorte kommt gar nichts. „Sammelalbum“ aus: Popups ja, aber nicht im Sammelalbum. Gilt auch für gemeinsame Easter Eggs dieser Sorte.</div>' +
+    '<div class="tw"><table class="ecat"><thead><tr><th>Sorte</th><th>Easter Eggs</th><th>Sammelalbum</th><th>Anzahl</th></tr></thead><tbody>' +
+    CATS.map(([c, l]) => { const x = C[c] || {}, n = allRules().filter(r => ruleCats(r).includes(c)).length;
+      return '<tr><td>' + esc(l) + '</td><td><label class="sw"><input type="checkbox" data-ecat="' + c + '|eggs"' + (x.eggs === false ? '' : ' checked') + '><span></span></label></td><td><label class="sw"><input type="checkbox" data-ecat="' + c + '|album"' + (x.album === false || x.eggs === false ? '' : ' checked') + (x.eggs === false ? ' disabled' : '') + '><span></span></label></td><td>' + n + '</td></tr>'; }).join('') +
+    '</tbody></table></div></details>';
+}
+$('adminBody').addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'erCat') { erCatFilter = t.value; renderAdmin(); return; }
+  if (!t.dataset.ecat || !S.isSuper) return;
+  const [c, f] = t.dataset.ecat.split('|'), C = JSON.parse(JSON.stringify(S.eggCats || {}));
+  C[c] = Object.assign({}, C[c], { [f]: t.checked });
+  S.eggCats = C; fire(F.setDoc(dref('config', 'eggcats'), { c: C, t: Date.now() }), 'Speichern');
+  logEv('egg', (CATS.find(x => x[0] === c) || [, c])[1] + ': ' + (f === 'eggs' ? 'Easter Eggs' : 'Sammelalbum') + ' ' + (t.checked ? 'an' : 'aus')); renderAdmin();
+});
 function rulesEditor() {
-  const rules = allRules();
+  const rulesAll = allRules(), rules = erCatFilter ? rulesAll.filter(r => erCatFilter === 'none' ? !ruleCats(r).length : ruleCats(r).includes(erCatFilter)) : rulesAll;
   const catOpts = (cur, withAll) => (withAll ? '<option value="all"' + (cur === 'all' ? ' selected' : '') + '>Alle Getränke</option>' : '') + CATS.map(c => '<option value="' + c[0] + '"' + (cur === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('');
-  let h = '<section><h2>Easter Eggs verwalten (' + rules.length + ')</h2>' +
+  let h = '<section><h2>Easter Eggs verwalten (' + rulesAll.length + ')</h2>' + eggCatsBox() +
+    '<label class="f" style="margin:8px 0">Anzeigen<select id="erCat"><option value="">alle Easter Eggs (' + rulesAll.length + ')</option>' + CATS.map(([c, l]) => '<option value="' + c + '"' + (erCatFilter === c ? ' selected' : '') + '>' + esc(l) + ' (' + rulesAll.filter(r => ruleCats(r).includes(c)).length + ')</option>').join('') + '<option value="none"' + (erCatFilter === 'none' ? ' selected' : '') + '>ohne Sorte (alle Getränke, Uhrzeit …)</option></select></label>' +
     '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Nur für Super-Admins. Änderungen gelten sofort auf allen Handys. In Texten: <code>{n}</code> = Zahl, <code>{name}</code> = Person, <code>{gruppe}</code> = Narrenfigur. Mehrere Zeilen „Titel | Text“ wechseln sich ab.</div>' +
     (S.eggRules ? '' : '<div class="note" style="margin-bottom:6px">Es gelten die Standard-Easter-Eggs. Sobald du etwas änderst, werden sie gespeichert.</div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">„Standard-Easter-Eggs zurückholen“ setzt nur die mitgelieferten zurück – deine eigenen bleiben. Neue Easter Eggs aus App-Updates erscheinen automatisch.</div>';
@@ -1733,7 +1786,7 @@ function rulesEditor() {
     const isCount = COUNT_KINDS.includes(r.kind);
     const kinds = KINDS.filter(x => (r.who !== 'group' && r.who !== 'team') || COUNT_KINDS.includes(x[0]));
     h += '<details class="pc" data-k="er' + k + '"' + (erNewOpen === k ? ' open' : '') + '><summary><span style="min-width:0"><b>' + esc((r.texts && r.texts[0] && r.texts[0].t) || 'Easter Egg') + '</b><br><small>' + esc(describeRule(r)) + '</small></span>' +
-      '<span class="tag ' + (r.on === false ? 'cls' : 'act') + '">' + (r.on === false ? 'aus' : 'an') + '</span></summary><div class="grid2">' +
+      '<span class="tag ' + (r.on === false || catEggsOff(r) ? 'cls' : 'act') + '">' + (r.on === false ? 'aus' : catEggsOff(r) ? 'Sorte aus' : catAlbumOff(r) ? 'an · ohne Album' : 'an') + '</span></summary><div class="grid2">' +
       '<label class="chk full"><input type="checkbox" ' + q('on') + (r.on === false ? '' : ' checked') + '> Aktiv</label>' +
       '<label class="f">Für<select ' + q('who') + '><option value="me"' + (r.who !== 'group' && r.who !== 'team' ? ' selected' : '') + '>jede Person für sich</option><option value="group"' + (r.who === 'group' ? ' selected' : '') + '>alle gemeinsam</option><option value="team"' + (r.who === 'team' ? ' selected' : '') + '>jede Gruppe (Narrenfigur)</option></select></label>' +
       '<label class="f">Wann<select ' + q('kind') + '>' + kinds.map(x => '<option value="' + x[0] + '"' + (r.kind === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
@@ -2179,7 +2232,7 @@ function renderBest() {
 
 function renderAlbum() {
   const minor = isMinor(), got = S.album || {};
-  const rules = activeRules().filter(r => !(minor && ruleAlc(r)));
+  const rules = albumRules();
   const n = rules.filter(r => got[r.id]).length;
   let h = '<div style="margin-bottom:10px"><b>' + n + ' von ' + rules.length + '</b> Easter Eggs gesammelt<div class="bar" style="height:8px"><i style="width:' + Math.round(n / Math.max(1, rules.length) * 100) + '%;background:var(--wy)"></i></div></div><div class="badges">';
   h += rules.map(r => {

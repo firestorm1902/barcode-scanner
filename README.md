@@ -186,7 +186,7 @@ Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Of
 
 ## Korrektur- und Nachbuchungsanträge
 
-- **Mitglieder:** unter „Deine Getränke heute“ und in „Mein Konto“ auf **Korrektur beantragen**: *Nachbuchen* oder *Stornieren*, Tag (die letzten Ausflüge), Getränk, Anzahl (bis 20) und eine Bemerkung. Unter **Meine Anträge** steht der Status; offene Anträge lassen sich zurückziehen. Wird entschieden, kommt eine Meldung.
+- **Mitglieder:** unter „Deine Getränke heute“ und in „Mein Konto“ auf **Korrektur beantragen**: *Nachbuchen* oder *Stornieren*, Tag (die letzten Ausflüge), Getränk, Anzahl (bis 20) und eine Bemerkung. Beim **Stornieren** stehen nur Getränke zur Auswahl, die man an dem Tag selbst gebucht hat, und höchstens so viele, wie gebucht wurden (abzüglich schon beantragter Stornos). Unter **Meine Anträge** steht der Status; offene Anträge lassen sich zurückziehen. Wird entschieden, kommt eine Meldung.
 - **Getränke-Admins und Super-Admin:** oben im Admin **Korrekturanträge** mit **Genehmigen** / **Ablehnen** (mit Begründung). Genehmigen bucht nach bzw. storniert die jüngsten passenden Buchungen und zieht die Zähler mit. Neue Anträge melden sich mit einem Hinweis. Erledigte stehen aufklappbar darunter, alles steht auch in der Historie.
 - **Super-Admin:** kann jeden Antrag löschen (Knopf „Löschen“ an jedem Antrag) und unter „Erledigt“ alle erledigten auf einmal. Gelöscht wird nur der Antrag – Buchungen, die durch eine Genehmigung entstanden oder storniert wurden, bleiben, wie sie sind. Das Löschen steht in der Historie.
 - Jugendschutz gilt auch hier: Minderjährige können keinen Alkohol nachbuchen lassen. Der Vorstand sieht die Anträge nicht.
@@ -279,7 +279,7 @@ Die Rechte prüfen die Firebase-Regeln, nicht nur die App.
 
 - Unter **Admin → Getränke** bei jedem Getränk **„Warnen ab Rest (Flaschen)“** eintragen, z. B. 6. Ohne Wert gibt es für dieses Getränk keine Warnung.
 - Sinkt am aktiven Tag der Soll-Rest (mitgenommen minus gebucht) auf diesen Wert, bekommen **alle Admins** unten eine rot-schwarze Hinweisleiste mit Ton und Vibration – egal, ob sie gerade scannen oder im Admin-Bereich sind. Bei „leer“ kommt ein zweiter Hinweis.
-- **Einladen** in der Leiste öffnet direkt das Nachladen per Scan. Wird nachgeladen, ist die Warnung wieder scharf.
+- **OK** schließt die Leiste. Wird später doch mehr eingetragen, ist die Warnung wieder scharf.
 - In der **Tagesübersicht** stehen „Leer“ und „Geht zu Ende“ ganz oben, im **Abgleich** sind die Zeilen markiert.
 - **Hinweis:** Die Warnung kommt nur, solange die App auf dem Admin-Handy geöffnet ist. Mit „Warnungen aufs Handy erlauben“ (Admin → Daten) erscheint sie zusätzlich als Handy-Benachrichtigung, wenn die App im Hintergrund offen ist – auf dem iPhone nur, wenn die App über „Zum Home-Bildschirm“ installiert ist. Benachrichtigungen bei ganz geschlossener App bräuchten einen eigenen Server (Firebase Blaze-Tarif).
 
@@ -301,6 +301,10 @@ Bei bestimmten Buchungen erscheint ein Vollbild mit Wespe, Animation, Ton und Vi
 - 10 Wasser, 10 Softdrinks und 11 Schnäpse der ganzen Gruppe am Tag
 - alle 100 Getränke seit Beginn
 - Schnapszahl bei allen Getränken der Gruppe: heute und seit Beginn
+
+**Für jede Getränkesorte derselbe Satz:** 1., 3., 5. und 10. am Tag sowie 25. und 50. seit Saisonbeginn – für Bier, Radler, Alkoholfrei, Wein/Sekt, Wasser, Softdrinks, Schnaps und Sonstiges. Bestehende Easter Eggs bleiben; wo es schon eins mit derselben Zahl gibt (z. B. 1. Bier), wird keins doppelt angelegt.
+
+**Nach Sorte ein-/ausschalten (Super-Admin):** Admin → Easter Eggs verwalten → „Nach Getränkesorte ein-/ausschalten“. Pro Sorte zwei Schalter: *Easter Eggs* (aus = für diese Sorte kommt gar nichts) und *Sammelalbum* (aus = Popups ja, aber nicht im Sammelalbum). Darunter lässt sich die Liste nach Sorte filtern.
 
 **Animationen:** Konfetti, Sprudelblasen, Getränke-Regen (passendes Emoji zur Sorte), Feuerwerk, Wespenschwarm, „Dreh durch“ (die Karte wirbelt herein), Luftballons und Sternenregen – jeweils mit eigener Melodie und eigenem Vibrationsmuster. Standard ist „automatisch“: Die App wählt abwechselnd eine Animation, die zum Getränk passt. Im Editor lässt sich pro Easter Egg eine feste Animation oder „Zufall“ einstellen.
 
@@ -328,13 +332,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 30**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 30 auf 31):
-- in `index.html`: `const APP_VERSION = '30';`
-- in `sw.js`: `const VERSION = 'strichliste-v30';`
+Aktuell ist **Version 34**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 34 auf 35):
+- in `index.html`: `const APP_VERSION = '34';`
+- in `sw.js`: `const VERSION = 'strichliste-v34';`
 
-Version 30 bringt neue Regeln (Posteingang; Anträge löschen nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 34 bringt neue Regeln (Posteingang; Anträge löschen nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 30“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 34“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
