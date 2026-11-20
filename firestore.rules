@@ -202,6 +202,26 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Korrektur- und Nachbuchungsanträge: Mitglieder stellen, Admins entscheiden
+    match /reqs/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isActive()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'day', 'p', 'n', 'type', 'note', 't', 'status'])
+        && request.resource.data.status == 'open'
+        && request.resource.data.type in ['add', 'del']
+        && request.resource.data.n is int && request.resource.data.n >= 1 && request.resource.data.n <= 20
+        && request.resource.data.note is string && request.resource.data.note.size() <= 200
+        && request.resource.data.p is string && request.resource.data.day is string
+        // Jugendschutz: kein Alkohol nachbuchen
+        && (request.resource.data.type == 'del' || profile().get('minor', false) != true || !productIsAlc(request.resource.data.p));
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'by', 'byName', 'at', 'reason'])
+        && request.resource.data.status in ['ok', 'no'];
+      // offene eigene Anträge zurückziehen
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'open');
+    }
+
     // Buchungen
     match /scans/{id} {
       // Mitglieder sehen nur ihre eigenen Buchungen, Admins und Vorstand alle

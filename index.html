@@ -195,6 +195,15 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.reqbox{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:12px;font-size:.88rem;color:var(--mu)}
+.reqbox>span{flex:1 1 100%}
+.rq{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rq>div{display:flex;gap:8px;align-items:flex-start;min-width:0}
+.rq small{color:var(--mu)}
+.rqb{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.rq .pos{color:var(--pet)}.rq .neg{color:var(--pen)}
+.dsok{position:sticky;bottom:-18px;margin:14px -18px -18px;padding:12px 18px calc(14px + env(safe-area-inset-bottom));background:var(--white);border-top:1.5px solid var(--line)}
+.dsok .b{width:100%}
 .install{display:flex;align-items:center;gap:12px}
 .install img{border-radius:10px;flex:0 0 auto}
 .install>span:nth-child(2){flex:1;min-width:0}
@@ -470,7 +479,7 @@ body.noauth main{display:none!important}
     <div id="installNote" class="note install" hidden></div>
     <div id="dsNote" class="note" hidden></div>
     <div id="last" hidden></div>
-    <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div></section>
+    <section id="listSec" hidden><h2 id="listHead">Deine Getränke heute</h2><div id="list"></div><div id="reqBox" class="reqbox" hidden></div></section>
     <section id="extraSec" hidden>
       <div id="wrapBanner"></div>
       <div class="mode xtabs" id="extraTabs"><button data-x="best">Bestenliste</button><button data-x="album">Sammelalbum</button><button data-x="konto">Mein Konto</button><button data-x="wrap">Rückblick</button></div>
@@ -556,7 +565,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '24';
+const APP_VERSION = '26';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -734,9 +743,10 @@ function startUserListeners() {
   }, err => console.warn('groups', err));
   unsub.album = F.onSnapshot(dref('album', u.uid), snap => { S.album = snap.exists() ? (snap.data().r || {}) : {}; if (extraTab === 'album') renderExtra(); }, err => console.warn('album', err));
   ['cfgFeat', 'cfgContact', 'cfgBest'].forEach(stop);
+  listenMyReqs();
   unsub.cfgFeat = F.onSnapshot(dref('config', 'features'), snap => { S.features = snap.exists() ? snap.data() : {}; if (extraTab && !canSee(extraTab) && extraTab !== 'konto') extraTab = ''; renderAll(); renderExtra(); renderHist(); }, err => console.warn('features', err));
   unsub.cfgContact = F.onSnapshot(dref('config', 'contact'), snap => { S.contact = snap.exists() ? snap.data() : null; renderAll(); }, err => console.warn('contact', err));
-  stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; }, err => console.warn('privacy', err));
+  stop('cfgPriv'); unsub.cfgPriv = F.onSnapshot(dref('config', 'privacy'), snap => { S.privacy = snap.exists() ? snap.data() : null; renderDs(); renderAdmin(); }, err => console.warn('privacy', err));
   unsub.cfgBest = F.onSnapshot(dref('config', 'best'), snap => { S.best = snap.exists() ? snap.data() : null; if (extraTab === 'best') renderExtra(); }, err => console.warn('best', err));
   stop('cfg');
   unsub.cfg = F.onSnapshot(dref('config', 'eggs'), snap => {
@@ -835,12 +845,13 @@ async function refreshRole(u) {
   if (S.user !== u) return;
   if ((S.isAdmin || S.isBoard) && !unsub.days) startAdminListeners();
   if (S.isAdmin) listenActiveScans();
+  if (S.isAdmin && !unsub.reqsAll) listenAdminReqs();
   autoApproveSelf();
   if (!S.isAdmin && !S.isBoard) stopAdminListeners();
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'album', 'drv'].forEach(stop);
+  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'album', 'drv', 'myReqs'].forEach(stop); S.myReqs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -853,7 +864,7 @@ function listenActiveScans() {
     S.activeScans = snap.docs.map(d => d.data()); checkLowStock();
   }, err => console.warn('activeScans', err));
 }
-function stopAdminListeners() { stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
+function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
 function listenDayScans() {
   if (S.dayScansFor === S.selDay && unsub.dayScans) return;
   stop('dayScans'); stop('dayDrv'); S.dayScans = []; S.dayDrivers = []; S.dayScansFor = S.selDay;
@@ -2147,11 +2158,13 @@ function privacyHTML() {
     h += '<h3 class="sub3">Konto löschen</h3>' + (me.delreq
       ? '<div class="note">Du hast am ' + new Date(me.delreq).toLocaleDateString('de-DE') + ' die Löschung beantragt. ' + esc(contactName()) + ' kümmert sich darum.</div>'
       : '<p>Mit dem Knopf beantragst du die Löschung deines Kontos und deiner Buchungen. Offene Beträge müssen vorher abgerechnet sein.</p><div class="row"><button class="b dng sm" id="delReqBtn">Löschung meines Kontos beantragen</button></div>') +
-      (me.dsgvo ? '<p style="font-size:.8rem;color:var(--mu);margin-top:8px">Von dir bestätigt am ' + new Date(me.dsgvo).toLocaleDateString('de-DE') + '.</p>' : '');
+      (dsConfirmed(me) ? '<p style="font-size:.8rem;color:var(--mu);margin-top:8px">Von dir bestätigt am ' + new Date(me.dsgvo).toLocaleDateString('de-DE') + '.</p>'
+        : '<div class="dsok"><button class="b pri" id="dsOkBtn">Gelesen und einverstanden</button></div>');
   }
   return h;
 }
 $('modalBody').addEventListener('click', e => {
+  if (e.target.id === 'dsOkBtn') { confirmDs(); closeModal(); return; }
   if (e.target.id === 'delReqBtn') {
     if (!S.user || !confirm('Löschung deines Kontos und deiner Buchungen beantragen?')) return;
     fire(F.updateDoc(dref('users', S.user.uid), { delreq: Date.now() }), 'Löschung beantragen');
@@ -2159,17 +2172,31 @@ $('modalBody').addEventListener('click', e => {
     S.meDoc = Object.assign({}, S.meDoc, { delreq: Date.now() }); toast('Löschung beantragt'); openModal(privacyHTML());
   }
 });
-// bestehende Konten: Datenschutzhinweis einmal bestätigen
+// Bestätigt? Gilt nur, wenn nach der aktuellen Fassung bestätigt wurde
+const privVer = () => (S.privacy && S.privacy.ver) || 0;
+const dsConfirmed = u => !!(u && u.dsgvo && u.dsgvo >= privVer());
+function confirmDs() {
+  const now = Date.now();
+  fire(F.updateDoc(dref('users', S.user.uid), { dsgvo: now }), 'Datenschutz bestätigen');
+  S.meDoc = Object.assign({}, S.meDoc, { dsgvo: now }); logEv('person', 'bestätigt den Datenschutzhinweis'); renderDs(); toast('Danke!');
+}
+let dsRemindShown = 0;
+// Datenschutzhinweis bestätigen (Hinweis; nach einer Erinnerung des Super-Admins als Fenster)
 function renderDs() {
   const el = $('dsNote'); if (!el) return;
-  const show = !!(S.user && S.meDoc && S.me && !S.meDoc.dsgvo && !S.meDoc.deleted && !$('v-scan').hidden);
+  const show = !!(S.user && S.meDoc && S.me && !dsConfirmed(S.meDoc) && !S.meDoc.deleted && !S.meDoc.pending && !$('v-scan').hidden);
   el.hidden = !show; if (!show) return;
-  el.innerHTML = '<b>Datenschutz:</b> Bitte lies kurz, was die App speichert und wer was sieht.<div class="row" style="margin-top:6px"><button class="b sm" data-ds="read">Lesen</button><button class="b sm pri" data-ds="ok">Gelesen und einverstanden</button></div>';
+  const rem = S.meDoc.dsremind || 0;
+  if (rem > (S.meDoc.dsgvo || 0) && rem !== dsRemindShown && $('modal').hidden && !eggShowing) {
+    dsRemindShown = rem;
+    openModal('<div class="note" style="margin-bottom:10px"><b>Erinnerung von ' + esc((S.contact && S.contact.name) || 'dem Vorstand') + ':</b> Bitte lies den Datenschutzhinweis und bestätige ihn unten.</div>' + privacyHTML());
+  }
+  el.innerHTML = '<b>Datenschutz:</b> ' + (S.meDoc.dsgvo ? 'Der Hinweis wurde aktualisiert. Bitte lies ihn und bestätige erneut.' : 'Bitte lies kurz, was die App speichert und wer was sieht.') + '<div class="row" style="margin-top:6px"><button class="b sm" data-ds="read">Lesen</button><button class="b sm pri" data-ds="ok">Gelesen und einverstanden</button></div>';
 }
 $('dsNote').addEventListener('click', e => {
   const b = e.target.closest('[data-ds]'); if (!b) return;
   if (b.dataset.ds === 'read') openModal(privacyHTML());
-  if (b.dataset.ds === 'ok') { fire(F.updateDoc(dref('users', S.user.uid), { dsgvo: Date.now() }), 'Datenschutz bestätigen'); S.meDoc = Object.assign({}, S.meDoc, { dsgvo: Date.now() }); renderDs(); toast('Danke!'); }
+  if (b.dataset.ds === 'ok') confirmDs();
 });
 
 function kontoData(period) {
@@ -2183,6 +2210,8 @@ function renderKonto() {
   const se = season(), K = kontoData(kontoPeriod);
   let h = '<div class="row" style="margin-top:0;margin-bottom:8px"><button class="b sm' + (kontoPeriod === 'season' ? ' pri' : '') + '" data-xa="kSeason">' + se.label + '</button><button class="b sm' + (kontoPeriod === 'all' ? ' pri' : '') + '" data-xa="kAll">Alles</button><button class="b sm" data-xa="kRefresh">Aktualisieren</button></div>';
   h += '<div class="wstats" style="margin-top:0"><div style="background:var(--white);border:1.5px solid var(--line)"><b style="color:var(--ink)">' + K.L.length + '</b><span style="color:var(--mu)">Getränke</span></div><div style="background:var(--white);border:1.5px solid var(--line)"><b style="color:var(--ink)">' + money(K.cost) + '</b><span style="color:var(--mu)">Kosten</span></div></div>';
+  const open = (S.myReqs || []).filter(r => r.status === 'open').length;
+  h += '<div class="reqbox" style="margin:0 0 10px"><span>Stimmt etwas nicht?</span><button class="b sm" data-req="new">Korrektur beantragen</button>' + ((S.myReqs || []).length ? '<button class="linkbtn" data-req="mine">Meine Anträge' + (open ? ' (' + open + ' offen)' : '') + '</button>' : '') + '</div>';
   if (!K.L.length) return h + '<div class="empty">In diesem Zeitraum keine Buchungen.</div>';
   h += '<h2 style="font-size:1.05rem">Nach Getränk</h2>' + Object.keys(K.byP).sort((a, b) => K.byP[b] - K.byP[a]).map(id => '<div class="rw"><span></span><span>' + esc(pname(id)) + '</span><small>' + K.byP[id] + '× · ' + money(K.byP[id] * K.price(id)) + '</small></div>').join('');
   h += '<h2 style="font-size:1.05rem;margin-top:14px">Nach Tag</h2>' + Object.keys(K.byDay).sort((a, b) => dayDate(K.byDay[b][0]).localeCompare(dayDate(K.byDay[a][0]))).map(id => {
@@ -2608,9 +2637,10 @@ function renderAdmin() {
     const dr = Object.keys(S.users).filter(k => S.users[k].delreq && !S.users[k].deleted);
     if (dr.length) h += '<section><h2>Löschanträge (' + dr.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Diese Personen möchten ihr Konto löschen lassen. Vorher offene Beträge abrechnen. „Entfernen“ fragt, ob die Buchungen mit gelöscht werden; das Login löschst du danach in der Firebase-Konsole.</div>' +
       dr.map(k => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(k, S.users[k].name, 30) + '</span><span>' + esc(S.users[k].name || '') + '<br><small>beantragt am ' + new Date(S.users[k].delreq).toLocaleDateString('de-DE') + '</small></span><button class="b sm dng" data-act="removeUser" data-id="' + k + '">Entfernen</button></div>').join('') + '</section>';
-    h += newRegsSection();
+    h += newRegsSection() + dsSection();
   }
   const pend = Object.keys(S.users).filter(k => S.users[k].pending === true && !S.users[k].deleted && k !== S.user.uid);
+  if (!RO) h += reqSection();
   if (pend.length && !RO) h += '<section><h2>Neue Anmeldungen (' + pend.length + ')</h2><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Erst nach dem Freischalten kann die Person buchen.</div>' +
     pend.map(k => { const u = S.users[k]; return '<div class="rw" style="align-items:center"><span style="display:flex;gap:8px;align-items:center">' + avatarHTML(k, u.name, 32) + '</span><span>' + esc(u.name) + '<br><small>' + esc(u.email || '') + (u.t ? ' · ' + new Date(u.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</small></span><button class="b sm pri" data-act="approve" data-id="' + k + '">Freischalten</button><button class="b sm dng" data-act="reject" data-id="' + k + '">Ablehnen</button></div>'; }).join('') + '</section>';
 
@@ -2853,6 +2883,55 @@ function readOnly(el) {
     x.replaceWith(sp);
   });
 }
+// Super-Admin: wer hat den Datenschutzhinweis bestätigt?
+let dsFilter = 'open';
+function dsSection() {
+  const L = Object.keys(S.users).map(uid => Object.assign({ uid }, S.users[uid])).filter(u => !u.deleted && !u.pending).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+  if (!L.length) return '';
+  const ok = L.filter(dsConfirmed), open = L.filter(u => !dsConfirmed(u)), show = dsFilter === 'open' ? open : L;
+  const d = t => new Date(t).toLocaleDateString('de-DE');
+  const st = u => dsConfirmed(u) ? '<span class="tag act">bestätigt ' + d(u.dsgvo) + '</span>' : '<span class="tag" style="color:var(--amb)">offen</span>' + (u.dsremind ? '<br><small>erinnert ' + d(u.dsremind) + '</small>' : '');
+  return '<section><h2>Datenschutz-Bestätigungen (' + ok.length + ' von ' + L.length + ')</h2>' +
+    '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Wer den Datenschutzhinweis gelesen und bestätigt hat. „Erinnern“ zeigt den Hinweis beim nächsten Öffnen der App als Fenster mit Bestätigen-Knopf.' + (privVer() ? ' Aktuelle Fassung vom ' + d(privVer()) + '.' : '') + '</div>' +
+    '<div class="bar" style="height:8px;margin-bottom:8px"><i style="width:' + Math.round(ok.length / L.length * 100) + '%;background:var(--pet)"></i></div>' +
+    '<div class="mode" style="display:inline-flex;margin-bottom:6px"><button data-dsf="open" class="' + (dsFilter === 'open' ? 'on' : '') + '">Offen (' + open.length + ')</button><button data-dsf="all" class="' + (dsFilter === 'all' ? 'on' : '') + '">Alle (' + L.length + ')</button></div>' +
+    (show.length ? show.map(u => '<div class="rw"><span style="display:flex;align-items:center">' + avatarHTML(u.uid, u.name, 30) + '</span><span>' + esc(u.name || '') + '<br><small>' + esc(u.email || '') + '</small></span><span style="text-align:right">' + st(u) + '</span>' +
+      (!dsConfirmed(u) && u.uid !== S.user.uid ? '<button class="b sm" data-dsr="' + u.uid + '">Erinnern</button>' : '<span></span>') + '</div>').join('') : '<div class="empty">Alle haben bestätigt. 👍</div>') +
+    (open.length ? '<div class="row"><button class="b sm pri" data-dsr="*">Alle Offenen in der App erinnern</button>' +
+      (open.some(u => u.email) ? '<button class="b sm" data-dsmail="1">E-Mail an alle Offenen</button>' : '') + '<button class="b sm" data-dsshare="1">Text für WhatsApp-Gruppe</button></div>' : '') +
+    '<div class="row"><button class="b sm dng" data-dsver="1">Neue Fassung: alle erneut bestätigen lassen</button></div></section>';
+}
+const dsReminderText = () => 'Hallo! Bitte öffnet kurz die Wexhainis Getränke-Strichliste, lest den Datenschutzhinweis (unten auf der Seite „Datenschutz“) und tippt auf „Gelesen und einverstanden“. Danke!\n' + location.origin + location.pathname.replace(/index\.html$/, '') + '\n– ' + contactName();
+$('adminBody').addEventListener('click', async e => {
+  if (!S.isSuper) return;
+  const f = e.target.closest('[data-dsf]'); if (f) { dsFilter = f.dataset.dsf; renderAdmin(); return; }
+  const r = e.target.closest('[data-dsr]');
+  if (r) {
+    const ids = r.dataset.dsr === '*' ? Object.keys(S.users).filter(k => { const u = S.users[k]; return !u.deleted && !u.pending && !dsConfirmed(u) && k !== S.user.uid; }) : [r.dataset.dsr];
+    if (!ids.length) return;
+    if (ids.length > 1 && !confirm(ids.length + ' Personen beim nächsten Öffnen der App erinnern?')) return;
+    const t = Date.now();
+    ids.forEach(k => fire(F.updateDoc(dref('users', k), { dsremind: t }), 'Erinnerung'));
+    logEv('person', 'erinnert an den Datenschutzhinweis: ' + ids.map(uname).join(', ').slice(0, 200));
+    toast(ids.length === 1 ? uname(ids[0]) + ' wird erinnert' : ids.length + ' Personen werden erinnert'); return;
+  }
+  if (e.target.closest('[data-dsmail]')) {
+    const mails = Object.values(S.users).filter(u => !u.deleted && !u.pending && !dsConfirmed(u) && u.email).map(u => u.email);
+    location.href = 'mailto:?bcc=' + encodeURIComponent(mails.join(',')) + '&subject=' + encodeURIComponent('Bitte Datenschutzhinweis der Getränke-Strichliste bestätigen') + '&body=' + encodeURIComponent(dsReminderText());
+    return;
+  }
+  if (e.target.closest('[data-dsshare]')) {
+    const t = dsReminderText();
+    try { if (navigator.share) { await navigator.share({ text: t }); return; } } catch (err) { if (err && err.name === 'AbortError') return; }
+    window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank', 'noopener'); return;
+  }
+  if (e.target.closest('[data-dsver]')) {
+    if (!confirm('Den Datenschutzhinweis als neue Fassung markieren? Dann müssen ALLE ihn erneut bestätigen (auch du).')) return;
+    const pv = Object.assign({}, privCfg(), { ver: Date.now(), t: Date.now() });
+    S.privacy = pv; fire(F.setDoc(dref('config', 'privacy'), pv), 'Neue Fassung'); logEv('system', 'markiert den Datenschutzhinweis als neue Fassung – alle müssen erneut bestätigen'); toast('Alle werden beim nächsten Öffnen gebeten, erneut zu bestätigen'); renderAll();
+  }
+});
+
 // Super-Admin: neu registrierte Mitglieder
 function newRegsSection() {
   let seen = 0; try { seen = +localStorage.getItem('strichliste_regseen') || 0; } catch (e) {}
@@ -2932,7 +3011,7 @@ $('adminBody').addEventListener('click', e => {
     S.contact = c; fire(F.setDoc(dref('config', 'contact'), c), 'Kontakt speichern'); logEv('system', 'ändert den Kontakt: ' + c.name); toast('Kontakt gespeichert'); renderAll();
   }
   if (b.dataset.set === 'privacySave') {
-    const pv = { org: $('pvOrg').value.trim().slice(0, 120) || PRIV_DEFAULT.org, keep: $('pvKeep').value.trim().slice(0, 800) || PRIV_DEFAULT.keep, extra: $('pvExtra').value.trim().slice(0, 1500), t: Date.now() };
+    const pv = { ver: privVer() || 0, org: $('pvOrg').value.trim().slice(0, 120) || PRIV_DEFAULT.org, keep: $('pvKeep').value.trim().slice(0, 800) || PRIV_DEFAULT.keep, extra: $('pvExtra').value.trim().slice(0, 1500), t: Date.now() };
     S.privacy = pv; fire(F.setDoc(dref('config', 'privacy'), pv), 'Datenschutz speichern'); logEv('system', 'ändert den Datenschutzhinweis'); toast('Datenschutzhinweis gespeichert');
   }
   if (b.dataset.set === 'privacyShow') openModal(privacyHTML());
@@ -2953,6 +3032,121 @@ $('adminBody').addEventListener('change', e => {
     else b[k] = k === 'title' ? t.value.trim().slice(0, 40) || BEST_DEFAULT.title : t.value;
     S.best = b; fire(F.setDoc(dref('config', 'best'), Object.assign({ t: Date.now() }, b)), 'Bestenliste speichern'); logEv('system', 'Bestenliste: ' + k + ' → ' + t.value);
   }
+});
+
+/* ---------- Korrektur- und Nachbuchungsanträge ----------
+   Mitglieder stellen Anträge (nachbuchen oder stornieren), Admins genehmigen oder lehnen ab. */
+const REQ_MAX = 20;
+let reqDays = null;
+const reqTxt = r => (r.type === 'del' ? '−' : '+') + r.n + '× ' + pname(r.p);
+const reqStatus = r => r.status === 'ok' ? '<span class="tag act">genehmigt</span>' : r.status === 'no' ? '<span class="tag" style="color:var(--pen)">abgelehnt</span>' : '<span class="tag" style="color:var(--amb)">offen</span>';
+const dayName = id => { const d = (reqDays || []).concat(S.days || []).find(x => x.id === id) || (S.activeDay && S.activeDay.id === id ? S.activeDay : null); return d ? fmtDate(d.date) + (d.place ? ' – ' + d.place : '') : 'Tag'; };
+function listenMyReqs() {
+  stop('myReqs'); S.myReqs = [];
+  if (!S.user) return;
+  let first = true;
+  unsub.myReqs = F.onSnapshot(F.query(col('reqs'), F.where('uid', '==', S.user.uid)), snap => {
+    const old = {}; (S.myReqs || []).forEach(r => { old[r.id] = r.status; });
+    S.myReqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
+    if (!first) S.myReqs.forEach(r => { if (old[r.id] === 'open' && r.status !== 'open') { toast('Dein Antrag ' + reqTxt(r) + ' wurde ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt')); if (navigator.vibrate) navigator.vibrate(120); } });
+    first = false; renderReqBox();
+  }, err => console.warn('reqs', err));
+}
+function renderReqBox() {
+  const el = $('reqBox'); if (!el) return;
+  const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.deleted));
+  el.hidden = !ok; if (!ok) return;
+  const open = (S.myReqs || []).filter(r => r.status === 'open').length, fresh = (S.myReqs || []).filter(r => r.status !== 'open' && Date.now() - (r.at || 0) < 3 * 864e5).length;
+  el.innerHTML = '<span>Etwas vergessen oder falsch gebucht?</span><button class="b sm" data-req="new">Korrektur beantragen</button>' +
+    ((S.myReqs || []).length ? '<button class="linkbtn" data-req="mine">Meine Anträge' + (open ? ' (' + open + ' offen)' : '') + (fresh ? ' · ' + fresh + ' neu entschieden' : '') + '</button>' : '');
+}
+async function reqForm() {
+  if (!reqDays) {
+    try { reqDays = (await F.getDocs(F.query(col('days'), F.orderBy('date', 'desc'), F.limit(12)))).docs.map(d => Object.assign({ id: d.id }, d.data())).filter(d => d.date <= todayISO()); }
+    catch (e) { reqDays = S.activeDay ? [S.activeDay] : []; }
+  }
+  if (!reqDays.length) { toast('Noch keine Tage vorhanden'); return; }
+  const minor = isMinor(), prods = S.products.filter(p => !(minor && isAlc(catOf(p))));
+  openModal('<h2>Korrektur beantragen</h2><p style="font-size:.88rem;color:var(--mu)">Ein Admin prüft deinen Antrag und genehmigt oder lehnt ihn ab. Du bekommst Bescheid.</p><div class="grid2">' +
+    '<div class="mode full" id="rqType" style="display:flex"><button data-rt="add" class="on" style="flex:1">Nachbuchen</button><button data-rt="del" style="flex:1">Stornieren</button></div>' +
+    '<label class="f full">Tag<select id="rqDay">' + reqDays.map(d => '<option value="' + d.id + '"' + (d.id === S.active ? ' selected' : '') + '>' + esc(fmtDate(d.date) + (d.place ? ' – ' + d.place : '')) + '</option>').join('') + '</select></label>' +
+    '<label class="f">Getränk<select id="rqP"><option value="">Wählen …</option>' + prods.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('') + '</select></label>' +
+    '<label class="f">Anzahl<input id="rqN" inputmode="numeric" value="1"></label>' +
+    '<label class="f full">Bemerkung (optional)<input id="rqNote" maxlength="200" placeholder="z. B. Handy war leer"></label>' +
+    '<div class="full"><button class="b pri" data-req="send" style="width:100%">Antrag senden</button></div></div>');
+}
+function reqMine() {
+  const L = S.myReqs || [];
+  openModal('<h2>Meine Anträge</h2>' + (L.length ? L.map(r => '<div class="rq"><div><span><b>' + esc(reqTxt(r)) + '</b> ' + reqStatus(r) + '<br><small>' + esc(dayName(r.day)) + ' · gestellt ' + new Date(r.t).toLocaleDateString('de-DE') + '</small>' +
+    (r.note ? '<br><small>„' + esc(r.note) + '“</small>' : '') + (r.status !== 'open' ? '<br><small>' + (r.status === 'ok' ? 'Genehmigt' : 'Abgelehnt') + ' von ' + esc(r.byName || 'Admin') + (r.reason ? ': „' + esc(r.reason) + '“' : '') + '</small>' : '') + '</span></div>' +
+    (r.status === 'open' ? '<button class="b sm" data-req="withdraw" data-id="' + r.id + '">Zurückziehen</button>' : '') + '</div>').join('') : '<div class="empty">Noch keine Anträge.</div>') +
+    '<div class="row"><button class="b sm" data-req="new">Neuer Antrag</button></div>');
+}
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-rt]');
+  if (t) { document.querySelectorAll('#rqType [data-rt]').forEach(b => b.classList.toggle('on', b === t)); return; }
+  const b = e.target.closest('[data-req]'); if (!b || !S.user) return;
+  const a = b.dataset.req;
+  if (a === 'new') reqForm();
+  if (a === 'mine') reqMine();
+  if (a === 'withdraw') { if (confirm('Antrag zurückziehen?')) { fire(F.deleteDoc(dref('reqs', b.dataset.id)), 'Zurückziehen'); toast('Antrag zurückgezogen'); setTimeout(reqMine, 200); } }
+  if (a === 'send') {
+    const type = (document.querySelector('#rqType .on') || {}).dataset.rt || 'add', day = $('rqDay').value, p = $('rqP').value, n = parseInt($('rqN').value), note = $('rqNote').value.trim().slice(0, 200);
+    if (!p) { toast('Bitte ein Getränk wählen'); return; }
+    if (!(n >= 1 && n <= REQ_MAX)) { toast('Anzahl 1 bis ' + REQ_MAX); return; }
+    if (isMinor() && isAlc(catOf(P(p)))) { toast('Jugendschutz: nicht möglich'); return; }
+    const r = { uid: S.user.uid, name: S.me, day, p, n, type, note, t: Date.now(), status: 'open' };
+    fire(F.setDoc(dref('reqs', newId('reqs')), r), 'Antrag senden');
+    logEv('buchung', 'beantragt: ' + reqTxt(r) + ' am ' + dayName(day) + (note ? ' („' + note + '“)' : ''), day);
+    closeModal(); toast('Antrag gesendet – ein Admin kümmert sich darum');
+  }
+});
+// Admins: offene Anträge
+function listenAdminReqs() {
+  stop('reqsAll'); S.reqs = [];
+  let known = null;
+  unsub.reqsAll = F.onSnapshot(F.query(col('reqs'), F.orderBy('t', 'desc'), F.limit(80)), snap => {
+    S.reqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    const open = S.reqs.filter(r => r.status === 'open').map(r => r.id);
+    if (known && open.some(id => !known.includes(id))) { toast('Neuer Korrekturantrag'); if (navigator.vibrate) navigator.vibrate(120); }
+    known = open; renderAdmin();
+  }, err => console.warn('reqsAll', err));
+}
+function reqSection() {
+  const L = S.reqs || [], open = L.filter(r => r.status === 'open').sort((a, b) => a.t - b.t), done = L.filter(r => r.status !== 'open').slice(0, 15);
+  if (!L.length) return '';
+  const row = r => '<div class="rq"><div>' + avatarHTML(r.uid, r.name, 30) + '<span><b>' + esc(r.name || uname(r.uid)) + '</b>: <b class="' + (r.type === 'del' ? 'neg' : 'pos') + '">' + esc(reqTxt(r)) + '</b><br><small>' + esc(dayName(r.day)) + ' · ' + new Date(r.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small>' +
+    (r.note ? '<br><small>„' + esc(r.note) + '“</small>' : '') + (r.status !== 'open' ? '<br><small>' + (r.status === 'ok' ? 'genehmigt' : 'abgelehnt') + ' von ' + esc(r.byName || '') + (r.reason ? ': „' + esc(r.reason) + '“' : '') + '</small>' : '') + '</span></div>' +
+    (r.status === 'open' ? '<span class="rqb"><button class="b sm pri" data-rq="ok" data-id="' + r.id + '">Genehmigen</button><button class="b sm dng" data-rq="no" data-id="' + r.id + '">Ablehnen</button></span>' : reqStatus(r)) + '</div>';
+  return '<section><h2>Korrekturanträge (' + open.length + ')</h2>' + (open.length ? open.map(row).join('') : '<div class="empty">Keine offenen Anträge.</div>') +
+    (done.length ? '<details class="pc" data-k="reqDone"><summary><b>Erledigt</b><small>' + done.length + '</small></summary>' + done.map(row).join('') + '</details>' : '') + '</section>';
+}
+$('adminBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-rq]'); if (!b || !S.isAdmin) return;
+  const r = (S.reqs || []).find(x => x.id === b.dataset.id); if (!r || r.status !== 'open') return;
+  const fin = (status, reason) => fire(F.updateDoc(dref('reqs', r.id), { status, by: S.user.uid, byName: S.me || '', at: Date.now(), reason: reason || '' }), 'Antrag');
+  if (b.dataset.rq === 'no') {
+    const reason = prompt('Antrag ablehnen – Begründung für ' + (r.name || '') + ' (optional):', '');
+    if (reason === null) return;
+    fin('no', reason.trim().slice(0, 200)); logEv('buchung', 'lehnt Antrag ab: ' + reqTxt(r) + ' von ' + r.name + (reason ? ' („' + reason + '“)' : ''), r.day); toast('Abgelehnt'); return;
+  }
+  const u = S.users[r.uid] || {};
+  if (u.minor && r.type === 'add' && isAlc(catOf(P(r.p)))) { toast('Jugendschutz: ' + pname(r.p) + ' ist für ' + r.name + ' gesperrt'); return; }
+  if (!P(r.p)) { toast('Getränk gibt es nicht mehr'); return; }
+  if (r.type === 'add') {
+    const bt = F.writeBatch(db);
+    for (let i = 0; i < r.n; i++) bt.set(dref('scans', newId('scans')), { uid: r.uid, day: r.day, p: r.p, src: 'nachgetragen', t: Date.now() + i, at: F.serverTimestamp(), who: r.name || u.name || '' });
+    fire(bt.commit(), 'Nachtragen'); adjustCounters(r.uid, r.day, r.p, r.n);
+  } else {
+    let list;
+    try { list = (await F.getDocs(F.query(col('scans'), F.where('day', '==', r.day), F.where('uid', '==', r.uid)))).docs.map(d => Object.assign({ id: d.id }, d.data())).filter(s => s.p === r.p).sort((x, y) => y.t - x.t); }
+    catch (err) { toast('Dafür wird Internet benötigt'); return; }
+    if (list.length < r.n && !confirm(r.name + ' hat an dem Tag nur ' + list.length + '× ' + pname(r.p) + '. ' + (list.length ? 'Diese stornieren?' : 'Antrag trotzdem als erledigt markieren?'))) return;
+    const del = list.slice(0, r.n), bt = F.writeBatch(db);
+    del.forEach(s => bt.delete(dref('scans', s.id)));
+    if (del.length) { fire(bt.commit(), 'Stornieren'); adjustCounters(r.uid, r.day, r.p, -del.length); }
+  }
+  fin('ok'); logEv('buchung', 'genehmigt Antrag: ' + reqTxt(r) + ' für ' + r.name + ' (' + dayName(r.day) + ')', r.day); toast('Genehmigt: ' + reqTxt(r) + ' für ' + r.name);
 });
 
 /* ---------- Als App installieren (Android, iPhone) ---------- */
@@ -3005,7 +3199,7 @@ let admState = {}; try { admState = JSON.parse(localStorage.getItem(ADM_KEY) || 
 const admKey = t => t.replace(/\s*\([^)]*\)\s*$/, '').trim();
 const admOpen = k => k in admState ? admState[k] : !ADM_DEFAULT_CLOSED.includes(k);
 function admSet(k, v) { admState[k] = v; try { localStorage.setItem(ADM_KEY, JSON.stringify(admState)); } catch (e) {} }
-const ADM_SHORT = { 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
+const ADM_SHORT = { 'Korrekturanträge': 'Anträge', 'Datenschutz-Bestätigungen': 'Datenschutz', 'Neu registriert': 'Neu', 'Einstellungen (Super-Admin)': 'Einstellungen', 'Neue Anmeldungen': 'Anmeldungen', 'Anstehende Easter Eggs': 'Anstehend', 'Mitnehmen und zurückzählen': 'Einladen', 'Buchung nachtragen': 'Nachtragen', 'Buchungen dieses Tages': 'Buchungen', 'Excel-Auswertung': 'Excel', 'Easter Eggs verwalten': 'Easter Eggs' };
 function adminNav(el, navX) {
   const secs = [...el.querySelectorAll(':scope > section')].filter(x => x.firstElementChild && x.firstElementChild.tagName === 'H2');
   if (secs.length < 3) return;
@@ -3601,7 +3795,7 @@ function renderVersion() {
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', renderVersion);
 function renderAll() {
-  renderVersion(); renderDs(); renderInstall();
+  renderVersion(); renderDs(); renderInstall(); renderReqBox();
   if (S.authReady && !S.user) loadPublicCfg();
   const noauth = configured && S.authReady && !S.user;
   document.body.classList.toggle('noauth', noauth);

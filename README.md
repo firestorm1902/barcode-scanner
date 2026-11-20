@@ -127,6 +127,11 @@ Außerdem zeigt **Neu registriert** die letzten 25 Registrierungen mit Status (w
 - Der Hinweis steht unten auf jeder Seite („Datenschutz“) und in der Hilfe: wer verantwortlich ist, was gespeichert wird, wofür, wer was sieht (mit den aktuellen Einstellungen), wo die Daten liegen, wie lange und welche Rechte man hat.
 - Bestehende Konten sehen einmal den Hinweis „Bitte lies kurz …“ mit „Gelesen und einverstanden“.
 - **Konto löschen:** Mitglieder beantragen es im Datenschutzhinweis. Der Super-Admin sieht oben im Admin „Löschanträge“ und entfernt das Konto (auf Wunsch mit Buchungen); das Login löscht er in der Firebase-Konsole.
+- **Wer hat bestätigt? (Super-Admin):** Admin → **Datenschutz-Bestätigungen** zeigt „x von y“, Fortschrittsbalken und eine Liste (Filter *Offen* / *Alle*) mit Datum der Bestätigung bzw. der letzten Erinnerung.
+  - **Erinnern** (einzeln oder „Alle Offenen in der App erinnern“): Beim nächsten Öffnen der App erscheint der Datenschutzhinweis als Fenster mit „Erinnerung von …“ und dem Knopf **Gelesen und einverstanden**.
+  - **E-Mail an alle Offenen:** öffnet dein Mailprogramm mit allen offenen Adressen in BCC und fertigem Text.
+  - **Text für WhatsApp-Gruppe:** fertiger Erinnerungstext mit Link zum Teilen.
+  - **Neue Fassung: alle erneut bestätigen lassen:** nach einer wichtigen Änderung des Hinweises müssen alle (auch du) neu bestätigen.
 - Verein, Aufbewahrungsdauer und einen Zusatztext stellt der Super-Admin unter Einstellungen → Datenschutzhinweis ein. **Bitte den Text vom Vorstand bzw. Datenschutz-Verantwortlichen prüfen lassen** – er ist eine Vorlage, keine Rechtsberatung.
 - Gruppen, Kontakt und Datenschutz-Angaben sind schon vor der Anmeldung lesbar (für die Registrierung).
 
@@ -162,6 +167,12 @@ Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Of
 - Der **Super-Admin** legt unter Admin → **Gruppen** die Gruppen an (z. B. Wilde Wefzg, Hofgoischd), Admins ordnen Personen unter Admin → Personen zu.
 - Die Gruppe steht neben dem Namen, in der Bestenliste und im Rückblick.
 - Gruppen-Easter-Eggs: „30 Getränke für die Gruppe“ und „Gruppe bleibt vernünftig“ (10 alkoholfreie). Sie erscheinen auf allen Handys.
+
+## Korrektur- und Nachbuchungsanträge
+
+- **Mitglieder:** unter „Deine Getränke heute“ und in „Mein Konto“ auf **Korrektur beantragen**: *Nachbuchen* oder *Stornieren*, Tag (die letzten Ausflüge), Getränk, Anzahl (bis 20) und eine Bemerkung. Unter **Meine Anträge** steht der Status; offene Anträge lassen sich zurückziehen. Wird entschieden, kommt eine Meldung.
+- **Getränke-Admins und Super-Admin:** oben im Admin **Korrekturanträge** mit **Genehmigen** / **Ablehnen** (mit Begründung). Genehmigen bucht nach bzw. storniert die jüngsten passenden Buchungen und zieht die Zähler mit. Neue Anträge melden sich mit einem Hinweis. Erledigte stehen aufklappbar darunter, alles steht auch in der Historie.
+- Jugendschutz gilt auch hier: Minderjährige können keinen Alkohol nachbuchen lassen. Der Vorstand sieht die Anträge nicht.
 
 ## Admin-Bereich öffnen
 
@@ -300,13 +311,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 24**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 24 auf 25):
-- in `index.html`: `const APP_VERSION = '24';`
-- in `sw.js`: `const VERSION = 'strichliste-v24';`
+Aktuell ist **Version 26**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 26 auf 27):
+- in `index.html`: `const APP_VERSION = '26';`
+- in `sw.js`: `const VERSION = 'strichliste-v26';`
 
-Version 24 bringt neue Regeln (Easter Eggs pro Person aus/an): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 26 bringt neue Regeln (Korrekturanträge): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 24“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 26“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
