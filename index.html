@@ -670,7 +670,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '41';
+const APP_VERSION = '42';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3294,14 +3294,14 @@ function listenMyReqs() {
     const old = {}; (S.myReqs || []).forEach(r => { old[r.id] = r.status; });
     S.myReqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
     if (!first) S.myReqs.forEach(r => { if (old[r.id] === 'open' && r.status !== 'open') { toast('Dein Antrag ' + reqTxt(r) + ' wurde ' + (r.status === 'ok' ? 'genehmigt ✓' : 'abgelehnt')); if (navigator.vibrate) navigator.vibrate(120); } });
-    first = false; renderReqBox();
+    first = false; renderReqBox(); updateBadge();
   }, err => console.warn('reqs', err));
 }
 function renderReqBox() {
   const el = $('reqBox'); if (!el) return;
   const ok = S.user && S.me && !isPending() && !(S.meDoc && (S.meDoc.blocked || S.meDoc.deleted));
   el.hidden = !ok; if (!ok) return;
-  const open = (S.myReqs || []).filter(r => r.status === 'open').length, fresh = (S.myReqs || []).filter(r => r.status !== 'open' && Date.now() - (r.at || 0) < 3 * 864e5).length;
+  const open = (S.myReqs || []).filter(r => r.status === 'open').length, fresh = (S.myReqs || []).filter(r => r.status !== 'open' && (r.at || 0) > reqSeen()).length;
   el.innerHTML = '<span>Etwas vergessen oder falsch gebucht?</span><button class="b sm" data-req="new">Korrektur beantragen</button>' +
     ((S.myReqs || []).length ? '<button class="linkbtn" data-req="mine">Meine Anträge' + (open ? ' (' + open + ' offen)' : '') + (fresh ? ' · ' + fresh + ' neu entschieden' : '') + '</button>' : '');
 }
@@ -3359,6 +3359,8 @@ async function updateRqForm() {
 document.addEventListener('change', e => { if (e.target && (e.target.id === 'rqDay' || e.target.id === 'rqP')) updateRqForm(); });
 function reqMine() {
   const L = S.myReqs || [];
+  try { localStorage.setItem('strichliste_reqseen', String(Date.now())); } catch (e) {}
+  setTimeout(() => { renderReqBox(); updateBadge(); }, 0);
   openModal('<h2>Meine Anträge</h2>' + (L.length ? L.map(r => '<div class="rq"><div><span><b>' + esc(reqTxt(r)) + '</b> ' + reqStatus(r) + '<br><small>' + esc(dayName(r.day)) + ' · gestellt ' + new Date(r.t).toLocaleDateString('de-DE') + '</small>' +
     (r.note ? '<br><small>„' + esc(r.note) + '“</small>' : '') + (r.status !== 'open' ? '<br><small>' + (r.status === 'ok' ? 'Genehmigt' : 'Abgelehnt') + ' von ' + esc(r.byName || 'Admin') + (r.reason ? ': „' + esc(r.reason) + '“' : '') + '</small>' : '') + '</span></div>' +
     (r.status === 'open' ? '<button class="b sm" data-req="withdraw" data-id="' + r.id + '">Zurückziehen</button>' : '') + '</div>').join('') : '<div class="empty">Noch keine Anträge.</div>') +
@@ -3398,7 +3400,7 @@ function listenAdminReqs() {
     S.reqs = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const open = S.reqs.filter(r => r.status === 'open').map(r => r.id);
     if (known && open.some(id => !known.includes(id))) { toast('Neuer Korrekturantrag'); if (navigator.vibrate) navigator.vibrate(120); }
-    known = open; renderAdmin();
+    known = open; renderAdmin(); updateBadge();
   }, err => console.warn('reqsAll', err));
 }
 function reqSection() {
@@ -3485,7 +3487,7 @@ function msgMine() {
     (m.status === 'done' ? ' <span class="tag act">erledigt</span>' : '') + '</div><p>' + esc(m.text).replace(/\n/g, '<br>') + '</p>' +
     (m.reply ? '<div class="reply"><b>' + esc(m.replyBy || contactName()) + '</b> <small>' + new Date(m.replyAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small><p>' + esc(m.reply).replace(/\n/g, '<br>') + '</p></div>' : '<small style="color:var(--mu)">' + (m.read ? 'gelesen' : 'noch nicht gelesen') + '</small>') + '</div>').join('') : '<div class="empty">Noch keine Nachrichten.</div>') +
     '<div class="row"><button class="b sm" data-msg="new">Neue Nachricht</button></div>');
-  renderVersion();
+  renderVersion(); updateBadge();
 }
 document.addEventListener('click', e => {
   const k = e.target.closest('[data-mk]');
@@ -3510,7 +3512,7 @@ function listenMyMsgs() {
     const old = {}; (S.myMsgs || []).forEach(m => { old[m.id] = m.replyAt || 0; });
     S.myMsgs = snap.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => b.t - a.t);
     if (!first) S.myMsgs.forEach(m => { if (m.replyAt && m.replyAt !== old[m.id]) { toast('Neue Antwort von ' + (m.replyBy || contactName()) + ' – unten „Kontakt & Feedback“'); if (navigator.vibrate) navigator.vibrate(120); } });
-    first = false; renderVersion();
+    first = false; renderVersion(); updateBadge();
   }, err => console.warn('msgs', err));
 }
 const unreadReplies = () => (S.myMsgs || []).filter(m => m.replyAt && m.replyAt > msgSeen()).length;
@@ -3523,7 +3525,7 @@ function listenInbox() {
     S.inbox = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
     const ids = S.inbox.filter(m => !m.read).map(m => m.id);
     if (known && ids.some(id => !known.includes(id))) { toast('Neue Nachricht im Posteingang'); if (navigator.vibrate) navigator.vibrate(120); }
-    known = ids; renderAdmin();
+    known = ids; renderAdmin(); updateBadge();
   }, err => console.warn('inbox', err));
 }
 function inboxSection() {
@@ -3734,6 +3736,14 @@ function renderInstall() {
   const el = $('installNote'); if (!el) return;
   let off = false; try { off = +localStorage.getItem('strichliste_noinstall') > Date.now(); } catch (e) {}
   const show = !window.__isStandalone && !off && !!S.user && !!S.me && !$('v-scan').hidden && (!!window.__installEvt || isIOS);
+  let noBadge = false; try { noBadge = +localStorage.getItem('strichliste_nobadge') > Date.now(); } catch (e) {}
+  const askBadge = window.__isStandalone && !noBadge && !!S.user && !!S.me && 'setAppBadge' in navigator && 'Notification' in window && Notification.permission === 'default' && !$('v-scan').hidden;
+  if (!show && askBadge) {
+    el.hidden = false;
+    el.innerHTML = '<img src="./icons/icon-192.png" alt="" width="44" height="44"><span><b>Zahl am App-Symbol</b><br><small>Zeigt neue Antworten und Anträge direkt am Wespen-Symbol.</small></span>' +
+      '<span class="ibtns"><button class="b sm pri" data-inst="badge">Erlauben</button><button class="linkbtn" data-inst="nobadge">Später</button></span>';
+    return;
+  }
   el.hidden = !show; if (!show) return;
   el.innerHTML = '<img src="./icons/icon-192.png" alt="" width="44" height="44"><span><b>Als App installieren</b><br><small>Startet vom Startbildschirm, im Vollbild und offline.</small></span>' +
     '<span class="ibtns"><button class="b sm pri" data-inst="go">' + (window.__installEvt ? 'Installieren' : 'So geht’s') + '</button><button class="linkbtn" data-inst="later">Später</button></span>';
@@ -3741,6 +3751,8 @@ function renderInstall() {
 $('installNote').addEventListener('click', e => {
   const b = e.target.closest('[data-inst]'); if (!b) return;
   if (b.dataset.inst === 'go') doInstall();
+  else if (b.dataset.inst === 'badge') { try { Notification.requestPermission().then(() => { lastBadge = -1; updateBadge(); renderInstall(); }); } catch (err) {} }
+  else if (b.dataset.inst === 'nobadge') { try { localStorage.setItem('strichliste_nobadge', String(Date.now() + 30 * 864e5)); } catch (err) {} renderInstall(); }
   else { try { localStorage.setItem('strichliste_noinstall', String(Date.now() + 14 * 864e5)); } catch (err) {} renderInstall(); }
 });
 $('modalBody').addEventListener('click', e => { if (e.target.id === 'installGo') { closeModal(); doInstall(); } if (e.target.id === 'installHelp') openModal(installHelpHTML()); });
@@ -3749,7 +3761,43 @@ addEventListener('appinstalled', () => { window.__installEvt = null; toast('App 
 addEventListener('appupdate', () => { $('updBar').hidden = false; });
 $('updGo').addEventListener('click', () => location.reload());
 // Schnellstart „Getränk buchen“ (App-Verknüpfung): Kamera direkt starten
-if (/[?&]scan=1/.test(location.search)) setTimeout(() => { if (S.me && !$('startBtn').hidden) $('startBtn').click(); }, 2500);
+// Schnellzugriffe (langes Drücken aufs App-Symbol): ?scan=1, ?go=konto|req|msg|admin
+(function () {
+  const q = new URLSearchParams(location.search), go = q.get('go') || (q.get('scan') === '1' ? 'scan' : '');
+  if (!go) return;
+  let tries = 0;
+  const run = () => {
+    const ready = S.user && S.meLoaded && S.activeLoaded && (go !== 'admin' || S.adminChecked);
+    if (!ready) { if (++tries < 60) setTimeout(run, 250); return; }
+    try { const u = new URL(location.href); u.searchParams.delete('go'); u.searchParams.delete('scan'); history.replaceState(null, '', u.pathname + (u.search || '') + u.hash); } catch (e) {}
+    if (!S.me || isPending()) return;
+    if (go === 'scan') { if (!$('startBtn').hidden && $('camBox') && !$('camBox').hidden) $('startBtn').click(); else toast('Gerade ist kein Tag aktiv'); }
+    if (go === 'konto') { extraTab = 'konto'; loadMine(); renderExtra(); setTimeout(() => $('extraSec').scrollIntoView({ behavior: 'smooth', block: 'start' }), 200); }
+    if (go === 'req') reqForm();
+    if (go === 'msg') msgForm('msg');
+    if (go === 'admin') { if (S.isAdmin || S.isBoard) setView('admin'); else noAdminGo(); }
+  };
+  setTimeout(run, 300);
+})();
+/* ---------- Zahl am App-Symbol (Badging API) ----------
+   Mitglieder: neue Antworten und neu entschiedene Anträge. Admins: offene Anträge. Super-Admin: ungelesene Nachrichten. */
+const reqSeen = () => { try { return +localStorage.getItem('strichliste_reqseen') || 0; } catch (e) { return 0; } };
+function badgeCount() {
+  let n = 0;
+  n += (S.myMsgs || []).filter(m => m.replyAt && m.replyAt > msgSeen()).length;
+  n += (S.myReqs || []).filter(r => r.status !== 'open' && (r.at || 0) > reqSeen()).length;
+  if (S.isAdmin) n += (S.reqs || []).filter(r => r.status === 'open').length;
+  if (S.isSuper) n += (S.inbox || []).filter(m => !m.read).length;
+  return n;
+}
+let lastBadge = -1;
+function updateBadge() {
+  if (!('setAppBadge' in navigator)) return;
+  const n = S.user ? badgeCount() : 0;
+  if (n === lastBadge) return; lastBadge = n;
+  try { (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {}); } catch (e) {}
+}
+setInterval(updateBadge, 30000);
 
 // Bereiche im Admin: Überschrift antippen klappt ein/aus, Navigation springt hin
 const ADM_KEY = 'strichliste_adm_open';

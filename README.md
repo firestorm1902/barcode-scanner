@@ -15,7 +15,7 @@ Alle Handys teilen sich eine Firebase-Datenbank. Scannen funktioniert auch ohne 
 | `sw.js` | hält die App offline startbar |
 | `index_min.js` | Barcode-Erkennung (ZXing) |
 | `manifest.webmanifest` | macht die Seite als App installierbar (Name, Farben, Symbole) |
-| `icons/` | App-Symbole (Ordner mit allen Dateien hochladen) |
+| `icons/` | App-Symbole und Schnellzugriff-Symbole (Ordner mit allen Dateien hochladen) |
 | `firestore.rules` | Sicherheitsregeln – werden in Firebase eingefügt, nicht auf GitHub gebraucht |
 
 ## Als App installieren (Android und iPhone)
@@ -27,7 +27,8 @@ Die Strichliste ist eine installierbare Web-App (PWA): Nach dem Installieren hat
 - Wurde der Link aus WhatsApp geöffnet, zuerst „Im Browser öffnen“ wählen – aus dem WhatsApp-Browser heraus lässt sich nicht installieren.
 - **iPhone:** Die installierte App hat einen eigenen Speicher. Man muss sich dort **einmal neu anmelden**. Am besten installieren, bevor man offline bucht.
 - **Updates:** Die installierte App prüft beim Öffnen und alle 30 Minuten auf eine neue Version. Ist eine da, erscheint unten „Neue Version da – Neu laden“.
-- Lange auf das App-Symbol drücken (Android) bietet die Verknüpfung **„Getränk buchen“**, die direkt die Kamera startet.
+- **Schnellzugriffe:** Lange auf das Wespen-Symbol drücken (Android) zeigt **Getränk buchen** (startet die Kamera), **Mein Konto**, **Korrektur beantragen**, **Kontakt & Feedback** und **Admin-Bereich** (nur für Admins/Vorstand; andere bleiben auf der Startseite bzw. werden weitergeleitet). Jeden Schnellzugriff kann man auf den Startbildschirm ziehen – wie ein kleiner Widget-Knopf. Echte Startbildschirm-Widgets können Web-Apps auf Android und iPhone nicht anbieten.
+- **Zahl am App-Symbol:** Mitglieder sehen die Zahl neuer Antworten auf ihre Nachrichten und neu entschiedener Anträge; Getränke-Admins zusätzlich offene Korrekturanträge, der Super-Admin ungelesene Nachrichten im Posteingang. Auf dem iPhone (ab iOS 16.4, als App installiert) muss man dafür einmal „Erlauben“ tippen – die App fragt danach. Auf Android hängt die Anzeige vom Handy ab (manche zeigen nur einen Punkt).
 
 ## Einrichtung (einmalig, ca. 15 Minuten)
 
@@ -348,13 +349,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 40**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 40 auf 41):
-- in `index.html`: `const APP_VERSION = '40';`
-- in `sw.js`: `const VERSION = 'strichliste-v40';`
+Aktuell ist **Version 42**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 42 auf 43):
+- in `index.html`: `const APP_VERSION = '42';`
+- in `sw.js`: `const VERSION = 'strichliste-v42';`
 
-Version 40 bringt neue Regeln (Partymodus nur, wenn erlaubt): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Seit Version 40 gelten neue Regeln (Partymodus nur, wenn erlaubt). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 40“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 42“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
