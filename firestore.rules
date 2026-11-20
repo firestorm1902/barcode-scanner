@@ -188,8 +188,9 @@ service cloud.firestore {
     // Gruppen, Kontakt und Datenschutz sind schon vor der Anmeldung lesbar (Registrierung)
     match /config/{id} {
       allow read: if signedIn() || id in ['groups', 'contact', 'privacy'];
-      // Partymodus dürfen auch Getränke-Admins starten und beenden
-      allow write: if isSuper() || (id == 'party' && isAdmin());
+      // Partymodus dürfen auch Getränke-Admins starten und beenden – aber nur, wenn der Super-Admin ihn erlaubt hat
+      allow write: if isSuper() || (id == 'party' && isAdmin()
+        && get(/databases/$(database)/documents/config/features).data.get('partyOk', false) == true);
     }
 
     // Protokoll aller Änderungen: jeder schreibt eigene Einträge, nur Super-Admins lesen, niemand ändert oder löscht

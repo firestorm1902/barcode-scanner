@@ -220,6 +220,8 @@ body.sheet-open .partychip{visibility:hidden}
 .dlg-in small{display:block;color:var(--mu);margin-bottom:8px}
 .dlg-in input{width:100%;margin:4px 0 6px}
 .dlg-btns{display:flex;gap:10px;margin-top:12px}
+.dlg-ch{margin:6px 0 4px}.dlg-ch button{flex:1;padding:10px 4px}
+.partybtn.on{background:linear-gradient(90deg,#ff2d55,#ff9500,#f5c000,#34c759,#00c7ff,#5856d6);color:#141414;border-color:#141414}
 .dlg-warn{display:flex;flex-direction:column;gap:3px;margin:4px 0 10px;padding:10px 12px;border-radius:10px;background:#fff1ee;border:2px solid var(--pen);color:#5a1a12;font-size:.9rem;line-height:1.4}
 .dlg-warn b{color:var(--pen)}
 [data-theme=dark] .dlg-warn{background:#3a1d1b;color:#ffd9d3}
@@ -545,7 +547,7 @@ body.noauth main{display:none!important}
         <button class="b pri grow" id="startBtn">Kamera starten</button>
         <button class="b grow" id="stopBtn" hidden>Kamera stoppen</button>
       </div>
-      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
+      <div class="me who" style="margin-top:10px;justify-content:space-between"><span style="display:flex;align-items:center;gap:10px"><button type="button" class="avbtn" id="avBtn" aria-label="Profilbild wählen"><span id="meAv"></span><i>Bild</i></button><span>Gebucht als <b id="meName" style="color:var(--ink)"></b><small id="meGrp" style="display:block;color:var(--mu)"></small><button type="button" class="linkbtn" id="avDel" hidden>Bild entfernen</button></span></span><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="b sm" id="drvBtn" aria-pressed="false">Ich fahre heute</button><button class="b sm" id="eggPrefBtn" hidden aria-pressed="true">Easter Eggs: an</button><button class="b sm partybtn" id="partyBtn" hidden>🪩 Party starten</button><button class="b sm" id="pwBtn">Passwort ändern</button><button class="b sm" id="logoutBtn">Abmelden</button></span></div>
       <div class="note" id="youthNote" hidden style="margin-top:10px"><b>Jugendschutz:</b> Bier, Radler, Wein/Sekt und Schnaps sind für dich gesperrt.</div>
       <div class="note" id="drvNote" hidden style="margin-top:10px"><b>Du fährst heute.</b> Beim Scannen von Alkohol fragt die App nach. Gute Heimfahrt!</div>
       <div id="pwSec" hidden class="grid2" style="margin-top:10px;border:1.5px solid var(--line);border-radius:12px;padding:12px;background:var(--white)">
@@ -666,7 +668,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '39';
+const APP_VERSION = '40';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2624,6 +2626,7 @@ function renderScan() {
   $('meGrp').textContent = gname(myGroup());
   $('youthNote').hidden = !isMinor();
   $('drvNote').hidden = !S.driver;
+  { const pb = $('partyBtn'), po = partyOn(); pb.hidden = !(S.isAdmin && partyAllowed()); pb.textContent = po ? '🪩 Party beenden' : '🪩 Party starten'; pb.classList.toggle('on', po); }
   { const b = $('eggPrefBtn'), on = !eggsOff(); b.hidden = !canSee('eggs'); b.textContent = 'Easter Eggs: ' + (on ? 'an' : 'aus') + (on && soundOff() ? ' (leise)' : ''); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
   $('drvBtn').textContent = S.driver ? 'Fahrer ✓' : 'Ich fahre heute'; $('drvBtn').classList.toggle('pri', !!S.driver); $('drvBtn').setAttribute('aria-pressed', S.driver ? 'true' : 'false'); $('drvBtn').hidden = isMinor();
   if (!show) {
@@ -3003,7 +3006,7 @@ function renderAdmin() {
       '</section>';
   }
   if (S.isSuper) h += settingsSection() + groupsEditor() + rulesEditor() + historySection();
-  else if (S.isAdmin) h += '<section><h2>Partymodus</h2>' + partyAdmin() + '</section>';
+  else if (S.isAdmin && partyAllowed()) h += '<section><h2>Partymodus</h2>' + partyAdmin() + '</section>';
   if (S.days.length) {
     const first = S.days.reduce((m, d) => d.date < m ? d.date : m, S.days[0].date), lastD = S.days.reduce((m, d) => d.date > m ? d.date : m, S.days[0].date);
     if (!xlFrom) xlFrom = first; if (!xlTo) xlTo = lastD > todayISO() ? lastD : todayISO();
@@ -3569,7 +3572,8 @@ function dlgShow(o) {
     const msg = String(o.msg || ''), danger = o.danger != null ? o.danger : /löschen\?|entfernen\?|sperren\?|ablehnen\?|zurückziehen\?|ALLE/.test(msg);
     const okL = o.ok || (/löschen\?/.test(msg) ? 'Löschen' : /entfernen\?/.test(msg) ? 'Entfernen' : /sperren\?/.test(msg) ? 'Sperren' : /ablehnen\?/.test(msg) ? 'Ablehnen' : /zurückziehen\?/.test(msg) ? 'Zurückziehen' : 'OK');
     $('dlgBody').innerHTML = (o.title ? '<h3>' + esc(o.title) + '</h3>' : '') + '<p>' + esc(msg) + '</p>' + (o.warn ? '<div class="dlg-warn" role="note"><b>⚠️ ' + esc(o.warn.t) + '</b><span>' + esc(o.warn.s) + '</span></div>' : '') + (o.note ? '<small>' + esc(o.note) + '</small>' : '') +
-      (o.input ? '<input id="dlgIn" maxlength="200" enterkeyhint="done" value="' + esc(o.def || '') + '" placeholder="' + esc(o.ph || '') + '">' : '');
+      (o.input ? '<input id="dlgIn" maxlength="200" enterkeyhint="done" value="' + esc(o.def || '') + '" placeholder="' + esc(o.ph || '') + '">' : '') +
+      (o.choices ? '<div class="mode dlg-ch" style="display:flex">' + o.choices.map(([v, l]) => '<button type="button" data-dch="' + esc(v) + '" class="' + (String(o.choice) === String(v) ? 'on' : '') + '">' + esc(l) + '</button>').join('') + '</div>' : '');
     $('dlgOk').textContent = okL; $('dlgOk').className = 'b ' + (danger ? 'dng solid' : 'pri');
     $('dlgNo').textContent = o.cancel || 'Abbrechen';
     $('dlg').hidden = false;
@@ -3577,7 +3581,8 @@ function dlgShow(o) {
   });
 }
 function dlgClose(v) { $('dlg').hidden = true; const r = dlgResolve; dlgResolve = null; if (r) r(v); }
-$('dlgOk').addEventListener('click', () => { const i = $('dlgIn'); dlgClose(i ? i.value : true); });
+$('dlgOk').addEventListener('click', () => { const i = $('dlgIn'), ch = document.querySelector('#dlgBody .dlg-ch'); dlgClose(i ? i.value : ch ? (ch.querySelector('.on') || {}).dataset.dch : true); });
+$('dlgBody').addEventListener('click', e => { const b = e.target.closest('[data-dch]'); if (b) b.parentElement.querySelectorAll('[data-dch]').forEach(x => x.classList.toggle('on', x === b)); });
 $('dlgNo').addEventListener('click', () => dlgClose($('dlgIn') ? null : false));
 $('dlg').addEventListener('click', e => { if (e.target === $('dlg')) dlgClose($('dlgIn') ? null : false); });
 addEventListener('keydown', e => {
@@ -3634,7 +3639,7 @@ document.addEventListener('click', e => {
    Der Super-Admin startet ihn (config/party). Jede Person entscheidet per Fenster, ob sie mitmacht.
    Bewusst sanftes Farbwechseln (unter 3 Wechseln pro Sekunde) – schonender bei Lichtempfindlichkeit. */
 const PARTY_WARN = { t: 'Triggerwarnung', s: 'Der Partymodus zeigt wechselnde, bunte Farben und Bewegung über den ganzen Bildschirm. Bei Lichtempfindlichkeit, Epilepsie, Migräne oder wenn dir dabei unwohl wird, bitte nicht mitmachen.' };
-const partyOn = () => !!(S.party && S.party.on && (!S.party.until || Date.now() < S.party.until));
+const partyOn = () => !!(S.party && S.party.on && (!S.party.until || Date.now() < S.party.until) && S.features && S.features.partyOk);
 const partyKey = () => 'strichliste_party_' + (S.user ? S.user.uid : '') + '_' + ((S.party && S.party.t) || 0);
 const partyChoice = () => { try { return localStorage.getItem(partyKey()); } catch (e) { return null; } };
 let partyAsking = false;
@@ -3661,20 +3666,41 @@ $('partyChip').addEventListener('click', async () => {
   renderParty();
 });
 setInterval(() => { if (S.party && S.party.on) renderParty(); }, 60000);
-// Partymodus starten/beenden: Super-Admin und Getränke-Admins
+// Partymodus: nur wenn der Super-Admin ihn erlaubt (config/features.partyOk); starten/beenden Admins und Super-Admin
+const partyAllowed = () => !!(S.features && S.features.partyOk);
+function partyStart(h) {
+  const t = Date.now(), pv = { on: true, t, until: h ? t + h * 3600000 : 0, by: S.user.uid, byName: S.me || contactName() };
+  S.party = pv; fire(F.setDoc(dref('config', 'party'), pv), 'Partymodus'); logEv('system', 'startet den Partymodus' + (h ? ' für ' + h + ' h' : ''));
+  try { localStorage.setItem(partyKey(), '1'); } catch (e) {} toast('Partymodus läuft 🪩'); renderParty(); renderAdmin(); renderScan();
+}
+function partyStop() {
+  S.party = Object.assign({}, S.party, { on: false }); fire(F.setDoc(dref('config', 'party'), S.party), 'Partymodus'); logEv('system', 'beendet den Partymodus'); toast('Partymodus beendet'); renderParty(); renderAdmin(); renderScan();
+}
+async function partyToggleAsk() {
+  if (!S.isAdmin || !partyAllowed()) return;
+  if (partyOn()) { if (await ask('Den Partymodus für alle beenden?', { title: '🪩 Partymodus', ok: 'Beenden', danger: true })) partyStop(); return; }
+  const h = await ask('Alle bekommen ein Fenster mit Triggerwarnung und entscheiden selbst, ob sie mitmachen.', { title: '🎉 Partymodus starten', ok: 'Starten', choices: [['1', '1 Std.'], ['3', '3 Std.'], ['6', '6 Std.'], ['0', 'offen']], choice: '3' });
+  if (h === false || h == null) return;
+  partyStart(+h);
+}
+$('partyBtn').addEventListener('click', partyToggleAsk);
 $('adminBody').addEventListener('click', e => {
   const b = e.target.closest('[data-set^="party"]'); if (!b || !S.isAdmin) return;
-  if (b.dataset.set === 'partyStart') {
-    const h = +$('partyDur').value, t = Date.now(), pv = { on: true, t, until: h ? t + h * 3600000 : 0, by: S.user.uid, byName: S.me || contactName() };
-    S.party = pv; fire(F.setDoc(dref('config', 'party'), pv), 'Partymodus'); logEv('system', 'startet den Partymodus' + (h ? ' für ' + h + ' h' : ''));
-    try { localStorage.setItem(partyKey(), '1'); } catch (e) {} toast('Partymodus läuft 🪩'); renderParty(); renderAdmin();
-  }
-  if (b.dataset.set === 'partyOff') {
-    S.party = Object.assign({}, S.party, { on: false }); fire(F.setDoc(dref('config', 'party'), S.party), 'Partymodus'); logEv('system', 'beendet den Partymodus'); toast('Partymodus beendet'); renderParty(); renderAdmin();
-  }});
+  if (b.dataset.set === 'partyStart' && partyAllowed()) partyStart(+$('partyDur').value);
+  if (b.dataset.set === 'partyOff') partyStop();
+});
+$('adminBody').addEventListener('change', e => {
+  if (e.target.id !== 'partyOk' || !S.isSuper) return;
+  const ok = e.target.checked, F_ = Object.assign({}, S.features || {}, { partyOk: ok, t: Date.now() });
+  S.features = F_; fire(F.setDoc(dref('config', 'features'), F_), 'Partymodus erlauben'); logEv('system', 'Partymodus ' + (ok ? 'erlaubt' : 'nicht mehr erlaubt'));
+  if (!ok && S.party && S.party.on) partyStop(); else { renderAdmin(); renderScan(); renderParty(); }
+});
 function partyAdmin() {
-  const on = partyOn(), until = S.party && S.party.until;
-  return '<h3 class="sub3">Partymodus 🪩</h3><div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Alle bekommen ein Fenster und entscheiden selbst, ob sie mitmachen. Der Bildschirm wird dann bunt.</div>' +
+  const on = partyOn(), until = S.party && S.party.until, ok = partyAllowed();
+  let h = '<h3 class="sub3">Partymodus 🪩</h3>';
+  if (S.isSuper) h += '<label class="chk" style="margin-bottom:6px"><input type="checkbox" id="partyOk"' + (ok ? ' checked' : '') + '> Partymodus erlauben – Admins und du können ihn dann auf der Startseite mit „🪩 Party starten“ starten</label>';
+  if (!ok) return h + '<div style="font-size:.82rem;color:var(--mu)">Zurzeit ausgeschaltet' + (S.isSuper ? '.' : ' – der Super-Admin kann ihn erlauben.') + '</div>';
+  return h + '<div style="font-size:.82rem;color:var(--mu);margin-bottom:6px">Alle bekommen ein Fenster mit Triggerwarnung und entscheiden selbst, ob sie mitmachen.</div>' +
     (on ? '<div class="note ok" style="margin-bottom:6px"><b>Läuft</b>' + (until ? ' bis ' + new Date(until).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr' : ' (ohne Ende)') + '.</div><div class="row" style="margin-top:0"><button class="b dng" data-set="partyOff">Partymodus beenden</button></div>'
       : '<div class="row" style="margin-top:0;align-items:end"><label class="f" style="flex:1">Dauer<select id="partyDur"><option value="1">1 Stunde</option><option value="3" selected>3 Stunden</option><option value="6">6 Stunden</option><option value="0">bis ich ihn beende</option></select></label><button class="b pri" data-set="partyStart">Partymodus starten</button></div>');
 }

@@ -111,7 +111,8 @@ Die Werte in `firebaseConfig` sind keine Geheimnisse und dürfen im öffentliche
 
 ## Partymodus 🪩
 
-- **Super-Admin und Getränke-Admins:** Admin → Einstellungen → **Partymodus** (Getränke-Admins: eigener Bereich „Partymodus“ im Admin): Dauer wählen (1, 3, 6 Stunden oder bis zum Beenden) und **Partymodus starten**. Beenden geht dort ebenso.
+- **Erlauben (Super-Admin):** Admin → Einstellungen → Partymodus → „Partymodus erlauben“. Standard: aus. Ist er nicht erlaubt, kann niemand ihn starten; wird er verboten, während er läuft, endet er sofort für alle.
+- **Starten:** Ist er erlaubt, haben Getränke-Admins und der Super-Admin auf der **Startseite** neben „Ich fahre heute“ den Knopf **„🪩 Party starten“**. Es erscheint ein Fenster mit der Dauer (1, 3, 6 Stunden oder offen) – „Starten“. Derselbe Knopf heißt dann „🪩 Party beenden“. Im Admin-Bereich geht beides ebenfalls.
 - **Alle anderen** bekommen beim Start ein Fenster „🎉 Partymodus! … Willst du mitmachen?“ mit einer roten **Triggerwarnung** (wechselnde Farben und Bewegung; bei Lichtempfindlichkeit, Epilepsie oder Migräne nicht mitmachen) und **Mitmachen** / **Nein danke**. Die Warnung erscheint auch beim späteren Einsteigen. Wer mitmacht, bekommt einen bunten, sich drehenden Farbschleier mit Lichtflecken, Titel und Knöpfe wechseln die Farbe. Die App bleibt normal bedienbar.
 - Unten links erscheint ein Knopf **„🪩 Party: dabei / aus“** zum Aus- und wieder Einsteigen.
 - Die Farbwechsel sind bewusst sanft (kein schnelles Blitzen). Wer am Handy „Bewegung reduzieren“ eingeschaltet hat, bekommt einen ruhigen Farbschleier ohne Animation.
@@ -347,13 +348,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 39**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 39 auf 40):
-- in `index.html`: `const APP_VERSION = '39';`
-- in `sw.js`: `const VERSION = 'strichliste-v39';`
+Aktuell ist **Version 40**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 40 auf 41):
+- in `index.html`: `const APP_VERSION = '40';`
+- in `sw.js`: `const VERSION = 'strichliste-v40';`
 
-Version 39 bringt neue Regeln (Partymodus auch für Getränke-Admins): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 40 bringt neue Regeln (Partymodus nur, wenn erlaubt): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 39“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 40“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
