@@ -195,6 +195,7 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+#adminBody{overflow-anchor:none}
 @media (max-width:430px){table{font-size:.8rem}th{padding:4px 3px}td{padding:6px 3px}input.n{width:44px;padding:5px 4px}td.bad,td.good,td.warn{white-space:normal;line-height:1.15;min-width:44px}}
 /* Partymodus */
 .partyfx{position:fixed;inset:0;z-index:79;pointer-events:none;overflow:hidden}
@@ -671,7 +672,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '43';
+const APP_VERSION = '44';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3032,9 +3033,11 @@ function renderAdmin() {
       '<div class="full row" style="margin-top:0"><button class="b dng" data-act="resetGo">Endgültig zurücksetzen</button><button class="b" data-act="resetToggle">Abbrechen</button></div></div>' : '') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Angemeldet als ' + esc(S.user.email) + ' (Abmelden über „Scannen“). „Backup importieren“ übernimmt auch Daten aus der Offline-Version (Backup-Datei).</div></section>';
   const navX = el.querySelector('.admnav-in') ? el.querySelector('.admnav-in').scrollLeft : 0;
+  const y0 = window.scrollY; // Neu-Zeichnen darf die Seite nicht verschieben (z. B. beim Tippen im Abgleich)
   keepState(el, h);
   if (RO) readOnly(el);
   adminNav(el, navX);
+  if (Math.abs(window.scrollY - y0) > 1) window.scrollTo({ top: y0, behavior: 'instant' });
 }
 /* ---------- Einkaufsliste ---------- */
 let shopCfg = { trips: 1, base: 5, buf: 10 }; try { Object.assign(shopCfg, JSON.parse(localStorage.getItem('strichliste_shop') || '{}')); } catch (e) {}
@@ -3604,6 +3607,13 @@ const textLike = el => el && ((el.tagName === 'INPUT' && !['checkbox', 'radio', 
 const visible = el => !!(el.offsetParent || el.getClientRects().length) && !el.disabled && !el.readOnly;
 function fieldScope(t) { return t.closest('.grid2') || t.closest('.modal-in, .sheet-in, section, #authSec') || document.body; }
 function nextField(t) {
+  // In Tabellen (z. B. Abgleich): in derselben Spalte nach unten (Übrig → Übrig), nicht in die nächste Zeile springen
+  const tbl = t.closest('table');
+  if (tbl) {
+    const key = ['data-cnt', 'data-load', 'data-stock'].find(k => t.hasAttribute(k));
+    const col = [...tbl.querySelectorAll(key ? 'input[' + key + ']' : 'input')].filter(x => textLike(x) && visible(x));
+    const j = col.indexOf(t); return j >= 0 ? col[j + 1] || null : null;
+  }
   const scope = fieldScope(t), L = [...scope.querySelectorAll('input,textarea')].filter(x => textLike(x) && visible(x));
   const i = L.indexOf(t); return i >= 0 ? L[i + 1] || null : null;
 }
@@ -3828,7 +3838,7 @@ $('adminBody').addEventListener('click', e => {
   if (go) {
     const sec = $('adm' + go.dataset.admgo); if (!sec) return;
     const h2 = sec.firstElementChild; admSet(h2.dataset.adm, true); sec.classList.remove('closed'); h2.setAttribute('aria-expanded', true);
-    sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); return;
+    sec.scrollIntoView({ behavior: 'auto', block: 'start' }); return;
   }
   const all = e.target.closest('[data-admall]');
   if (all) {
