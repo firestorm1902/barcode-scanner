@@ -195,6 +195,7 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .pwtoggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;font:600 .82rem/1 inherit;font-family:inherit;color:var(--mu);padding:8px;cursor:pointer}
 .pwtoggle:focus-visible{outline:3px solid var(--wy);outline-offset:0;border-radius:6px}
 .hl{display:flex;align-items:center;gap:10px}
+.rqinfo{font-size:.86rem;background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
 .drive{position:fixed;inset:0;z-index:92;display:flex;align-items:center;justify-content:center;background:rgba(20,20,20,.82);cursor:pointer}
 .drive[hidden]{display:none}
 .drive-in{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;text-align:center;padding:20px}
@@ -341,7 +342,7 @@ section.coll.closed>:not(h2:first-child){display:none!important}
 [data-theme=dark] .top::after,[data-theme=dark] .wcard::before{background:repeating-linear-gradient(-45deg,#0a0a0a 0 9px,var(--wy) 9px 18px)}
 [data-theme=dark] .egg-in{background-image:linear-gradient(#0a0a0a,#0a0a0a),repeating-linear-gradient(-45deg,#0a0a0a 0 10px,var(--wy) 10px 20px)}
 [data-theme=dark] .lowbar::before{background:repeating-linear-gradient(-45deg,var(--pen) 0 8px,#0a0a0a 8px 16px)}
-[data-theme=dark] .b.pri,[data-theme=dark] .tag.act,[data-theme=dark] .av,[data-theme=dark] .badge.got .medal,[data-theme=dark] .egg-in small,[data-theme=dark] .lowbar #lowOpen{color:#141414}
+[data-theme=dark] .b.pri,[data-theme=dark] .tag.act,[data-theme=dark] .av,[data-theme=dark] .badge.got .medal,[data-theme=dark] .egg-in small{color:#141414}
 [data-theme=dark] .b.pri{border-color:var(--wy)}
 [data-theme=dark] .mode button.on{background:var(--wy);color:#141414}
 [data-theme=dark] .avbtn i{background:#0a0a0a}
@@ -387,7 +388,7 @@ section.coll.closed>:not(h2:first-child){display:none!important}
 #lowList{font-size:.9rem;line-height:1.35}
 .lowbar-btns{display:flex;flex-direction:column;gap:6px}
 .lowbar .b{background:transparent;color:#fff;border-color:#fff}
-.lowbar #lowOpen{background:var(--wy);color:var(--ink);border-color:var(--wy)}
+
 .lowtag{font-size:.74rem;font-weight:700;color:var(--pen)}
 .hi{display:grid;grid-template-columns:38px 1fr auto;gap:2px 10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:start}
 .hi .av{grid-row:1 / span 2}
@@ -572,7 +573,7 @@ body.noauth main{display:none!important}
 <div class="lowbar" id="lowBar" hidden role="alert">
   <div class="lowbar-in">
     <div><b id="lowTitle">Getränke gehen zu Ende</b><div id="lowList"></div></div>
-    <div class="lowbar-btns"><button class="b sm" id="lowOpen">Einladen</button><button class="b sm" id="lowOk">OK</button></div>
+    <div class="lowbar-btns"><button class="b sm" id="lowOk">OK</button></div>
   </div>
 </div>
 <div class="egg" id="egg" hidden role="alert" aria-live="assertive">
@@ -618,7 +619,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '31';
+const APP_VERSION = '33';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2004,12 +2005,6 @@ function lowSound() {
   } catch (e) {}
 }
 $('lowOk').addEventListener('click', () => { lowPending = []; showLowBar(); });
-$('lowOpen').addEventListener('click', () => {
-  lowPending = []; showLowBar();
-  if (S.active) { S.selDay = S.active; listenDayScans(); }
-  setView('admin');
-  if (S.active) openSheet({ mode: 'load', dayId: S.active });
-});
 
 /* ---------- Profilbilder ----------
    Gespeichert als kleines JPEG (160×160) direkt in Firestore: avatars/{uid} = { img, t } */
@@ -2747,7 +2742,7 @@ function summary(rows) {
     const leer = lows.filter(r => r.lvl === 'leer'), knapp = lows.filter(r => r.lvl === 'low');
     h += '<div class="note bad"><b>' + (leer.length ? 'Leer: ' + leer.map(r => esc(r.p.name)).join(', ') + '. ' : '') + '</b>' +
       (knapp.length ? '<b>Geht zu Ende:</b> ' + knapp.map(r => esc(r.p.name) + ' (noch ' + r.s + ')').join(', ') + '.' : '') +
-      ' <button class="b sm" data-act="sheetLoad" style="margin-left:4px">Nachladen</button></div>';
+      '</div>';
   }
   if (!open && !bad.length) h += '<div class="note ok"><b>Alles abgescannt.</b> Was übrig ist, stimmt bei allen ' + rows.length + ' Getränken.</div>';
   else {
@@ -3222,9 +3217,44 @@ async function reqForm() {
     '<label class="f full">Tag<select id="rqDay">' + reqDays.map(d => '<option value="' + d.id + '"' + (d.id === S.active ? ' selected' : '') + '>' + esc(fmtDate(d.date) + (d.place ? ' – ' + d.place : '')) + '</option>').join('') + '</select></label>' +
     '<label class="f">Getränk<select id="rqP"><option value="">Wählen …</option>' + prods.map(p => '<option value="' + p.id + '">' + esc(p.name) + '</option>').join('') + '</select></label>' +
     '<label class="f">Anzahl<input id="rqN" inputmode="numeric" value="1"></label>' +
+    '<div class="full rqinfo" id="rqInfo" hidden></div>' +
     '<label class="f full">Bemerkung (optional)<input id="rqNote" maxlength="200" placeholder="z. B. Handy war leer"></label>' +
     '<div class="full"><button class="b pri" data-req="send" style="width:100%">Antrag senden</button></div></div>');
+  rqProds = prods; rqDayCache = {};
 }
+// Stornieren: nur so viel, wie man an dem Tag selbst gebucht hat (abzüglich schon beantragter Stornos)
+let rqProds = [], rqDayCache = {};
+async function myDayCounts(day) {
+  if (day === S.active && S.myScans) { const m = {}; S.myScans.forEach(x => { m[x.p] = (m[x.p] || 0) + 1; }); return m; }
+  if (!rqDayCache[day]) {
+    try { const L = (await F.getDocs(F.query(col('scans'), F.where('uid', '==', S.user.uid), F.where('day', '==', day)))).docs.map(d => d.data()); const m = {}; L.forEach(x => { m[x.p] = (m[x.p] || 0) + 1; }); rqDayCache[day] = m; }
+    catch (e) { return null; }
+  }
+  return rqDayCache[day];
+}
+const pendingDel = (day, p) => (S.myReqs || []).filter(r => r.status === 'open' && r.type === 'del' && r.day === day && r.p === p).reduce((a, r) => a + r.n, 0);
+let rqAvail = null;
+async function updateRqForm() {
+  const typeEl = document.querySelector('#rqType .on'); if (!typeEl || !$('rqP')) return;
+  const del = typeEl.dataset.rt === 'del', day = $('rqDay').value, sel = $('rqP'), cur = sel.value, info = $('rqInfo');
+  if (!del) {
+    rqAvail = null; info.hidden = true;
+    sel.innerHTML = '<option value="">Wählen …</option>' + rqProds.map(p => '<option value="' + p.id + '"' + (p.id === cur ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('');
+    $('rqN').removeAttribute('max'); return;
+  }
+  info.hidden = false; info.textContent = 'Lade deine Buchungen …';
+  const m = await myDayCounts(day);
+  if (!$('rqP') || $('rqDay').value !== day) return;
+  if (!m) { rqAvail = null; info.textContent = 'Deine Buchungen konnten nicht geladen werden (offline?).'; return; }
+  const ids = Object.keys(m).filter(id => m[id] - pendingDel(day, id) > 0).sort((a, b) => pname(a).localeCompare(pname(b), 'de'));
+  rqAvail = {}; ids.forEach(id => { rqAvail[id] = m[id] - pendingDel(day, id); });
+  if (!ids.length) { sel.innerHTML = '<option value="">–</option>'; info.innerHTML = Object.keys(m).length ? 'Für alles, was du an diesem Tag gebucht hast, ist schon ein Storno beantragt.' : 'An diesem Tag hast du nichts gebucht – es gibt nichts zu stornieren.'; return; }
+  sel.innerHTML = '<option value="">Wählen …</option>' + ids.map(id => '<option value="' + id + '"' + (id === cur ? ' selected' : '') + '>' + esc(pname(id)) + ' (' + rqAvail[id] + '×)</option>').join('');
+  const p = sel.value;
+  if (p) { $('rqN').max = rqAvail[p]; if (parseInt($('rqN').value) > rqAvail[p]) $('rqN').value = rqAvail[p]; }
+  info.innerHTML = p ? 'Du hast an diesem Tag <b>' + m[p] + '× ' + esc(pname(p)) + '</b> gebucht' + (pendingDel(day, p) ? ', ' + pendingDel(day, p) + ' Storno schon beantragt' : '') + ' – höchstens <b>' + rqAvail[p] + '</b> stornierbar.' : 'Wähle ein Getränk, das du an diesem Tag gebucht hast.';
+}
+document.addEventListener('change', e => { if (e.target && (e.target.id === 'rqDay' || e.target.id === 'rqP')) updateRqForm(); });
 function reqMine() {
   const L = S.myReqs || [];
   openModal('<h2>Meine Anträge</h2>' + (L.length ? L.map(r => '<div class="rq"><div><span><b>' + esc(reqTxt(r)) + '</b> ' + reqStatus(r) + '<br><small>' + esc(dayName(r.day)) + ' · gestellt ' + new Date(r.t).toLocaleDateString('de-DE') + '</small>' +
@@ -3234,7 +3264,7 @@ function reqMine() {
 }
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-rt]');
-  if (t) { document.querySelectorAll('#rqType [data-rt]').forEach(b => b.classList.toggle('on', b === t)); return; }
+  if (t) { document.querySelectorAll('#rqType [data-rt]').forEach(b => b.classList.toggle('on', b === t)); updateRqForm(); return; }
   const b = e.target.closest('[data-req]'); if (!b || !S.user) return;
   const a = b.dataset.req;
   if (a === 'new') reqForm();
@@ -3244,7 +3274,14 @@ document.addEventListener('click', async e => {
     const type = (document.querySelector('#rqType .on') || {}).dataset.rt || 'add', day = $('rqDay').value, p = $('rqP').value, n = parseInt($('rqN').value), note = $('rqNote').value.trim().slice(0, 200);
     if (!p) { toast('Bitte ein Getränk wählen'); return; }
     if (!(n >= 1 && n <= REQ_MAX)) { toast('Anzahl 1 bis ' + REQ_MAX); return; }
-    if (isMinor() && isAlc(catOf(P(p)))) { toast('Jugendschutz: nicht möglich'); return; }
+    if (type === 'add' && isMinor() && isAlc(catOf(P(p)))) { toast('Jugendschutz: nicht möglich'); return; }
+    if (type === 'del') {
+      const m = await myDayCounts(day);
+      if (!m) { toast('Deine Buchungen konnten nicht geprüft werden – bitte mit Internet erneut versuchen'); return; }
+      const avail = (m[p] || 0) - pendingDel(day, p);
+      if (avail <= 0) { toast('Davon hast du an diesem Tag nichts (mehr) zum Stornieren'); return; }
+      if (n > avail) { toast('Höchstens ' + avail + '× stornierbar – so viel hast du an diesem Tag gebucht'); $('rqN').value = avail; return; }
+    }
     const r = { uid: S.user.uid, name: S.me, day, p, n, type, note, t: Date.now(), status: 'open' };
     fire(F.setDoc(dref('reqs', newId('reqs')), r), 'Antrag senden');
     logEv('buchung', 'beantragt: ' + reqTxt(r) + ' am ' + dayName(day) + (note ? ' („' + note + '“)' : ''), day);
