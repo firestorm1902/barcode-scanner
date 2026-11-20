@@ -200,7 +200,8 @@ h2{font-weight:500;font-size:1.2rem;letter-spacing:.01em}
 .rq{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .rq>div{display:flex;gap:8px;align-items:flex-start;min-width:0}
 .rq small{color:var(--mu)}
-.rqb{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+.rqb{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+.rqdel{color:var(--pen);font-size:.78rem}
 .rq .pos{color:var(--pet)}.rq .neg{color:var(--pen)}
 .dsok{position:sticky;bottom:-18px;margin:14px -18px -18px;padding:12px 18px calc(14px + env(safe-area-inset-bottom));background:var(--white);border-top:1.5px solid var(--line)}
 .dsok .b{width:100%}
@@ -565,7 +566,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '27';
+const APP_VERSION = '28';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3133,12 +3134,26 @@ function reqSection() {
   if (!L.length) return '';
   const row = r => '<div class="rq"><div>' + avatarHTML(r.uid, r.name, 30) + '<span><b>' + esc(r.name || uname(r.uid)) + '</b>: <b class="' + (r.type === 'del' ? 'neg' : 'pos') + '">' + esc(reqTxt(r)) + '</b><br><small>' + esc(dayName(r.day)) + ' · ' + new Date(r.t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</small>' +
     (r.note ? '<br><small>„' + esc(r.note) + '“</small>' : '') + (r.status !== 'open' ? '<br><small>' + (r.status === 'ok' ? 'genehmigt' : 'abgelehnt') + ' von ' + esc(r.byName || '') + (r.reason ? ': „' + esc(r.reason) + '“' : '') + '</small>' : '') + '</span></div>' +
-    (r.status === 'open' ? '<span class="rqb"><button class="b sm pri" data-rq="ok" data-id="' + r.id + '">Genehmigen</button><button class="b sm dng" data-rq="no" data-id="' + r.id + '">Ablehnen</button></span>' : reqStatus(r)) + '</div>';
+    '<span class="rqb">' + (r.status === 'open' ? '<button class="b sm pri" data-rq="ok" data-id="' + r.id + '">Genehmigen</button><button class="b sm dng" data-rq="no" data-id="' + r.id + '">Ablehnen</button>' : reqStatus(r)) +
+    (S.isSuper ? '<button class="linkbtn rqdel" data-rq="del" data-id="' + r.id + '" aria-label="Antrag löschen">Löschen</button>' : '') + '</span></div>';
   return '<section><h2>Korrekturanträge (' + open.length + ')</h2>' + (open.length ? open.map(row).join('') : '<div class="empty">Keine offenen Anträge.</div>') +
-    (done.length ? '<details class="pc" data-k="reqDone"><summary><b>Erledigt</b><small>' + done.length + '</small></summary>' + done.map(row).join('') + '</details>' : '') + '</section>';
+    (done.length ? '<details class="pc" data-k="reqDone"><summary><b>Erledigt</b><small>' + done.length + '</small></summary>' + done.map(row).join('') +
+      (S.isSuper ? '<div class="row"><button class="b sm dng" data-rq="delDone">Alle erledigten Anträge löschen</button></div>' : '') + '</details>' : '') + '</section>';
 }
 $('adminBody').addEventListener('click', async e => {
   const b = e.target.closest('[data-rq]'); if (!b || !S.isAdmin) return;
+  // Super-Admin: Anträge löschen (Buchungen bleiben unverändert)
+  if (b.dataset.rq === 'delDone' && S.isSuper) {
+    const L = (S.reqs || []).filter(x => x.status !== 'open');
+    if (!L.length || !confirm(L.length + ' erledigte Anträge löschen? Die Buchungen selbst bleiben unverändert.')) return;
+    const bt = F.writeBatch(db); L.forEach(x => bt.delete(dref('reqs', x.id)));
+    fire(bt.commit(), 'Anträge löschen'); logEv('buchung', 'löscht ' + L.length + ' erledigte Korrekturanträge'); toast(L.length + ' Anträge gelöscht'); return;
+  }
+  if (b.dataset.rq === 'del' && S.isSuper) {
+    const x = (S.reqs || []).find(q => q.id === b.dataset.id); if (!x) return;
+    if (!confirm('Antrag ' + reqTxt(x) + ' von ' + (x.name || '') + ' löschen?' + (x.status === 'open' ? ' Er ist noch offen und wird damit nicht bearbeitet.' : ' Die Buchungen bleiben unverändert.'))) return;
+    fire(F.deleteDoc(dref('reqs', x.id)), 'Antrag löschen'); logEv('buchung', 'löscht Antrag ' + reqTxt(x) + ' von ' + (x.name || '') + ' (' + (x.status === 'ok' ? 'genehmigt' : x.status === 'no' ? 'abgelehnt' : 'offen') + ')', x.day); toast('Antrag gelöscht'); return;
+  }
   const r = (S.reqs || []).find(x => x.id === b.dataset.id); if (!r || r.status !== 'open') return;
   const fin = (status, reason) => fire(F.updateDoc(dref('reqs', r.id), { status, by: S.user.uid, byName: S.me || '', at: Date.now(), reason: reason || '' }), 'Antrag');
   if (b.dataset.rq === 'no') {

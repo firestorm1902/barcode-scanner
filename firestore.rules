@@ -218,8 +218,8 @@ service cloud.firestore {
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'by', 'byName', 'at', 'reason'])
         && request.resource.data.status in ['ok', 'no'];
-      // offene eigene Anträge zurückziehen
-      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'open');
+      // löschen: Super-Admin alle; Mitglieder ziehen eigene offene Anträge zurück
+      allow delete: if isSuper() || (signedIn() && resource.data.uid == request.auth.uid && resource.data.status == 'open');
     }
 
     // Buchungen

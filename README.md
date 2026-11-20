@@ -172,6 +172,7 @@ Der **?**-Knopf oben erklärt Mitgliedern, wofür die App ist und wie Buchen, Of
 
 - **Mitglieder:** unter „Deine Getränke heute“ und in „Mein Konto“ auf **Korrektur beantragen**: *Nachbuchen* oder *Stornieren*, Tag (die letzten Ausflüge), Getränk, Anzahl (bis 20) und eine Bemerkung. Unter **Meine Anträge** steht der Status; offene Anträge lassen sich zurückziehen. Wird entschieden, kommt eine Meldung.
 - **Getränke-Admins und Super-Admin:** oben im Admin **Korrekturanträge** mit **Genehmigen** / **Ablehnen** (mit Begründung). Genehmigen bucht nach bzw. storniert die jüngsten passenden Buchungen und zieht die Zähler mit. Neue Anträge melden sich mit einem Hinweis. Erledigte stehen aufklappbar darunter, alles steht auch in der Historie.
+- **Super-Admin:** kann jeden Antrag löschen (Knopf „Löschen“ an jedem Antrag) und unter „Erledigt“ alle erledigten auf einmal. Gelöscht wird nur der Antrag – Buchungen, die durch eine Genehmigung entstanden oder storniert wurden, bleiben, wie sie sind. Das Löschen steht in der Historie.
 - Jugendschutz gilt auch hier: Minderjährige können keinen Alkohol nachbuchen lassen. Der Vorstand sieht die Anträge nicht.
 
 ## Admin-Bereich öffnen
@@ -311,13 +312,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 27**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 27 auf 28):
-- in `index.html`: `const APP_VERSION = '27';`
-- in `sw.js`: `const VERSION = 'strichliste-v27';`
+Aktuell ist **Version 28**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 28 auf 29):
+- in `index.html`: `const APP_VERSION = '28';`
+- in `sw.js`: `const VERSION = 'strichliste-v28';`
 
-Seit Version 26 gelten neue Regeln (Korrekturanträge). Falls noch nicht geschehen: `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 28 bringt neue Regeln (Anträge löschen nur Super-Admin): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 27“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 28“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 
