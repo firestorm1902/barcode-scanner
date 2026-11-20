@@ -287,13 +287,13 @@ Hinweise:
 
 ## Update der App
 
-Aktuell ist **Version 22**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 22 auf 23):
-- in `index.html`: `const APP_VERSION = '22';`
-- in `sw.js`: `const VERSION = 'strichliste-v22';`
+Aktuell ist **Version 23**. Nach Änderungen zwei Zahlen gleich hochzählen (z. B. von 23 auf 24):
+- in `index.html`: `const APP_VERSION = '23';`
+- in `sw.js`: `const VERSION = 'strichliste-v23';`
 
-Version 22 bringt neue Regeln (Easter Eggs pro Person aus/an): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
+Version 23 bringt neue Regeln (Easter Eggs pro Person aus/an): `firestore.rules` neu in die Firebase-Konsole einfügen und veröffentlichen.
 
-Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 22“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
+Dann holen sich alle Handys beim nächsten Öffnen mit Netz die neue Version. Ganz unten auf der Seite steht „Version 23“. Daran siehst du, ob das Update auf einem Handy angekommen ist. Falls nicht: die Seite schließen und neu öffnen, beim zweiten Öffnen ist die neue Version aktiv.
 
 ## Daten aus der Offline-Version übernehmen
 

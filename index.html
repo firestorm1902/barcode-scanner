@@ -523,7 +523,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '22';
+const APP_VERSION = '23';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -2100,9 +2100,7 @@ function privacyHTML() {
     '<h3 class="sub3">Wer sieht was?</h3>' + li([
       '<b>Du:</b> alles über dich, unter „Mein Konto“ auch als Excel.',
       '<b>Andere Mitglieder:</b> nichts von deinen Buchungen. Je nach Einstellung des Vereins höchstens Name, Profilbild und Gruppe bei gemeinsamen Hinweisen oder in einer Bestenliste.',
-      '<b>Getränke-Admins und Vorstand:</b> Name, E-Mail, Gruppe, unter-18-Kennzeichen, alle Buchungen und wer an einem Tag fährt – für Abgleich und Abrechnung.',
-      '<b>Super-Admin:</b> zusätzlich das Änderungs-Protokoll und die Kontoverwaltung.']) +
-    '<p style="font-size:.88rem">Aktuell eingestellt:</p>' + li(featState().map(esc)) +
+      ]) +
     '<h3 class="sub3">Wo liegen die Daten?</h3>' + li([
       '<b>Google Firebase</b> (Datenbank und Anmeldung).',
       '<b>GitHub Pages</b> stellt die App bereit; dabei wird wie bei jeder Webseite deine IP-Adresse verarbeitet.',
