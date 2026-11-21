@@ -719,7 +719,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '56';
+const APP_VERSION = '57';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -886,7 +886,7 @@ function startUserListeners() {
       const want = !p.cat ? guessCat(p.name) : (p.cat === 'radler' && guessCat(p.name) === 'alkfrei' ? 'alkfrei' : null);
       if (want) fire(F.updateDoc(dref('products', p.id), { cat: want }), 'Sorte speichern');
     });
-    renderAll(); checkLowStock(); checkOverScan();
+    renderAll(); checkLowStock(); checkOverScan(); checkSoldOut();
   }, fail('products'));
   stop('ustats'); stop('live'); S.ustats = null;
   unsub.ustats = F.onSnapshot(dref('ustats', u.uid), snap => { S.ustats = snap.exists() ? snap.data() : { all: 0, beer: 0 }; }, err => console.warn('ustats', err));
@@ -954,7 +954,7 @@ function listenActiveDay() {
       if (S.isAdmin && navigator.onLine) fire(F.setDoc(dref('meta', 'state'), { active: null }, { merge: true }), 'Scannen beenden');
       S.activeDay = null;
     }
-    S.activeLoaded = true; renderAll(); checkLowStock(); checkOverScan();
+    S.activeLoaded = true; renderAll(); checkLowStock(); checkOverScan(); checkSoldOut();
   }, fail('activeDay'));
   const q = F.query(col('scans'), F.where('uid', '==', S.user.uid), F.where('day', '==', S.active));
   unsub.mine = F.onSnapshot(q, { includeMetadataChanges: true }, snap => {
@@ -1030,7 +1030,7 @@ function listenActiveScans() {
   if (!S.active) return;
   const dayId = S.active;
   unsub.activeScans = F.onSnapshot(F.query(col('scans'), F.where('day', '==', dayId)), snap => {
-    S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan(); usedCheckSoon();
+    S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan(); checkSoldOut(); usedCheckSoon();
   }, err => console.warn('activeScans', err));
 }
 function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
@@ -2253,11 +2253,31 @@ function overSection(day, scans) {
       '<ul>' + o.extra.map(s => '<li>' + fmtTime(s.t) + ' – ' + esc(nameOf(s)) + (s.src === 'nachgetragen' ? ' (nachgetragen)' : s.src === 'manuell' ? ' (ohne Scan)' : '') + '</li>').join('') + '</ul></div>').join('') + '</section>';
 }
 
-const lowText = r => r.lvl === 'leer' ? r.p.name + ': leer' : r.p.name + ': noch ' + r.s + ' (Limit ' + r.p.low + ')';
+const lowText = r => r.lvl === 'aus' ? r.p.name + ': ausgebucht – ' + r.n + ' von ' + r.lim + ' gebucht, Mitglieder können nicht mehr buchen' : r.lvl === 'leer' ? r.p.name + ': leer' : r.p.name + ': noch ' + r.s + ' (Limit ' + r.p.low + ')';
+/* ---------- Ausgebucht: Admins bekommen Bescheid, sobald ein Getränk mit Buchungsgrenze voll ist ---------- */
+function checkSoldOut() {
+  if (!S.isAdmin || !S.activeDay || !S.activeScans || !S.products.length) return;
+  const day = S.activeDay, used = {}, fresh = [];
+  S.activeScans.forEach(x => { used[x.p] = (used[x.p] || 0) + 1; });
+  S.products.forEach(p => {
+    const lim = bookLimit(day, p.id); if (lim == null) return;
+    const k = 'strichliste_full_' + day.id + '_' + p.id, n = used[p.id] || 0;
+    try {
+      if (n < lim) { localStorage.removeItem(k); return; } // wieder frei (z. B. nach Storno oder mehr eingeladen)
+      if (localStorage.getItem(k)) return;
+      localStorage.setItem(k, '1');
+    } catch (e) { return; }
+    fresh.push({ p, lvl: 'aus', n, lim });
+  });
+  if (!fresh.length) return;
+  fresh.forEach(r => { lowPending = lowPending.filter(x => x.p.id !== r.p.id); lowPending.push(r); });
+  showLowBar(); if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); lowSound();
+  notifyBg(fresh.length > 1 ? fresh.length + ' Getränke ausgebucht' : fresh[0].p.name + ' ist ausgebucht', fresh.map(lowText).join('\n'), 'soldout', 'admin');
+}
 function showLowBar() {
   if (!lowPending.length) { $('lowBar').hidden = true; return; }
-  const empty = lowPending.some(r => r.lvl === 'leer');
-  $('lowTitle').textContent = empty ? 'Getränke leer oder fast leer' : 'Getränke gehen zu Ende';
+  const empty = lowPending.some(r => r.lvl === 'leer'), out = lowPending.some(r => r.lvl === 'aus');
+  $('lowTitle').textContent = out ? (lowPending.filter(r => r.lvl === 'aus').length > 1 ? 'Getränke ausgebucht' : 'Getränk ausgebucht') : empty ? 'Getränke leer oder fast leer' : 'Getränke gehen zu Ende';
   $('lowList').innerHTML = lowPending.map(r => esc(lowText(r))).join('<br>');
   $('lowBar').hidden = false;
 }
@@ -4274,7 +4294,7 @@ function notifyBg(title, body, tag, go) {
   } catch (e) {}
 }
 // beim Öffnen der App die eigenen Benachrichtigungen (und damit den Punkt) entfernen
-const NOTE_TAGS = ['req-new', 'msg-new', 'myreq', 'myreply'];
+const NOTE_TAGS = ['req-new', 'msg-new', 'myreq', 'myreply', 'soldout'];
 function clearNotes() {
   try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then(reg => { if (reg) NOTE_TAGS.forEach(t => reg.getNotifications({ tag: t }).then(L => L.forEach(n => n.close()))); }); } catch (e) {}
 }
