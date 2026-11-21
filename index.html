@@ -719,7 +719,7 @@ const FB = 'https://www.gstatic.com/firebasejs/13.4.0/';
 /* ========================================================= */
 
 // Versionsnummer der App – bei jeder Änderung zusammen mit VERSION in sw.js hochzählen
-const APP_VERSION = '55';
+const APP_VERSION = '56';
 
 const $ = id => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -946,6 +946,8 @@ function listenActiveDay() {
     S.myEggs = snap.exists() ? (snap.data().items || []).slice().sort((a, b) => a.t - b.t) : [];
     renderHist();
   }, err => console.warn('ueggs', err));
+  stop('dused'); S.dused = {}; S.dusedLoaded = false;
+  unsub.dused = F.onSnapshot(dref('dused', S.active), snap => { S.dused = snap.exists() ? snap.data() : {}; S.dusedLoaded = true; renderScan(); usedCheckSoon(); }, err => console.warn('dused', err));
   unsub.activeDay = F.onSnapshot(dref('days', S.active), snap => {
     S.activeDay = snap.exists() ? Object.assign({ id: snap.id, load: {}, count: {} }, snap.data()) : null;
     if (S.activeDay && S.activeDay.closed) { // abgeschlossene Tage sind nie zum Scannen freigegeben
@@ -1018,7 +1020,7 @@ async function refreshRole(u) {
   renderAll();
 }
 function stopUserListeners() {
-  ['products', 'meta', 'activeDay', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
+  ['products', 'meta', 'activeDay', 'dused', 'mine', 'me', 'ustats', 'live', 'ueggs', 'cfg', 'cfgGroups', 'cfgFeat', 'cfgContact', 'cfgBest', 'cfgPriv', 'cfgCats', 'cfgParty', 'cfgTheme', 'cfgTitles', 'cfgBackup', 'album', 'drv', 'myReqs', 'myMsgs'].forEach(stop); S.myReqs = []; S.myMsgs = [];
   Object.assign(S, { products: [], active: undefined, activeDay: null, activeLoaded: false, myScans: [], pending: 0, me: null, meDoc: null, meLoaded: false });
 }
 // Admins: Buchungen des aktiven Tages für die Bestandswarnung
@@ -1028,7 +1030,7 @@ function listenActiveScans() {
   if (!S.active) return;
   const dayId = S.active;
   unsub.activeScans = F.onSnapshot(F.query(col('scans'), F.where('day', '==', dayId)), snap => {
-    S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan();
+    S.activeScans = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); checkLowStock(); checkOverScan(); usedCheckSoon();
   }, err => console.warn('activeScans', err));
 }
 function stopAdminListeners() { stop('reqsAll'); S.reqs = []; stop('inbox'); S.inbox = []; stop('dayDrv'); S.dayDrivers = []; stop('log'); S.logs = null; S.logFor = null; stop('avatars'); stop('activeScans'); S.activeScans = null; stop('ustatsAll'); stop('gtotal'); S.ustatsAll = {}; S.gtotal = null; stop('users'); S.users = {}; stop('days'); stop('dayScans'); S.days = []; S.dayScans = []; S.dayScansFor = null; }
@@ -1067,6 +1069,7 @@ function adjustCounters(uid, dayId, pid, d) {
   fire(F.setDoc(dref('gstats', dayId), incFor(cat, d), { merge: true }), 'Zähler');
   fire(F.setDoc(dref('gstats', 'total'), incFor(cat, d), { merge: true }), 'Zähler');
   if (S.isAdmin && dayId !== S.active) markDirty(dayId); // der aktive Tag wird ohnehin geprüft
+  if (dayId === S.active) usedInc(dayId, pid, d);
 }
 const setLoad = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['load.' + pid]: Math.max(0, v) }), 'Menge speichern');
 const setCount = (dayId, pid, v) => fire(F.updateDoc(dref('days', dayId), { ['count.' + pid]: v == null ? F.deleteField() : Math.max(0, v) }), 'Zählung speichern');
@@ -2835,9 +2838,39 @@ function showLast(cls, html) {
   clearInterval(lastTimer); lastTimer = setInterval(tick, 250); tick();
 }
 function hideLast() { clearInterval(lastTimer); lastTimer = null; $('last').hidden = true; }
+/* ---------- Buchungsgrenze pro Getränk ----------
+   „Darf mehr gebucht werden“ gesetzt (auch 0): Sobald mitgenommen + dieser Wert gebucht ist, geht nichts mehr.
+   Leer: keine Grenze, nur Hinweis an die Admins. Gezählt wird in dused/<Tag> (pro Getränk), Admin-Handys gleichen mit den echten Buchungen ab.
+   Solange für den Tag noch gar nichts als mitgenommen eingetragen ist, gilt keine Grenze. */
+function bookLimit(day, pid) {
+  const p = P(pid); if (!p || !day || p.over == null || p.over === '') return null;
+  const load = day.load || {};
+  if (!Object.keys(load).some(k => load[k] > 0)) return null;
+  return (load[pid] || 0) + (+p.over || 0);
+}
+const usedOf = pid => ((S.dused || {})[pid] || 0);
+const bookFull = (day, pid) => { const l = bookLimit(day, pid); return l != null && usedOf(pid) >= l; };
+function usedInc(dayId, pid, d) { if (dayId && pid) fire(F.setDoc(dref('dused', dayId), { [pid]: F.increment(d), last: pid }, { merge: true }), 'Zähler'); }
+let usedTimer = null;
+// Admin-Handys: Zähler „gebucht pro Getränk“ mit den echten Buchungen abgleichen
+function usedCheckSoon() {
+  if (!S.isAdmin || !S.active) return;
+  clearTimeout(usedTimer); usedTimer = setTimeout(() => {
+    if (!S.activeScans || !navigator.onLine || !S.dusedLoaded) return;
+    const want = {}; S.activeScans.forEach(x => { want[x.p] = (want[x.p] || 0) + 1; });
+    const have = Object.assign({}, S.dused || {}); delete have.last;
+    const keys = new Set(Object.keys(want).concat(Object.keys(have)));
+    if ([...keys].some(k => (want[k] || 0) !== (have[k] || 0))) fire(F.setDoc(dref('dused', S.active), want), 'Zähler abgleichen');
+  }, 4000);
+}
 async function book(pid, src) {
   const day = S.activeDay; if (!day || !S.user) return;
   if (!S.me || isPending()) return;
+  if (bookFull(day, pid)) {
+    const l = bookLimit(day, pid), loadN = (day.load || {})[pid] || 0;
+    showLast('last unk', '<div><b>' + esc(pname(pid)) + ' ist ausgebucht</b><span>' + (loadN ? 'Es ist schon alles gebucht, was mitgenommen wurde (' + l + ').' : esc(pname(pid)) + ' wurde heute nicht mitgenommen.') + ' Bitte beim Getränke-Admin melden.</span></div><small class="last-cd"></small>');
+    if (navigator.vibrate) navigator.vibrate([60, 60, 60]); return;
+  }
   const cat = catOf(P(pid));
   if (isMinor() && isAlc(cat)) {
     showLast('last unk', '<div><b>' + esc(pname(pid)) + ' ist für dich gesperrt</b><span>Jugendschutz – nimm doch ein Wasser oder einen Softdrink.</span></div><small class="last-cd"></small>');
@@ -2847,6 +2880,7 @@ async function book(pid, src) {
   const id = newId('scans');
   const data = { uid: S.user.uid, day: day.id, p: pid, src, t: Date.now(), at: F.serverTimestamp(), who: S.me };
   fire(F.setDoc(dref('scans', id), data), 'Buchung');
+  usedInc(day.id, pid, 1);
   eggsAfterBook(pid, id).catch(err => console.warn('Easter Egg', err));
   const p = P(pid), notLoaded = !((day.load || {})[pid] > 0);
   showLast('last' + (notLoaded ? ' unk' : ''), '<div><b>' + esc(p ? p.name : 'Getränk') + ' gebucht</b><span>' +
@@ -2862,6 +2896,7 @@ function onMainCode(code) {
 $('last').addEventListener('click', e => {
   const u = e.target.closest('[data-undo]'); if (!u) return;
   fire(F.deleteDoc(dref('scans', u.dataset.undo)), 'Rückgängig');
+  if (u.dataset.up) usedInc(S.active, u.dataset.up, -1);
   if (u.dataset.up) { eggsAfterUndo(u.dataset.up); logEv('buchung', 'nimmt eigene Buchung zurück: ' + pname(u.dataset.up), S.active); }
   hideLast(); toast('Buchung zurückgenommen');
 });
@@ -2923,9 +2958,9 @@ function renderScan() {
   const total = S.myScans.length, sum = S.myScans.reduce((a, s) => a + ((P(s.p) || {}).price || 0), 0);
   $('listHead').textContent = 'Deine Getränke heute' + (total ? ' (' + total + (sum ? ', ' + money(sum) : '') + ')' : '');
   $('list').innerHTML = list.length ? list.map(p => {
-    const n = mine[p.id] || 0, loaded = (day.load || {})[p.id] > 0;
-    return '<div class="dr"><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded ? '' : 'low') + '">' + (loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
-      '<span class="cnt">' + n + '</span><button class="b sm" data-plus="' + p.id + '" aria-label="' + esc(p.name) + ' ohne Scan +1">+1</button><div class="tl">' + tally(n) + '</div></div>';
+    const n = mine[p.id] || 0, loaded = (day.load || {})[p.id] > 0, full = bookFull(day, p.id);
+    return '<div class="dr"><div class="nm"><b>' + esc(p.name) + '</b><small class="' + (loaded && !full ? '' : 'low') + '">' + (full ? 'ausgebucht · ' : loaded ? '' : 'nicht mitgenommen · ') + (p.price ? money(p.price) : '') + '</small></div>' +
+      '<span class="cnt">' + n + '</span><button class="b sm" data-plus="' + p.id + '" aria-label="' + esc(p.name) + ' ohne Scan +1"' + (full ? ' disabled' : '') + '>' + (full ? 'aus' : '+1') + '</button><div class="tl">' + tally(n) + '</div></div>';
   }).join('') : '<div class="empty">Für heute ist noch nichts eingetragen.</div>';
   setMainButtons();
   renderHist();
@@ -3284,14 +3319,14 @@ function renderAdmin() {
   }
 
   h += '<section><h2>Getränke (' + S.products.length + ')</h2>' + S.products.map(p =>
-    '<details class="pc" data-k="' + p.id + '"><summary><b>' + esc(p.name) + '</b><small>' + esc(CATS.find(c => c[0] === catOf(p))[1]) + ' · ' + (p.price ? money(p.price) : 'ohne Preis') + (p.low ? ' · warnt ab ' + p.low : '') + ((p.packs || []).length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
+    '<details class="pc" data-k="' + p.id + '"><summary><b>' + esc(p.name) + '</b><small>' + esc(CATS.find(c => c[0] === catOf(p))[1]) + ' · ' + (p.price ? money(p.price) : 'ohne Preis') + (p.low ? ' · warnt ab ' + p.low : '') + (p.over != null && p.over !== '' ? ' · Grenze +' + p.over : '') + ((p.packs || []).length ? ' · ' + esc(p.packs.map(k => k.n + 'er').join(', ')) : '') + '</small></summary>' +
     '<div class="grid2"><label class="f full">Name<input data-p="name" data-id="' + p.id + '" value="' + esc(p.name) + '"></label>' +
     '<label class="f full">Barcodes (Flasche und Kasten, mit Komma)<input data-p="codes" data-id="' + p.id + '" value="' + esc((p.codes || []).join(', ')) + '" inputmode="numeric"></label>' +
     '<label class="f">Preis pro Flasche in €<input data-p="price" data-id="' + p.id + '" value="' + (p.price ? String(p.price).replace('.', ',') : '') + '" inputmode="decimal"></label>' +
     '<label class="f">Gebinde<input data-p="packs" data-id="' + p.id + '" value="' + esc(packsText(p.packs)) + '" placeholder="Kasten 20; Sixpack 6"></label>' +
     '<label class="f">Sorte (für die Easter Eggs)' + catSelect('data-p="cat" data-id="' + p.id + '"', p.cat, p.name) + '</label>' +
     '<label class="f">Warnen ab Rest (Flaschen)<input data-p="low" data-id="' + p.id + '" value="' + (p.low || '') + '" inputmode="numeric" placeholder="z. B. 6"></label>' +
-    '<label class="f">Darf mehr gebucht werden (Flaschen)<input data-p="over" data-id="' + p.id + '" value="' + (p.over != null ? p.over : '') + '" inputmode="numeric" placeholder="leer = 0"></label><div class="f" style="font-size:.78rem;color:var(--mu);align-self:end">Mehr gebucht als mitgenommen + dieser Wert → Meldung an alle Admins, wer zu viel gescannt hat.</div>' +
+    '<label class="f">Darf mehr gebucht werden (Flaschen)<input data-p="over" data-id="' + p.id + '" value="' + (p.over != null ? p.over : '') + '" inputmode="numeric" placeholder="leer = keine Grenze"></label><div class="f" style="font-size:.78rem;color:var(--mu);align-self:end">' + (p.over != null && p.over !== '' ? (+p.over ? 'Gesperrt, sobald mitgenommen + ' + p.over + ' gebucht ist.' : 'Gesperrt, sobald alles Mitgenommene gebucht ist.') : 'Keine Grenze – Admins bekommen nur eine Meldung, wenn mehr gebucht wird als mitgenommen.') + '</div>' +
     '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="' + p.id + '">Barcode scannen</button><button class="b sm dng" data-act="delProd" data-id="' + p.id + '">Löschen</button></div></div></details>').join('') +
     (showNewProd ? '<div class="grid2" style="margin-top:10px"><label class="f full">Neues Getränk<input data-n="name" value="' + esc(newDraft.name) + '" placeholder="z. B. Apfelschorle 0,5 l"></label>' +
       '<label class="f full">Barcode<input data-n="codes" value="' + esc(newDraft.codes) + '" inputmode="numeric" placeholder="eintippen oder scannen"></label>' +
@@ -3299,7 +3334,7 @@ function renderAdmin() {
       '<label class="f">Gebinde<input data-n="packs" value="' + esc(newDraft.packs) + '"></label>' +
       '<label class="f">Sorte' + catSelect('data-n="cat"', newDraft.cat || '', newDraft.name) + '</label>' +
       '<label class="f">Warnen ab Rest<input data-n="low" value="' + esc(newDraft.low || '') + '" inputmode="numeric" placeholder="z. B. 6"></label>' +
-      '<label class="f">Darf mehr gebucht werden<input data-n="over" value="' + esc(newDraft.over || '') + '" inputmode="numeric" placeholder="leer = 0"></label>' +
+      '<label class="f">Darf mehr gebucht werden<input data-n="over" value="' + esc(newDraft.over || '') + '" inputmode="numeric" placeholder="leer = keine Grenze"></label>' +
       '<div class="full row" style="margin-top:0"><button class="b sm" data-act="assign" data-id="new">Barcode scannen</button><button class="b pri sm" data-act="addProd">Hinzufügen</button><button class="b sm" data-act="toggleNewProd">Abbrechen</button></div></div>'
       : '<div class="row"><button class="b" data-act="toggleNewProd">Getränk ohne Scan anlegen</button></div>') +
     '<div style="font-size:.82rem;color:var(--mu);margin-top:8px">Gebinde als „Name Anzahl“, mehrere mit Semikolon, z. B. „Kasten 20; Kasten 24; Sixpack 6“.</div></section>';

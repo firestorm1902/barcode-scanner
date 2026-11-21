@@ -195,6 +195,13 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/config/features).data.get('partyOk', false) == true);
     }
 
+    // Gebucht pro Getränk am Tag (für die Buchungsgrenze): Mitglieder zählen ihr Getränk um genau 1 hoch oder runter
+    match /dused/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin() || (isActive() && request.resource.data.get('last', null) is string
+        && request.resource.data.diff(oldData()).affectedKeys().hasOnly([request.resource.data.last, 'last'])
+        && step1(oldData(), request.resource.data, request.resource.data.last));
+    }
     // Tageszusammenfassungen für die tägliche Zählerprüfung: nur der Super-Admin
     match /dsum/{id} { allow read, write: if isSuper(); }
 
